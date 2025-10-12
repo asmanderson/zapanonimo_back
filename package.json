@@ -1,0 +1,29 @@
+{
+  "name": "zapanonimo-backend",
+  "version": "1.0.0",
+  "description": "API Backend para Zap Anônimo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "api",
+    "sender"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^7.0.9",
+    "stripe": "^14.10.0",
+    "twilio": "^5.10.2"
+  }
+}
