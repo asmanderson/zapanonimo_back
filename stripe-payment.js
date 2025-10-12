@@ -19,7 +19,7 @@ function calculatePrice(quantity, creditType = 'whatsapp') {
 
 async function createCheckoutSession(userId, quantity, userEmail, creditType = 'whatsapp') {
   const price = calculatePrice(quantity, creditType);
-  const baseUrl = process.env.BASE_URL || 'https://zapanonimo.fly.dev';
+  const baseUrl = process.env.BASE_URL || 'https://zapanonimo.com';
 
   const productName = creditType === 'whatsapp'
     ? `${quantity} Crédito(s) WhatsApp`
