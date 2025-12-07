@@ -9,6 +9,7 @@ const app = express();
 // Configuração de CORS para permitir requisições do frontend
 const allowedOrigins = [
   'https://zapanonimo.com',
+  'https://www.zapanonimo.com',
   'http://localhost:3000',
   'http://localhost:5500',
   'http://127.0.0.1:5500'
@@ -318,19 +319,35 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
 
 app.post('/api/create-payment', authMiddleware, async (req, res) => {
   try {
+    console.log('📝 Requisição de pagamento recebida:', req.body);
+    console.log('👤 User ID:', req.userId);
+
     const { quantity, creditType } = req.body;
 
     if (!quantity || quantity < 1) {
+      console.error('❌ Quantidade inválida:', quantity);
       return res.status(400).json({ success: false, error: 'Quantidade inválida' });
     }
 
     if (!creditType || (creditType !== 'whatsapp' && creditType !== 'sms')) {
+      console.error('❌ Tipo de crédito inválido:', creditType);
       return res.status(400).json({ success: false, error: 'Tipo de crédito inválido' });
     }
 
+    console.log('🔍 Buscando usuário...');
     const user = await getUserById(req.userId);
 
+    if (!user) {
+      console.error('❌ Usuário não encontrado:', req.userId);
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+    console.log('✅ Usuário encontrado:', user.email);
+    console.log('💳 Criando sessão Stripe...');
+
     const session = await createCheckoutSession(req.userId, quantity, user.email, creditType);
+
+    console.log('✅ Sessão criada com sucesso:', session.id);
 
     res.json({
       success: true,
@@ -338,8 +355,14 @@ app.post('/api/create-payment', authMiddleware, async (req, res) => {
       checkoutUrl: session.url
     });
   } catch (error) {
-    console.error('Erro ao criar pagamento:', error);
-    res.status(500).json({ success: false, error: 'Erro ao criar pagamento' });
+    console.error('❌ ERRO COMPLETO ao criar pagamento:');
+    console.error('Mensagem:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('Detalhes:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao criar pagamento: ' + error.message
+    });
   }
 });
 
