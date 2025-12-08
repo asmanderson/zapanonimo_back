@@ -176,6 +176,112 @@ async function getUserMessages(userId, limit = 20) {
   return data || [];
 }
 
+async function getUserReplies(userId, limit = 20) {
+  const { data, error } = await supabase
+    .from('replies')
+    .select('*, messages(message)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error && error.code !== 'PGRST116' && !error.message.includes('does not exist')) {
+    throw error;
+  }
+
+  // Formatar os dados para incluir a mensagem original
+  const formattedReplies = (data || []).map(reply => ({
+    ...reply,
+    original_message: reply.messages?.message || null
+  }));
+
+  return formattedReplies;
+}
+
+async function saveReply(userId, messageId, fromPhone, replyMessage, channel) {
+  const { data, error } = await supabase
+    .from('replies')
+    .insert([{
+      user_id: userId,
+      message_id: messageId,
+      from_phone: fromPhone,
+      message: replyMessage,
+      channel: channel
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Marcar a mensagem original como respondida
+  await supabase
+    .from('messages')
+    .update({ has_reply: true })
+    .eq('id', messageId);
+
+  return data;
+}
+
+// Encontrar a última mensagem enviada para um número de telefone
+async function findMessageByPhone(phone, channel = null) {
+  // Normalizar o número de telefone (remover caracteres especiais)
+  const normalizedPhone = phone.replace(/\D/g, '');
+
+  let query = supabase
+    .from('messages')
+    .select('*, users(id, email)')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (channel) {
+    query = query.eq('channel', channel);
+  }
+
+  // Buscar por diferentes formatos do número
+  const { data, error } = await query.or(`phone.ilike.%${normalizedPhone}%,phone.ilike.%${normalizedPhone.slice(-11)}%`);
+
+  if (error) throw error;
+  return data && data.length > 0 ? data[0] : null;
+}
+
+// Salvar resposta a partir do webhook (sem precisar do messageId)
+async function saveReplyFromWebhook(fromPhone, replyMessage, channel) {
+  // Encontrar a mensagem original
+  const originalMessage = await findMessageByPhone(fromPhone, channel);
+
+  if (!originalMessage) {
+    console.log(`⚠️ Nenhuma mensagem encontrada para o número ${fromPhone}`);
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('replies')
+    .insert([{
+      user_id: originalMessage.user_id,
+      message_id: originalMessage.id,
+      from_phone: fromPhone,
+      message: replyMessage,
+      channel: channel
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Marcar a mensagem original como respondida
+  await supabase
+    .from('messages')
+    .update({ has_reply: true })
+    .eq('id', originalMessage.id);
+
+  console.log(`✅ Resposta salva para mensagem ${originalMessage.id} do usuário ${originalMessage.user_id}`);
+
+  return {
+    reply: data,
+    originalMessage: originalMessage,
+    user: originalMessage.users
+  };
+}
+
 async function createVerificationToken(userId) {
   const crypto = require('crypto');
   const token = crypto.randomBytes(32).toString('hex');
@@ -296,6 +402,10 @@ module.exports = {
   useCredit,
   getUserTransactions,
   getUserMessages,
+  getUserReplies,
+  saveReply,
+  findMessageByPhone,
+  saveReplyFromWebhook,
   createVerificationToken,
   verifyEmailToken,
   isEmailVerified,

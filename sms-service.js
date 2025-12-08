@@ -23,6 +23,7 @@ class SMSService {
 
         try {
             const phoneNumber = this.formatPhoneNumber(to);
+            console.log('📱 Preparando envio de SMS para:', phoneNumber);
 
             const messageConfig = {
                 body: message,
@@ -30,14 +31,18 @@ class SMSService {
             };
 
             if (this.messagingServiceSid) {
+                console.log('✅ Usando Messaging Service SID:', this.messagingServiceSid);
                 messageConfig.messagingServiceSid = this.messagingServiceSid;
             } else if (this.twilioNumber) {
+                console.log('✅ Usando número Twilio:', this.twilioNumber);
                 messageConfig.from = this.twilioNumber;
             } else {
                 throw new Error('Configure TWILIO_MESSAGING_SERVICE_SID ou TWILIO_PHONE_NUMBER no .env');
             }
 
+            console.log('📤 Enviando SMS via Twilio...');
             const result = await this.client.messages.create(messageConfig);
+            console.log('✅ SMS enviado com sucesso:', result.sid);
 
             return {
                 success: true,
@@ -48,7 +53,8 @@ class SMSService {
                 priceUnit: result.priceUnit
             };
         } catch (error) {
-            console.error('Erro ao enviar SMS:', error);
+            console.error('❌ Erro ao enviar SMS:', error.message);
+            console.error('❌ Detalhes do erro:', error);
             throw new Error(`Falha ao enviar SMS: ${error.message}`);
         }
     }
@@ -78,17 +84,21 @@ class SMSService {
     }
 
     formatPhoneNumber(phone) {
+        // Verificar se já tem + antes de limpar
+        const hasPlus = phone.startsWith('+');
 
+        // Remover tudo exceto números
         let cleaned = phone.replace(/\D/g, '');
 
-        if (!phone.startsWith('+')) {
+        // Se não tinha + originalmente, adicionar código do país se necessário
+        if (!hasPlus) {
             if (cleaned.length === 11 || cleaned.length === 10) {
                 cleaned = '55' + cleaned;
             }
-            cleaned = '+' + cleaned;
         }
 
-        return cleaned;
+        // Sempre adicionar + no início
+        return '+' + cleaned;
     }
 
     async checkBalance() {

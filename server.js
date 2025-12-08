@@ -42,6 +42,10 @@ const {
   useCredit,
   getUserTransactions,
   getUserMessages,
+  getUserReplies,
+  saveReply,
+  findMessageByPhone,
+  saveReplyFromWebhook,
   createVerificationToken,
   verifyEmailToken,
   isEmailVerified,
@@ -439,6 +443,186 @@ app.get('/api/messages', authMiddleware, async (req, res) => {
     res.json({ success: true, messages });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Buscar respostas recebidas
+app.get('/api/replies', authMiddleware, async (req, res) => {
+  try {
+    const replies = await getUserReplies(req.userId);
+    res.json({ success: true, replies });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message, replies: [] });
+  }
+});
+
+// ============================================
+// WEBHOOKS PARA RECEBER RESPOSTAS
+// ============================================
+
+// Webhook do Twilio para receber respostas de SMS
+// Configure no Twilio: https://seu-dominio.com/api/webhook/twilio/sms
+app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), async (req, res) => {
+  try {
+    console.log('📥 Webhook Twilio SMS recebido:', req.body);
+
+    const {
+      From: fromPhone,    // Número que enviou a resposta
+      Body: message,      // Conteúdo da mensagem
+      To: toPhone,        // Número Twilio que recebeu
+      MessageSid: messageSid
+    } = req.body;
+
+    if (!fromPhone || !message) {
+      console.log('⚠️ Webhook Twilio: dados incompletos');
+      return res.status(200).send('<Response></Response>');
+    }
+
+    console.log(`📱 SMS recebido de ${fromPhone}: ${message}`);
+
+    // Salvar a resposta no banco
+    const result = await saveReplyFromWebhook(fromPhone, message, 'sms');
+
+    if (result) {
+      console.log(`✅ Resposta SMS salva para usuário ${result.user?.email || result.originalMessage?.user_id}`);
+    } else {
+      console.log(`⚠️ Nenhuma mensagem original encontrada para ${fromPhone}`);
+    }
+
+    // Resposta vazia para o Twilio (não enviar SMS de volta)
+    res.set('Content-Type', 'text/xml');
+    res.status(200).send('<Response></Response>');
+
+  } catch (error) {
+    console.error('❌ Erro no webhook Twilio SMS:', error);
+    res.status(200).send('<Response></Response>');
+  }
+});
+
+// Webhook do WaSenderAPI para receber respostas de WhatsApp
+// Configure no WaSenderAPI: https://seu-dominio.com/api/webhook/wasender/whatsapp
+app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
+  try {
+    // Validar Webhook Secret
+    const webhookSecret = process.env.WASENDER_WEBHOOK_SECRET || '8f3e09312a522a821f1fc24dec0c9428';
+    const receivedSecret = req.headers['x-webhook-secret'] || req.headers['authorization'] || req.body.secret || req.query.secret;
+
+    if (receivedSecret && receivedSecret !== webhookSecret && receivedSecret !== `Bearer ${webhookSecret}`) {
+      console.log('❌ Webhook WaSenderAPI: Secret inválido');
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    console.log('📥 Webhook WaSenderAPI recebido:', JSON.stringify(req.body, null, 2));
+
+    // WaSenderAPI pode enviar diferentes formatos dependendo da configuração
+    // Adaptar conforme a documentação do serviço
+    const {
+      from,
+      phone,
+      sender,
+      message,
+      body,
+      text,
+      type
+    } = req.body;
+
+    // Extrair número de telefone (diferentes campos possíveis)
+    const fromPhone = from || phone || sender || req.body.fromPhone;
+    // Extrair mensagem (diferentes campos possíveis)
+    const messageText = message || body || text || req.body.messageText;
+
+    if (!fromPhone || !messageText) {
+      console.log('⚠️ Webhook WaSenderAPI: dados incompletos', { fromPhone, messageText });
+      return res.status(200).json({ success: true, message: 'Dados incompletos' });
+    }
+
+    // Ignorar mensagens de status/notificação
+    if (type && type !== 'message' && type !== 'text') {
+      console.log(`⚠️ Ignorando mensagem do tipo: ${type}`);
+      return res.status(200).json({ success: true, message: 'Tipo ignorado' });
+    }
+
+    console.log(`📱 WhatsApp recebido de ${fromPhone}: ${messageText}`);
+
+    // Salvar a resposta no banco
+    const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
+
+    if (result) {
+      console.log(`✅ Resposta WhatsApp salva para usuário ${result.user?.email || result.originalMessage?.user_id}`);
+    } else {
+      console.log(`⚠️ Nenhuma mensagem original encontrada para ${fromPhone}`);
+    }
+
+    res.status(200).json({ success: true, message: 'Resposta processada' });
+
+  } catch (error) {
+    console.error('❌ Erro no webhook WaSenderAPI:', error);
+    res.status(200).json({ success: false, error: error.message });
+  }
+});
+
+// Webhook genérico para outros provedores de WhatsApp
+// Pode ser usado para Meta/Facebook Business API, Baileys, etc.
+app.post('/api/webhook/whatsapp', async (req, res) => {
+  try {
+    console.log('📥 Webhook WhatsApp genérico recebido:', JSON.stringify(req.body, null, 2));
+
+    // Tentar extrair dados de diferentes formatos
+    let fromPhone, messageText;
+
+    // Formato Meta/Facebook Business API
+    if (req.body.entry && req.body.entry[0]?.changes) {
+      const change = req.body.entry[0].changes[0];
+      if (change.value?.messages) {
+        const msg = change.value.messages[0];
+        fromPhone = msg.from;
+        messageText = msg.text?.body || msg.body;
+      }
+    }
+    // Formato genérico
+    else {
+      fromPhone = req.body.from || req.body.phone || req.body.sender || req.body.remoteJid;
+      messageText = req.body.message || req.body.body || req.body.text || req.body.content;
+    }
+
+    if (!fromPhone || !messageText) {
+      console.log('⚠️ Webhook WhatsApp: dados incompletos');
+      return res.status(200).json({ success: true });
+    }
+
+    // Limpar número de telefone
+    fromPhone = fromPhone.replace('@s.whatsapp.net', '').replace('@c.us', '');
+
+    console.log(`📱 WhatsApp recebido de ${fromPhone}: ${messageText}`);
+
+    const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
+
+    if (result) {
+      console.log(`✅ Resposta salva para usuário ${result.user?.email || result.originalMessage?.user_id}`);
+    }
+
+    res.status(200).json({ success: true });
+
+  } catch (error) {
+    console.error('❌ Erro no webhook WhatsApp:', error);
+    res.status(200).json({ success: false });
+  }
+});
+
+// Verificação do webhook (necessário para Meta/Facebook)
+app.get('/api/webhook/whatsapp', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || 'zapanonimo_webhook_token';
+
+  if (mode === 'subscribe' && token === verifyToken) {
+    console.log('✅ Webhook verificado com sucesso');
+    res.status(200).send(challenge);
+  } else {
+    console.log('❌ Falha na verificação do webhook');
+    res.sendStatus(403);
   }
 });
 
