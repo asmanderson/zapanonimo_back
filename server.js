@@ -514,22 +514,43 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
 
     console.log('📥 Webhook WaSenderAPI recebido:', JSON.stringify(req.body, null, 2));
 
-    // WaSenderAPI pode enviar diferentes formatos dependendo da configuração
-    // Adaptar conforme a documentação do serviço
-    const {
-      from,
-      phone,
-      sender,
-      message,
-      body,
-      text,
-      type
-    } = req.body;
+    // WaSenderAPI envia dados no formato:
+    // { data: { messages: [{ key: { remoteJid: "..." }, message: { conversation: "..." } }] } }
+    let fromPhone = null;
+    let messageText = null;
+    let messageType = null;
 
-    // Extrair número de telefone (diferentes campos possíveis)
-    const fromPhone = from || phone || sender || req.body.fromPhone;
-    // Extrair mensagem (diferentes campos possíveis)
-    const messageText = message || body || text || req.body.messageText;
+    // Formato oficial do WaSenderAPI (messages.upsert / messages.received)
+    if (req.body.data?.messages && req.body.data.messages.length > 0) {
+      const msg = req.body.data.messages[0];
+
+      // Ignorar mensagens enviadas por nós (fromMe: true)
+      if (msg.key?.fromMe === true) {
+        console.log('⚠️ Ignorando mensagem enviada por nós');
+        return res.status(200).json({ success: true, message: 'Mensagem própria ignorada' });
+      }
+
+      // Extrair telefone do remoteJid (remove @s.whatsapp.net ou @c.us)
+      fromPhone = msg.key?.remoteJid?.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '');
+
+      // Extrair texto da mensagem (pode estar em diferentes campos)
+      messageText = msg.message?.conversation ||
+                   msg.message?.extendedTextMessage?.text ||
+                   msg.message?.imageMessage?.caption ||
+                   msg.message?.videoMessage?.caption ||
+                   msg.message?.documentMessage?.caption ||
+                   msg.message?.buttonsResponseMessage?.selectedDisplayText ||
+                   msg.message?.listResponseMessage?.title;
+
+      messageType = 'message';
+    }
+    // Formato alternativo (campos diretos no body)
+    else {
+      const { from, phone, sender, message, body, text, type } = req.body;
+      fromPhone = from || phone || sender || req.body.fromPhone;
+      messageText = message || body || text || req.body.messageText;
+      messageType = type;
+    }
 
     if (!fromPhone || !messageText) {
       console.log('⚠️ Webhook WaSenderAPI: dados incompletos', { fromPhone, messageText });
@@ -537,8 +558,8 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
     }
 
     // Ignorar mensagens de status/notificação
-    if (type && type !== 'message' && type !== 'text') {
-      console.log(`⚠️ Ignorando mensagem do tipo: ${type}`);
+    if (messageType && messageType !== 'message' && messageType !== 'text') {
+      console.log(`⚠️ Ignorando mensagem do tipo: ${messageType}`);
       return res.status(200).json({ success: true, message: 'Tipo ignorado' });
     }
 
@@ -562,7 +583,7 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
 });
 
 // Webhook genérico para outros provedores de WhatsApp
-// Pode ser usado para Meta/Facebook Business API, Baileys, etc.
+// Pode ser usado para Meta/Facebook Business API, Baileys, WaSenderAPI, etc.
 app.post('/api/webhook/whatsapp', async (req, res) => {
   try {
     console.log('📥 Webhook WhatsApp genérico recebido:', JSON.stringify(req.body, null, 2));
@@ -570,8 +591,24 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
     // Tentar extrair dados de diferentes formatos
     let fromPhone, messageText;
 
+    // Formato WaSenderAPI (messages.upsert / messages.received)
+    if (req.body.data?.messages && req.body.data.messages.length > 0) {
+      const msg = req.body.data.messages[0];
+
+      // Ignorar mensagens enviadas por nós
+      if (msg.key?.fromMe === true) {
+        console.log('⚠️ Ignorando mensagem enviada por nós');
+        return res.status(200).json({ success: true, message: 'Mensagem própria ignorada' });
+      }
+
+      fromPhone = msg.key?.remoteJid;
+      messageText = msg.message?.conversation ||
+                   msg.message?.extendedTextMessage?.text ||
+                   msg.message?.imageMessage?.caption ||
+                   msg.message?.videoMessage?.caption;
+    }
     // Formato Meta/Facebook Business API
-    if (req.body.entry && req.body.entry[0]?.changes) {
+    else if (req.body.entry && req.body.entry[0]?.changes) {
       const change = req.body.entry[0].changes[0];
       if (change.value?.messages) {
         const msg = change.value.messages[0];
@@ -591,7 +628,7 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
     }
 
     // Limpar número de telefone
-    fromPhone = fromPhone.replace('@s.whatsapp.net', '').replace('@c.us', '');
+    fromPhone = fromPhone.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '');
 
     console.log(`📱 WhatsApp recebido de ${fromPhone}: ${messageText}`);
 
