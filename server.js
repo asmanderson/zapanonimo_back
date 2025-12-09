@@ -503,16 +503,33 @@ app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), asy
 // Configure no WaSenderAPI: https://seu-dominio.com/api/webhook/wasender/whatsapp
 app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
   try {
-    // Validar Webhook Secret
+    // Validar Webhook Secret (WaSenderAPI usa X-Webhook-Signature)
     const webhookSecret = process.env.WASENDER_WEBHOOK_SECRET || '8f3e09312a522a821f1fc24dec0c9428';
-    const receivedSecret = req.headers['x-webhook-secret'] || req.headers['authorization'] || req.body.secret || req.query.secret;
+    const receivedSecret = req.headers['x-webhook-signature'] ||
+                          req.headers['x-webhook-secret'] ||
+                          req.headers['authorization']?.replace('Bearer ', '') ||
+                          req.body.secret ||
+                          req.query.secret;
 
-    if (receivedSecret && receivedSecret !== webhookSecret && receivedSecret !== `Bearer ${webhookSecret}`) {
-      console.log('❌ Webhook WaSenderAPI: Secret inválido');
+    // Log para debug
+    console.log('🔐 Webhook headers:', {
+      'x-webhook-signature': req.headers['x-webhook-signature'],
+      'x-webhook-secret': req.headers['x-webhook-secret'],
+      'authorization': req.headers['authorization']
+    });
+
+    if (receivedSecret && receivedSecret !== webhookSecret) {
+      console.log('❌ Webhook WaSenderAPI: Secret inválido', { received: receivedSecret, expected: webhookSecret });
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
     console.log('📥 Webhook WaSenderAPI recebido:', JSON.stringify(req.body, null, 2));
+
+    // Responder ao teste de webhook do WaSenderAPI
+    if (req.body.event === 'webhook.test' || req.body.data?.test === true) {
+      console.log('✅ Teste de webhook WaSenderAPI recebido com sucesso');
+      return res.status(200).json({ success: true, message: 'Webhook test received successfully' });
+    }
 
     // WaSenderAPI envia dados no formato:
     // { data: { messages: [{ key: { remoteJid: "..." }, message: { conversation: "..." } }] } }
