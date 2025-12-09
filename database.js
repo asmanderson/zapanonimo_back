@@ -15,8 +15,8 @@ async function createUser(email, password) {
       {
         email,
         password: hashedPassword,
-        whatsapp_credits: 1,  
-        sms_credits: 1,       
+        whatsapp_credits: 1,
+        sms_credits: 1,
         email_verified: false
       }
     ])
@@ -34,7 +34,7 @@ async function getUserByEmail(email) {
     .eq('email', email)
     .single();
 
-  if (error && error.code !== 'PGRST116') throw error; 
+  if (error && error.code !== 'PGRST116') throw error;
   return data;
 }
 
@@ -64,8 +64,6 @@ async function addCredits(userId, creditsToAdd, price, creditType = 'whatsapp') 
   });
 
   if (error) {
-    console.warn('RPC add_credits_transaction não encontrada, executando manualmente');
-
     const currentUser = await getUserById(userId);
     const currentCredits = creditType === 'whatsapp' ? currentUser.whatsapp_credits : currentUser.sms_credits;
 
@@ -76,7 +74,6 @@ async function addCredits(userId, creditsToAdd, price, creditType = 'whatsapp') 
 
     if (updateError) throw updateError;
 
- 
     const { error: transactionError } = await supabase
       .from('transactions')
       .insert([{
@@ -95,7 +92,6 @@ async function addCredits(userId, creditsToAdd, price, creditType = 'whatsapp') 
 }
 
 async function useCredit(userId, phone, message, channel = 'whatsapp') {
-
   const creditColumn = channel === 'whatsapp' ? 'whatsapp_credits' : 'sms_credits';
 
   const user = await getUserById(userId);
@@ -113,8 +109,6 @@ async function useCredit(userId, phone, message, channel = 'whatsapp') {
   });
 
   if (error) {
-    console.warn('RPC use_credit_transaction não encontrada, executando manualmente');
-
     const currentUser = await getUserById(userId);
     const currentCredits = channel === 'whatsapp' ? currentUser.whatsapp_credits : currentUser.sms_credits;
 
@@ -220,9 +214,7 @@ async function saveReply(userId, messageId, fromPhone, replyMessage, channel) {
 }
 
 async function findMessageByPhone(phone, channel = null) {
-
   const normalizedPhone = phone.replace(/\D/g, '');
-
   const last9Digits = normalizedPhone.slice(-9);
   const last8Digits = normalizedPhone.slice(-8);
 
@@ -235,27 +227,18 @@ async function findMessageByPhone(phone, channel = null) {
   if (channel) {
     query = query.eq('channel', channel);
   }
-  
+
   const { data, error } = await query.or(`phone.ilike.%${normalizedPhone}%,phone.ilike.%${last9Digits}%,phone.ilike.%${last8Digits}%`);
 
   if (error) throw error;
 
-  if (data && data.length > 0) {
-    console.log('✅ Mensagem encontrada:', { id: data[0].id, phone: data[0].phone });
-  } else {
-    console.log('❌ Nenhuma mensagem encontrada');
-  }
-
   return data && data.length > 0 ? data[0] : null;
 }
 
-
 async function saveReplyFromWebhook(fromPhone, replyMessage, channel) {
-
   const originalMessage = await findMessageByPhone(fromPhone, channel);
 
   if (!originalMessage) {
-    console.log(`⚠️ Nenhuma mensagem encontrada para o número ${fromPhone}`);
     return null;
   }
 
@@ -273,13 +256,10 @@ async function saveReplyFromWebhook(fromPhone, replyMessage, channel) {
 
   if (error) throw error;
 
-
   await supabase
     .from('messages')
     .update({ has_reply: true })
     .eq('id', originalMessage.id);
-
-  console.log(`✅ Resposta salva para mensagem ${originalMessage.id} do usuário ${originalMessage.user_id}`);
 
   return {
     reply: data,
@@ -291,7 +271,7 @@ async function saveReplyFromWebhook(fromPhone, replyMessage, channel) {
 async function createVerificationToken(userId) {
   const crypto = require('crypto');
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); 
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabase
     .from('email_verifications')
@@ -344,7 +324,7 @@ async function isEmailVerified(userId) {
 async function createPasswordResetToken(userId) {
   const crypto = require('crypto');
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
   const { data, error } = await supabase
     .from('password_resets')

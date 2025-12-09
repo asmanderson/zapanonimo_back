@@ -6,7 +6,7 @@ class WhatsAppService {
   constructor() {
     this.tokens = this.loadTokens();
     this.currentTokenIndex = 0;
-    this.tokenStats = new Map(); 
+    this.tokenStats = new Map();
 
     this.tokens.forEach((token, index) => {
       this.tokenStats.set(index, {
@@ -38,7 +38,6 @@ class WhatsAppService {
     return tokens;
   }
 
-
   getNextToken() {
     const startIndex = this.currentTokenIndex;
 
@@ -67,7 +66,6 @@ class WhatsAppService {
     return { token, index: tokenIndex };
   }
 
-
   markTokenAsUnavailable(tokenIndex) {
     const stats = this.tokenStats.get(tokenIndex);
     if (stats) {
@@ -75,7 +73,6 @@ class WhatsAppService {
       stats.failureCount++;
     }
   }
-
 
   markTokenSuccess(tokenIndex) {
     const stats = this.tokenStats.get(tokenIndex);
@@ -85,7 +82,6 @@ class WhatsAppService {
       stats.isAvailable = true;
     }
   }
-
 
   async sendMessage(phone, message, maxRetries = null) {
     const retriesToUse = maxRetries !== null ? maxRetries : this.tokens.length;
@@ -97,7 +93,6 @@ class WhatsAppService {
       attemptedTokens.push(index + 1);
 
       try {
-
         const response = await fetch(API_URL, {
           method: 'POST',
           headers: {
@@ -126,7 +121,6 @@ class WhatsAppService {
             attempts: attempt + 1
           };
         } else {
-          const errorMsg = data.message || data.error || 'Erro desconhecido';
           this.markTokenAsUnavailable(index);
           lastError = data;
         }
@@ -160,9 +154,7 @@ class WhatsAppService {
     return stats;
   }
 
-
   async testAllTokens(testPhone, testMessage) {
-
     const results = [];
 
     for (let i = 0; i < this.tokens.length; i++) {
@@ -189,7 +181,6 @@ class WhatsAppService {
           statusCode: response.status,
           response: data
         });
-
 
       } catch (error) {
         results.push({

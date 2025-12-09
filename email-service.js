@@ -13,13 +13,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-transporter.verify(function(error, success) {
-  if (error) {
-    console.error('❌ Erro na configuração de email:', error);
-  } else {
-  }
-});
-
+transporter.verify(function(error, success) {});
 
 async function sendVerificationEmail(email, verificationToken) {
   const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
@@ -125,13 +119,8 @@ async function sendVerificationEmail(email, verificationToken) {
     `
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Erro ao enviar email:', error);
-    throw error;
-  }
+  const info = await transporter.sendMail(mailOptions);
+  return { success: true, messageId: info.messageId };
 }
 
 async function resendVerificationEmail(email, verificationToken) {
@@ -236,13 +225,8 @@ async function sendWelcomeEmail(email) {
     `
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Erro ao enviar email de boas-vindas:', error);
-    throw error;
-  }
+  const info = await transporter.sendMail(mailOptions);
+  return { success: true, messageId: info.messageId };
 }
 
 async function sendPasswordResetEmail(email, resetToken) {
@@ -349,13 +333,8 @@ async function sendPasswordResetEmail(email, resetToken) {
     `
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('❌ Erro ao enviar email de recuperação:', error);
-    throw error;
-  }
+  const info = await transporter.sendMail(mailOptions);
+  return { success: true, messageId: info.messageId };
 }
 
 module.exports = {

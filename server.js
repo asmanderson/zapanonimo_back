@@ -24,7 +24,6 @@ if (process.env.FRONTEND_URL) {
 
 const corsOptions = {
   origin: function (origin, callback) {
-
     if (!origin) {
       return callback(null, true);
     }
@@ -41,40 +40,31 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-
 const io = new Server(server, {
   cors: corsOptions
 });
 
-
 const userSockets = new Map();
 
 io.on('connection', (socket) => {
-  console.log('🔌 Nova conexão Socket.IO:', socket.id);
-
-  
   socket.on('authenticate', (userId) => {
     if (userId) {
       userSockets.set(userId.toString(), socket.id);
       socket.userId = userId.toString();
-      console.log(`✅ Usuário ${userId} conectado ao Socket.IO`);
     }
   });
 
   socket.on('disconnect', () => {
     if (socket.userId) {
       userSockets.delete(socket.userId);
-      console.log(`❌ Usuário ${socket.userId} desconectado do Socket.IO`);
     }
   });
 });
-
 
 function emitNewReply(userId, reply) {
   const socketId = userSockets.get(userId.toString());
   if (socketId) {
     io.to(socketId).emit('new-reply', reply);
-    console.log(`📨 Evento new-reply enviado para usuário ${userId}`);
   }
 }
 
@@ -113,7 +103,6 @@ const {
 const { getWhatsAppService } = require('./whatsapp-service');
 const smsService = require('./sms-service');
 
-
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json());
@@ -122,7 +111,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', 
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: 'lax'
   }
@@ -148,16 +137,11 @@ app.post('/api/register', async (req, res) => {
     }
 
     const result = await createUser(email, password);
-
     const verificationToken = await createVerificationToken(result.id);
 
     try {
-
       await sendVerificationEmail(email, verificationToken);
-    } catch (emailError) {
-      console.error('❌ Erro ao enviar email de verificação:', emailError);
-      console.error('Stack:', emailError.stack);
-    }
+    } catch (emailError) {}
 
     res.json({
       success: true,
@@ -217,7 +201,6 @@ app.get('/api/test-email', async (req, res) => {
     const testEmail = req.query.email || 'teste@teste.com';
     const testToken = 'teste-token-123456';
 
-
     await sendVerificationEmail(testEmail, testToken);
 
     res.json({
@@ -225,7 +208,6 @@ app.get('/api/test-email', async (req, res) => {
       message: `Email de teste enviado para ${testEmail}`
     });
   } catch (error) {
-    console.error('❌ Erro no teste de email:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -242,9 +224,7 @@ app.get('/api/verify-email/:token', async (req, res) => {
 
     try {
       await sendWelcomeEmail(user.email);
-    } catch (emailError) {
-      console.error('Erro ao enviar email de boas-vindas:', emailError);
-    }
+    } catch (emailError) {}
 
     res.json({
       success: true,
@@ -272,10 +252,7 @@ app.post('/api/resend-verification', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Email já verificado' });
     }
 
-
     const verificationToken = await createVerificationToken(user.id);
-
-
     await resendVerificationEmail(email, verificationToken);
 
     res.json({
@@ -308,7 +285,6 @@ app.post('/api/forgot-password', async (req, res) => {
     try {
       await sendPasswordResetEmail(email, resetToken);
     } catch (emailError) {
-      console.error('❌ Erro ao enviar email de recuperação:', emailError);
       return res.status(500).json({ success: false, error: 'Erro ao enviar email de recuperação' });
     }
 
@@ -344,7 +320,6 @@ app.post('/api/reset-password', async (req, res) => {
   }
 });
 
-
 app.get('/api/user/credits', authMiddleware, async (req, res) => {
   try {
     const user = await getUserById(req.userId);
@@ -358,7 +333,6 @@ app.get('/api/user/credits', authMiddleware, async (req, res) => {
   }
 });
 
-
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const user = await getUserById(req.userId);
@@ -368,38 +342,25 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
   }
 });
 
-
 app.post('/api/create-payment', authMiddleware, async (req, res) => {
   try {
-    console.log('📝 Requisição de pagamento recebida:', req.body);
-    console.log('👤 User ID:', req.userId);
-
     const { quantity, creditType } = req.body;
 
     if (!quantity || quantity < 1) {
-      console.error('❌ Quantidade inválida:', quantity);
       return res.status(400).json({ success: false, error: 'Quantidade inválida' });
     }
 
     if (!creditType || (creditType !== 'whatsapp' && creditType !== 'sms')) {
-      console.error('❌ Tipo de crédito inválido:', creditType);
       return res.status(400).json({ success: false, error: 'Tipo de crédito inválido' });
     }
 
-    console.log('🔍 Buscando usuário...');
     const user = await getUserById(req.userId);
 
     if (!user) {
-      console.error('❌ Usuário não encontrado:', req.userId);
       return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
     }
 
-    console.log('✅ Usuário encontrado:', user.email);
-    console.log('💳 Criando sessão Stripe...');
-
     const session = await createCheckoutSession(req.userId, quantity, user.email, creditType);
-
-    console.log('✅ Sessão criada com sucesso:', session.id);
 
     res.json({
       success: true,
@@ -407,17 +368,12 @@ app.post('/api/create-payment', authMiddleware, async (req, res) => {
       checkoutUrl: session.url
     });
   } catch (error) {
-    console.error('❌ ERRO COMPLETO ao criar pagamento:');
-    console.error('Mensagem:', error.message);
-    console.error('Stack:', error.stack);
-    console.error('Detalhes:', error);
     res.status(500).json({
       success: false,
       error: 'Erro ao criar pagamento: ' + error.message
     });
   }
 });
-
 
 app.post('/api/stripe/webhook', async (req, res) => {
   const signature = req.headers['stripe-signature'];
@@ -435,13 +391,11 @@ app.post('/api/stripe/webhook', async (req, res) => {
         const creditType = session.metadata.creditType || 'whatsapp';
 
         await addCredits(userId, quantity, price, creditType);
-
       }
     }
 
     res.json({ received: true });
   } catch (error) {
-    console.error('❌ Erro no webhook:', error.message);
     res.status(400).send(`Webhook Error: ${error.message}`);
   }
 });
@@ -450,17 +404,13 @@ app.get('/api/verify-payment/:sessionId', authMiddleware, async (req, res) => {
   try {
     const session = await verifySession(req.params.sessionId);
 
-
     if (session.payment_status === 'paid' && session.metadata.userId) {
       const userId = parseInt(session.metadata.userId);
       const quantity = parseInt(session.metadata.quantity);
       const price = session.amount_total / 100;
       const creditType = session.metadata.creditType || 'whatsapp';
 
-      const user = await getUserById(userId);
-
       await addCredits(userId, quantity, price, creditType);
-
     }
 
     res.json({
@@ -469,11 +419,9 @@ app.get('/api/verify-payment/:sessionId', authMiddleware, async (req, res) => {
       status: session.payment_status
     });
   } catch (error) {
-    console.error('Erro ao verificar pagamento:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
 
 app.get('/api/transactions', authMiddleware, async (req, res) => {
   try {
@@ -484,7 +432,6 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
   }
 });
 
-
 app.get('/api/messages', authMiddleware, async (req, res) => {
   try {
     const messages = await getUserMessages(req.userId);
@@ -494,7 +441,6 @@ app.get('/api/messages', authMiddleware, async (req, res) => {
   }
 });
 
-// Buscar respostas recebidas
 app.get('/api/replies', authMiddleware, async (req, res) => {
   try {
     const replies = await getUserReplies(req.userId);
@@ -504,60 +450,38 @@ app.get('/api/replies', authMiddleware, async (req, res) => {
   }
 });
 
-// ============================================
-// WEBHOOKS PARA RECEBER RESPOSTAS
-// ============================================
-
-// Webhook do Twilio para receber respostas de SMS
-// Configure no Twilio: https://seu-dominio.com/api/webhook/twilio/sms
 app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), async (req, res) => {
   try {
-    console.log('📥 Webhook Twilio SMS recebido:', req.body);
-
     const {
-      From: fromPhone,    // Número que enviou a resposta
-      Body: message,      // Conteúdo da mensagem
-      To: toPhone,        // Número Twilio que recebeu
+      From: fromPhone,
+      Body: message,
+      To: toPhone,
       MessageSid: messageSid
     } = req.body;
 
     if (!fromPhone || !message) {
-      console.log('⚠️ Webhook Twilio: dados incompletos');
       return res.status(200).send('<Response></Response>');
     }
 
-    console.log(`📱 SMS recebido de ${fromPhone}: ${message}`);
-
-    // Salvar a resposta no banco
     const result = await saveReplyFromWebhook(fromPhone, message, 'sms');
 
     if (result) {
-      console.log(`✅ Resposta SMS salva para usuário ${result.user?.email || result.originalMessage?.user_id}`);
-
-      // Emitir evento em tempo real para o frontend
       emitNewReply(result.originalMessage.user_id, {
         ...result.reply,
         original_message: result.originalMessage.message
       });
-    } else {
-      console.log(`⚠️ Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
 
-    // Resposta vazia para o Twilio (não enviar SMS de volta)
     res.set('Content-Type', 'text/xml');
     res.status(200).send('<Response></Response>');
 
   } catch (error) {
-    console.error('❌ Erro no webhook Twilio SMS:', error);
     res.status(200).send('<Response></Response>');
   }
 });
 
-// Webhook do WaSenderAPI para receber respostas de WhatsApp
-// Configure no WaSenderAPI: https://seu-dominio.com/api/webhook/wasender/whatsapp
 app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
   try {
-    // Validar Webhook Secret (WaSenderAPI usa X-Webhook-Signature)
     const webhookSecret = process.env.WASENDER_WEBHOOK_SECRET || '8f3e09312a522a821f1fc24dec0c9428';
     const receivedSecret = req.headers['x-webhook-signature'] ||
                           req.headers['x-webhook-secret'] ||
@@ -565,57 +489,36 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
                           req.body.secret ||
                           req.query.secret;
 
-    // Log para debug
-    console.log('🔐 Webhook headers:', {
-      'x-webhook-signature': req.headers['x-webhook-signature'],
-      'x-webhook-secret': req.headers['x-webhook-secret'],
-      'authorization': req.headers['authorization']
-    });
-
     if (receivedSecret && receivedSecret !== webhookSecret) {
-      console.log('❌ Webhook WaSenderAPI: Secret inválido', { received: receivedSecret, expected: webhookSecret });
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    console.log('📥 Webhook WaSenderAPI recebido:', JSON.stringify(req.body, null, 2));
-
-    // Responder ao teste de webhook do WaSenderAPI
     if (req.body.event === 'webhook.test' || req.body.data?.test === true) {
-      console.log('✅ Teste de webhook WaSenderAPI recebido com sucesso');
       return res.status(200).json({ success: true, message: 'Webhook test received successfully' });
     }
 
-    // WaSenderAPI pode enviar data.messages como ARRAY ou como OBJETO
     let fromPhone = null;
     let messageText = null;
     let messageType = null;
 
-    // Extrair a mensagem - pode ser array ou objeto direto
     let msg = null;
     if (req.body.data?.messages) {
-      // Se for array, pega o primeiro elemento
       if (Array.isArray(req.body.data.messages)) {
         msg = req.body.data.messages[0];
       } else {
-        // Se for objeto direto
         msg = req.body.data.messages;
       }
     }
 
     if (msg) {
-      // Ignorar mensagens enviadas por nós (fromMe: true)
       if (msg.key?.fromMe === true) {
-        console.log('⚠️ Ignorando mensagem enviada por nós');
         return res.status(200).json({ success: true, message: 'Mensagem própria ignorada' });
       }
 
-      // Extrair telefone - pode estar em diferentes campos
-      // cleanedSenderPn: "558591964253" ou senderPn: "558591964253@s.whatsapp.net"
       fromPhone = msg.key?.cleanedSenderPn ||
                  msg.key?.senderPn?.replace(/@s\.whatsapp\.net$/, '') ||
                  msg.key?.remoteJid?.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '').replace(/@lid$/, '');
 
-      // Extrair texto da mensagem
       messageText = msg.messageBody ||
                    msg.message?.conversation ||
                    msg.message?.extendedTextMessage?.text ||
@@ -626,11 +529,7 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
                    msg.message?.listResponseMessage?.title;
 
       messageType = 'message';
-
-      console.log('📋 Dados extraídos:', { fromPhone, messageText, messageType });
-    }
-    // Formato alternativo (campos diretos no body)
-    else {
+    } else {
       const { from, phone, sender, message, body, text, type } = req.body;
       fromPhone = from || phone || sender || req.body.fromPhone;
       messageText = message || body || text || req.body.messageText;
@@ -638,57 +537,37 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
     }
 
     if (!fromPhone || !messageText) {
-      console.log('⚠️ Webhook WaSenderAPI: dados incompletos', { fromPhone, messageText });
       return res.status(200).json({ success: true, message: 'Dados incompletos' });
     }
 
-    // Ignorar mensagens de status/notificação
     if (messageType && messageType !== 'message' && messageType !== 'text') {
-      console.log(`⚠️ Ignorando mensagem do tipo: ${messageType}`);
       return res.status(200).json({ success: true, message: 'Tipo ignorado' });
     }
 
-    console.log(`📱 WhatsApp recebido de ${fromPhone}: ${messageText}`);
-
-    // Salvar a resposta no banco
     const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
 
     if (result) {
-      console.log(`✅ Resposta WhatsApp salva para usuário ${result.user?.email || result.originalMessage?.user_id}`);
-
-      // Emitir evento em tempo real para o frontend
       emitNewReply(result.originalMessage.user_id, {
         ...result.reply,
         original_message: result.originalMessage.message
       });
-    } else {
-      console.log(`⚠️ Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
 
     res.status(200).json({ success: true, message: 'Resposta processada' });
 
   } catch (error) {
-    console.error('❌ Erro no webhook WaSenderAPI:', error);
     res.status(200).json({ success: false, error: error.message });
   }
 });
 
-// Webhook genérico para outros provedores de WhatsApp
-// Pode ser usado para Meta/Facebook Business API, Baileys, WaSenderAPI, etc.
 app.post('/api/webhook/whatsapp', async (req, res) => {
   try {
-    console.log('📥 Webhook WhatsApp genérico recebido:', JSON.stringify(req.body, null, 2));
-
-    // Tentar extrair dados de diferentes formatos
     let fromPhone, messageText;
 
-    // Formato WaSenderAPI (messages.upsert / messages.received)
     if (req.body.data?.messages && req.body.data.messages.length > 0) {
       const msg = req.body.data.messages[0];
 
-      // Ignorar mensagens enviadas por nós
       if (msg.key?.fromMe === true) {
-        console.log('⚠️ Ignorando mensagem enviada por nós');
         return res.status(200).json({ success: true, message: 'Mensagem própria ignorada' });
       }
 
@@ -697,38 +576,27 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
                    msg.message?.extendedTextMessage?.text ||
                    msg.message?.imageMessage?.caption ||
                    msg.message?.videoMessage?.caption;
-    }
-    // Formato Meta/Facebook Business API
-    else if (req.body.entry && req.body.entry[0]?.changes) {
+    } else if (req.body.entry && req.body.entry[0]?.changes) {
       const change = req.body.entry[0].changes[0];
       if (change.value?.messages) {
         const msg = change.value.messages[0];
         fromPhone = msg.from;
         messageText = msg.text?.body || msg.body;
       }
-    }
-    // Formato genérico
-    else {
+    } else {
       fromPhone = req.body.from || req.body.phone || req.body.sender || req.body.remoteJid;
       messageText = req.body.message || req.body.body || req.body.text || req.body.content;
     }
 
     if (!fromPhone || !messageText) {
-      console.log('⚠️ Webhook WhatsApp: dados incompletos');
       return res.status(200).json({ success: true });
     }
 
-    // Limpar número de telefone
     fromPhone = fromPhone.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '');
-
-    console.log(`📱 WhatsApp recebido de ${fromPhone}: ${messageText}`);
 
     const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
 
     if (result) {
-      console.log(`✅ Resposta salva para usuário ${result.user?.email || result.originalMessage?.user_id}`);
-
-      // Emitir evento em tempo real para o frontend
       emitNewReply(result.originalMessage.user_id, {
         ...result.reply,
         original_message: result.originalMessage.message
@@ -738,12 +606,10 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
     res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error('❌ Erro no webhook WhatsApp:', error);
     res.status(200).json({ success: false });
   }
 });
 
-// Verificação do webhook (necessário para Meta/Facebook)
 app.get('/api/webhook/whatsapp', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -752,15 +618,11 @@ app.get('/api/webhook/whatsapp', (req, res) => {
   const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || 'zapanonimo_webhook_token';
 
   if (mode === 'subscribe' && token === verifyToken) {
-    console.log('✅ Webhook verificado com sucesso');
     res.status(200).send(challenge);
   } else {
-    console.log('❌ Falha na verificação do webhook');
     res.sendStatus(403);
   }
 });
-
-
 
 app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
   const { phone, message } = req.body;
@@ -798,7 +660,6 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
   }
 });
 
-
 app.post('/api/test-whatsapp', authMiddleware, async (req, res) => {
   const { phone, message } = req.body;
 
@@ -807,12 +668,7 @@ app.post('/api/test-whatsapp', authMiddleware, async (req, res) => {
   }
 
   try {
-    console.log('🧪 Testando envio para:', phone);
-    console.log('📝 Mensagem:', message);
-
     const result = await whatsappService.sendMessage(phone, message);
-
-    console.log('✅ Teste concluído com sucesso');
 
     res.json({
       success: true,
@@ -822,7 +678,6 @@ app.post('/api/test-whatsapp', authMiddleware, async (req, res) => {
       note: 'Teste realizado SEM debitar crédito'
     });
   } catch (error) {
-    console.error('❌ Erro no teste:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -897,7 +752,6 @@ app.post('/api/send-bulk-sms', authMiddleware, async (req, res) => {
   }
 
   try {
-
     const user = await getUserById(req.userId);
     if (user.sms_credits < phoneNumbers.length) {
       return res.status(402).json({
@@ -935,12 +789,7 @@ app.post('/api/test-sms', authMiddleware, async (req, res) => {
   }
 
   try {
-    console.log('🧪 Testando envio de SMS para:', phone);
-    console.log('📝 Mensagem:', message);
-
     const result = await smsService.sendSMS(phone, message);
-
-    console.log('✅ SMS de teste enviado com sucesso');
 
     res.json({
       success: true,
@@ -948,7 +797,6 @@ app.post('/api/test-sms', authMiddleware, async (req, res) => {
       note: 'Teste realizado SEM debitar crédito'
     });
   } catch (error) {
-    console.error('❌ Erro no teste de SMS:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -962,15 +810,9 @@ app.get('/api/sms/balance', authMiddleware, async (req, res) => {
   }
 });
 
-
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
 server.listen(PORT, HOST, () => {
   const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-  console.log(`🚀 Servidor rodando em ${baseUrl}`);
-  console.log(`📊 Banco de dados: Supabase`);
-  console.log(`🔌 Socket.IO habilitado para atualizações em tempo real`);
-  console.log(`✅ Novos usuários recebem 1 crédito grátis`);
-  console.log(`📧 Email configurado: ${process.env.EMAIL_USER ? 'Sim ✓' : 'Não ✗'}`);
 });

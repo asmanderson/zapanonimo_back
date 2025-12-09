@@ -10,7 +10,6 @@ class SMSService {
 
         if (this.accountSid && this.authToken) {
             this.client = twilio(this.accountSid, this.authToken);
-        } else {
         }
     }
 
@@ -19,39 +18,31 @@ class SMSService {
             throw new Error('Twilio não está configurado. Adicione as credenciais no arquivo .env');
         }
 
-        try {
-            const phoneNumber = this.formatPhoneNumber(to);
+        const phoneNumber = this.formatPhoneNumber(to);
 
-            const messageConfig = {
-                body: message,
-                to: phoneNumber
-            };
+        const messageConfig = {
+            body: message,
+            to: phoneNumber
+        };
 
-            if (this.messagingServiceSid) {
-                messageConfig.messagingServiceSid = this.messagingServiceSid;
-            } else if (this.twilioNumber) {
-                messageConfig.from = this.twilioNumber;
-            } else {
-                throw new Error('Configure TWILIO_MESSAGING_SERVICE_SID ou TWILIO_PHONE_NUMBER no .env');
-            }
-
-  
-            const result = await this.client.messages.create(messageConfig);
-
-
-            return {
-                success: true,
-                messageId: result.sid,
-                status: result.status,
-                to: phoneNumber,
-                price: result.price,
-                priceUnit: result.priceUnit
-            };
-        } catch (error) {
-            console.error('❌ Erro ao enviar SMS:', error.message);
-            console.error('❌ Detalhes do erro:', error);
-            throw new Error(`Falha ao enviar SMS: ${error.message}`);
+        if (this.messagingServiceSid) {
+            messageConfig.messagingServiceSid = this.messagingServiceSid;
+        } else if (this.twilioNumber) {
+            messageConfig.from = this.twilioNumber;
+        } else {
+            throw new Error('Configure TWILIO_MESSAGING_SERVICE_SID ou TWILIO_PHONE_NUMBER no .env');
         }
+
+        const result = await this.client.messages.create(messageConfig);
+
+        return {
+            success: true,
+            messageId: result.sid,
+            status: result.status,
+            to: phoneNumber,
+            price: result.price,
+            priceUnit: result.priceUnit
+        };
     }
 
     async sendBulkSMS(phoneNumbers, message) {
@@ -79,9 +70,7 @@ class SMSService {
     }
 
     formatPhoneNumber(phone) {
-
         const hasPlus = phone.startsWith('+');
-
         let cleaned = phone.replace(/\D/g, '');
 
         if (!hasPlus) {
@@ -98,16 +87,11 @@ class SMSService {
             throw new Error('Twilio não está configurado');
         }
 
-        try {
-            const account = await this.client.api.accounts(this.accountSid).fetch();
-            return {
-                balance: account.balance,
-                currency: 'USD'
-            };
-        } catch (error) {
-            console.error('Erro ao verificar saldo:', error);
-            throw error;
-        }
+        const account = await this.client.api.accounts(this.accountSid).fetch();
+        return {
+            balance: account.balance,
+            currency: 'USD'
+        };
     }
 }
 
