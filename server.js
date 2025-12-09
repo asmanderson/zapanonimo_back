@@ -21,7 +21,11 @@ if (process.env.FRONTEND_URL) {
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Permitir requests sem origin (webhooks, curl, etc)
+    if (!origin) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -29,7 +33,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Webhook-Signature', 'X-Webhook-Secret']
 }));
 
 const { authMiddleware, generateToken } = require('./auth');
@@ -67,7 +71,9 @@ const {
 const { getWhatsAppService } = require('./whatsapp-service');
 const smsService = require('./sms-service');
 
+// Webhook do Stripe (precisa de raw body)
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'sua-chave-secreta-de-sessao',
@@ -547,11 +553,15 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
         return res.status(200).json({ success: true, message: 'Mensagem própria ignorada' });
       }
 
-      // Extrair telefone do remoteJid (remove @s.whatsapp.net ou @c.us)
-      fromPhone = msg.key?.remoteJid?.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '');
+      // Extrair telefone - pode estar em diferentes campos conforme documentação
+      fromPhone = msg.key?.cleanedSenderPn ||
+                 msg.key?.remoteJid?.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '') ||
+                 msg.key?.senderPn?.replace(/@s\.whatsapp\.net$/, '');
 
       // Extrair texto da mensagem (pode estar em diferentes campos)
-      messageText = msg.message?.conversation ||
+      // messageBody é o campo principal conforme documentação do WaSenderAPI
+      messageText = msg.messageBody ||
+                   msg.message?.conversation ||
                    msg.message?.extendedTextMessage?.text ||
                    msg.message?.imageMessage?.caption ||
                    msg.message?.videoMessage?.caption ||
