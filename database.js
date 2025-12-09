@@ -226,6 +226,13 @@ async function findMessageByPhone(phone, channel = null) {
   // Normalizar o número de telefone (remover caracteres especiais)
   const normalizedPhone = phone.replace(/\D/g, '');
 
+  // Pegar os últimos 8-9 dígitos para busca mais flexível
+  // Isso ajuda quando há diferenças no formato (ex: 558591964253 vs 5585991964253)
+  const last9Digits = normalizedPhone.slice(-9);
+  const last8Digits = normalizedPhone.slice(-8);
+
+  console.log('🔍 Buscando mensagem para:', { normalizedPhone, last9Digits, last8Digits });
+
   let query = supabase
     .from('messages')
     .select('*, users(id, email)')
@@ -236,10 +243,17 @@ async function findMessageByPhone(phone, channel = null) {
     query = query.eq('channel', channel);
   }
 
-  // Buscar por diferentes formatos do número
-  const { data, error } = await query.or(`phone.ilike.%${normalizedPhone}%,phone.ilike.%${normalizedPhone.slice(-11)}%`);
+  // Buscar por diferentes formatos do número (usando os últimos dígitos para maior flexibilidade)
+  const { data, error } = await query.or(`phone.ilike.%${normalizedPhone}%,phone.ilike.%${last9Digits}%,phone.ilike.%${last8Digits}%`);
 
   if (error) throw error;
+
+  if (data && data.length > 0) {
+    console.log('✅ Mensagem encontrada:', { id: data[0].id, phone: data[0].phone });
+  } else {
+    console.log('❌ Nenhuma mensagem encontrada');
+  }
+
   return data && data.length > 0 ? data[0] : null;
 }
 

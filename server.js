@@ -537,29 +537,37 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
       return res.status(200).json({ success: true, message: 'Webhook test received successfully' });
     }
 
-    // WaSenderAPI envia dados no formato:
-    // { data: { messages: [{ key: { remoteJid: "..." }, message: { conversation: "..." } }] } }
+    // WaSenderAPI pode enviar data.messages como ARRAY ou como OBJETO
     let fromPhone = null;
     let messageText = null;
     let messageType = null;
 
-    // Formato oficial do WaSenderAPI (messages.upsert / messages.received)
-    if (req.body.data?.messages && req.body.data.messages.length > 0) {
-      const msg = req.body.data.messages[0];
+    // Extrair a mensagem - pode ser array ou objeto direto
+    let msg = null;
+    if (req.body.data?.messages) {
+      // Se for array, pega o primeiro elemento
+      if (Array.isArray(req.body.data.messages)) {
+        msg = req.body.data.messages[0];
+      } else {
+        // Se for objeto direto
+        msg = req.body.data.messages;
+      }
+    }
 
+    if (msg) {
       // Ignorar mensagens enviadas por nós (fromMe: true)
       if (msg.key?.fromMe === true) {
         console.log('⚠️ Ignorando mensagem enviada por nós');
         return res.status(200).json({ success: true, message: 'Mensagem própria ignorada' });
       }
 
-      // Extrair telefone - pode estar em diferentes campos conforme documentação
+      // Extrair telefone - pode estar em diferentes campos
+      // cleanedSenderPn: "558591964253" ou senderPn: "558591964253@s.whatsapp.net"
       fromPhone = msg.key?.cleanedSenderPn ||
-                 msg.key?.remoteJid?.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '') ||
-                 msg.key?.senderPn?.replace(/@s\.whatsapp\.net$/, '');
+                 msg.key?.senderPn?.replace(/@s\.whatsapp\.net$/, '') ||
+                 msg.key?.remoteJid?.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '').replace(/@lid$/, '');
 
-      // Extrair texto da mensagem (pode estar em diferentes campos)
-      // messageBody é o campo principal conforme documentação do WaSenderAPI
+      // Extrair texto da mensagem
       messageText = msg.messageBody ||
                    msg.message?.conversation ||
                    msg.message?.extendedTextMessage?.text ||
@@ -570,6 +578,8 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
                    msg.message?.listResponseMessage?.title;
 
       messageType = 'message';
+
+      console.log('📋 Dados extraídos:', { fromPhone, messageText, messageType });
     }
     // Formato alternativo (campos diretos no body)
     else {
