@@ -5,7 +5,6 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const client = twilio(accountSid, authToken);
 
-// Use o SID da mensagem anterior
 const messageSid = process.argv[2] || 'SMcf955270c5acecfd3a63a1583a510388';
 
 async function checkStatus() {

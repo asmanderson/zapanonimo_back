@@ -17,8 +17,6 @@ transporter.verify(function(error, success) {
   if (error) {
     console.error('❌ Erro na configuração de email:', error);
   } else {
-    console.log('✅ Servidor de email pronto para enviar mensagens');
-    console.log('📧 Email configurado:', process.env.EMAIL_USER);
   }
 });
 
@@ -129,7 +127,6 @@ async function sendVerificationEmail(email, verificationToken) {
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de verificação enviado com sucesso:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ Erro ao enviar email:', error);
@@ -241,7 +238,6 @@ async function sendWelcomeEmail(email) {
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de boas-vindas enviado com sucesso:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ Erro ao enviar email de boas-vindas:', error);
@@ -355,7 +351,6 @@ async function sendPasswordResetEmail(email, resetToken) {
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de recuperação de senha enviado com sucesso:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ Erro ao enviar email de recuperação:', error);

@@ -10,7 +10,6 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// Configuração de CORS para permitir requisições do frontend
 const allowedOrigins = [
   'https://zapanonimo.com',
   'https://www.zapanonimo.com',
@@ -25,7 +24,7 @@ if (process.env.FRONTEND_URL) {
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir requests sem origin (webhooks, curl, etc)
+
     if (!origin) {
       return callback(null, true);
     }
@@ -42,18 +41,18 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Configuração do Socket.IO
+
 const io = new Server(server, {
   cors: corsOptions
 });
 
-// Armazenar conexões de usuários (userId -> socketId)
+
 const userSockets = new Map();
 
 io.on('connection', (socket) => {
   console.log('🔌 Nova conexão Socket.IO:', socket.id);
 
-  // Autenticar usuário e associar socket ao userId
+  
   socket.on('authenticate', (userId) => {
     if (userId) {
       userSockets.set(userId.toString(), socket.id);
@@ -70,7 +69,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Função para emitir evento de nova resposta para o usuário
+
 function emitNewReply(userId, reply) {
   const socketId = userSockets.get(userId.toString());
   if (socketId) {
@@ -114,7 +113,7 @@ const {
 const { getWhatsAppService } = require('./whatsapp-service');
 const smsService = require('./sms-service');
 
-// Webhook do Stripe (precisa de raw body)
+
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json());
@@ -963,8 +962,6 @@ app.get('/api/sms/balance', authMiddleware, async (req, res) => {
   }
 });
 
-// Remover servir arquivos estáticos - agora é só API
-// app.use(express.static(__dirname));
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';

@@ -7,8 +7,6 @@ if (!stripeKey) {
   throw new Error('STRIPE_SECRET_KEY não configurada');
 }
 
-console.log('✅ Stripe inicializado com chave:', stripeKey.substring(0, 20) + '...');
-
 const stripe = require('stripe')(stripeKey);
 
 function calculatePrice(quantity, creditType = 'whatsapp') {
@@ -29,13 +27,10 @@ function calculatePrice(quantity, creditType = 'whatsapp') {
 }
 
 async function createCheckoutSession(userId, quantity, userEmail, creditType = 'whatsapp') {
-  console.log('💳 createCheckoutSession chamada com:', { userId, quantity, userEmail, creditType });
 
   const price = calculatePrice(quantity, creditType);
-  console.log('💰 Preço calculado:', price);
 
-  const baseUrl = process.env.FRONTEND_URL || process.env.BASE_URL || 'https://zapanonimo.com';
-  console.log('🌐 Base URL:', baseUrl);
+  const baseUrl = process.env.FRONTEND_URL || process.env.BASE_URL || 'https://zapanonimo.fly.dev';
 
   const productName = creditType === 'whatsapp'
     ? `${quantity} Crédito(s) WhatsApp`
@@ -45,10 +40,8 @@ async function createCheckoutSession(userId, quantity, userEmail, creditType = '
     ? `Compra de ${quantity} crédito(s) para envio no WhatsApp`
     : `Compra de ${quantity} crédito(s) para envio de SMS`;
 
-  console.log('📦 Produto:', productName);
 
   try {
-    console.log('🔑 Stripe Secret Key presente:', !!process.env.STRIPE_SECRET_KEY);
 
     const sessionData = {
       payment_method_types: ['card'],
@@ -76,11 +69,9 @@ async function createCheckoutSession(userId, quantity, userEmail, creditType = '
       },
     };
 
-    console.log('📋 Dados da sessão:', JSON.stringify(sessionData, null, 2));
 
     const session = await stripe.checkout.sessions.create(sessionData);
 
-    console.log('✅ Sessão Stripe criada:', session.id);
     return session;
   } catch (error) {
     console.error('❌ ERRO ao criar sessão de checkout:');
@@ -92,9 +83,6 @@ async function createCheckoutSession(userId, quantity, userEmail, creditType = '
   }
 }
 
-/**
- * Verificar sessão de pagamento
- */
 async function verifySession(sessionId) {
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -105,16 +93,10 @@ async function verifySession(sessionId) {
   }
 }
 
-/**
- * Verificar se o pagamento foi aprovado
- */
 function isPaymentApproved(session) {
   return session.payment_status === 'paid';
 }
 
-/**
- * Processar webhook do Stripe
- */
 function constructWebhookEvent(payload, signature) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 

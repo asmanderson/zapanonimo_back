@@ -188,7 +188,6 @@ async function getUserReplies(userId, limit = 20) {
     throw error;
   }
 
-  // Formatar os dados para incluir a mensagem original
   const formattedReplies = (data || []).map(reply => ({
     ...reply,
     original_message: reply.messages?.message || null
@@ -212,7 +211,6 @@ async function saveReply(userId, messageId, fromPhone, replyMessage, channel) {
 
   if (error) throw error;
 
-  // Marcar a mensagem original como respondida
   await supabase
     .from('messages')
     .update({ has_reply: true })
@@ -221,17 +219,12 @@ async function saveReply(userId, messageId, fromPhone, replyMessage, channel) {
   return data;
 }
 
-// Encontrar a última mensagem enviada para um número de telefone
 async function findMessageByPhone(phone, channel = null) {
-  // Normalizar o número de telefone (remover caracteres especiais)
+
   const normalizedPhone = phone.replace(/\D/g, '');
 
-  // Pegar os últimos 8-9 dígitos para busca mais flexível
-  // Isso ajuda quando há diferenças no formato (ex: 558591964253 vs 5585991964253)
   const last9Digits = normalizedPhone.slice(-9);
   const last8Digits = normalizedPhone.slice(-8);
-
-  console.log('🔍 Buscando mensagem para:', { normalizedPhone, last9Digits, last8Digits });
 
   let query = supabase
     .from('messages')
@@ -242,8 +235,7 @@ async function findMessageByPhone(phone, channel = null) {
   if (channel) {
     query = query.eq('channel', channel);
   }
-
-  // Buscar por diferentes formatos do número (usando os últimos dígitos para maior flexibilidade)
+  
   const { data, error } = await query.or(`phone.ilike.%${normalizedPhone}%,phone.ilike.%${last9Digits}%,phone.ilike.%${last8Digits}%`);
 
   if (error) throw error;
@@ -257,9 +249,9 @@ async function findMessageByPhone(phone, channel = null) {
   return data && data.length > 0 ? data[0] : null;
 }
 
-// Salvar resposta a partir do webhook (sem precisar do messageId)
+
 async function saveReplyFromWebhook(fromPhone, replyMessage, channel) {
-  // Encontrar a mensagem original
+
   const originalMessage = await findMessageByPhone(fromPhone, channel);
 
   if (!originalMessage) {
@@ -281,7 +273,7 @@ async function saveReplyFromWebhook(fromPhone, replyMessage, channel) {
 
   if (error) throw error;
 
-  // Marcar a mensagem original como respondida
+
   await supabase
     .from('messages')
     .update({ has_reply: true })

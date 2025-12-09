@@ -10,9 +10,7 @@ class SMSService {
 
         if (this.accountSid && this.authToken) {
             this.client = twilio(this.accountSid, this.authToken);
-            console.log('✅ Twilio SMS configurado');
         } else {
-            console.log('⚠️  Twilio credentials not configured');
         }
     }
 
@@ -23,7 +21,6 @@ class SMSService {
 
         try {
             const phoneNumber = this.formatPhoneNumber(to);
-            console.log('📱 Preparando envio de SMS para:', phoneNumber);
 
             const messageConfig = {
                 body: message,
@@ -31,18 +28,16 @@ class SMSService {
             };
 
             if (this.messagingServiceSid) {
-                console.log('✅ Usando Messaging Service SID:', this.messagingServiceSid);
                 messageConfig.messagingServiceSid = this.messagingServiceSid;
             } else if (this.twilioNumber) {
-                console.log('✅ Usando número Twilio:', this.twilioNumber);
                 messageConfig.from = this.twilioNumber;
             } else {
                 throw new Error('Configure TWILIO_MESSAGING_SERVICE_SID ou TWILIO_PHONE_NUMBER no .env');
             }
 
-            console.log('📤 Enviando SMS via Twilio...');
+  
             const result = await this.client.messages.create(messageConfig);
-            console.log('✅ SMS enviado com sucesso:', result.sid);
+
 
             return {
                 success: true,
@@ -84,20 +79,17 @@ class SMSService {
     }
 
     formatPhoneNumber(phone) {
-        // Verificar se já tem + antes de limpar
+
         const hasPlus = phone.startsWith('+');
 
-        // Remover tudo exceto números
         let cleaned = phone.replace(/\D/g, '');
 
-        // Se não tinha + originalmente, adicionar código do país se necessário
         if (!hasPlus) {
             if (cleaned.length === 11 || cleaned.length === 10) {
                 cleaned = '55' + cleaned;
             }
         }
 
-        // Sempre adicionar + no início
         return '+' + cleaned;
     }
 

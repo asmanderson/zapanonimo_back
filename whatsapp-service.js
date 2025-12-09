@@ -35,7 +35,6 @@ class WhatsAppService {
       throw new Error('Nenhum token do WhatsApp configurado no .env');
     }
 
-    console.log(`✅ WhatsApp Service: ${tokens.length} token(s) carregado(s)`);
     return tokens;
   }
 
@@ -74,7 +73,6 @@ class WhatsAppService {
     if (stats) {
       stats.isAvailable = false;
       stats.failureCount++;
-      console.log(`⚠️ Token ${tokenIndex + 1} marcado como indisponível`);
     }
   }
 
@@ -99,7 +97,6 @@ class WhatsAppService {
       attemptedTokens.push(index + 1);
 
       try {
-        console.log(`📤 Tentativa ${attempt + 1}/${retriesToUse} - Usando token ${index + 1}`);
 
         const response = await fetch(API_URL, {
           method: 'POST',
@@ -115,16 +112,12 @@ class WhatsAppService {
 
         const data = await response.json();
 
-        console.log(`📡 Resposta da API (Token ${index + 1}):`, JSON.stringify(data));
-        console.log(`📊 Status HTTP: ${response.status}`);
-
         const isSuccess = response.ok &&
                          data &&
                          data.success === true;
 
         if (isSuccess) {
           this.markTokenSuccess(index);
-          console.log(`✅ Mensagem enviada com sucesso usando token ${index + 1}`);
 
           return {
             success: true,
@@ -134,13 +127,11 @@ class WhatsAppService {
           };
         } else {
           const errorMsg = data.message || data.error || 'Erro desconhecido';
-          console.log(`❌ Token ${index + 1} falhou: ${errorMsg}`);
           this.markTokenAsUnavailable(index);
           lastError = data;
         }
 
       } catch (error) {
-        console.log(`❌ Token ${index + 1} erro de conexão:`, error.message);
         this.markTokenAsUnavailable(index);
         lastError = error;
       }
@@ -169,16 +160,13 @@ class WhatsAppService {
     return stats;
   }
 
-  /**
-   * Testa todos os tokens
-   */
+
   async testAllTokens(testPhone, testMessage) {
-    console.log('🧪 Testando todos os tokens...');
+
     const results = [];
 
     for (let i = 0; i < this.tokens.length; i++) {
       const token = this.tokens[i];
-      console.log(`\n🔍 Testando token ${i + 1}/${this.tokens.length}...`);
 
       try {
         const response = await fetch(API_URL, {
@@ -202,11 +190,6 @@ class WhatsAppService {
           response: data
         });
 
-        if (response.ok) {
-          console.log(`✅ Token ${i + 1}: OK`);
-        } else {
-          console.log(`❌ Token ${i + 1}: ERRO - ${JSON.stringify(data)}`);
-        }
 
       } catch (error) {
         results.push({
@@ -214,7 +197,6 @@ class WhatsAppService {
           status: 'ERRO',
           error: error.message
         });
-        console.log(`❌ Token ${i + 1}: ERRO - ${error.message}`);
       }
     }
 
