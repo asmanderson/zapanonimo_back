@@ -23,6 +23,7 @@
     "express-session": "^1.17.3",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.9",
+    "socket.io": "^4.8.1",
     "stripe": "^14.10.0",
     "twilio": "^5.10.2"
   }

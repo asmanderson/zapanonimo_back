@@ -4,7 +4,11 @@ const express = require('express');
 const path = require('path');
 const session = require('express-session');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
+const server = http.createServer(app);
 
 // Configuração de CORS para permitir requisições do frontend
 const allowedOrigins = [
@@ -19,7 +23,7 @@ if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
 }
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
     // Permitir requests sem origin (webhooks, curl, etc)
     if (!origin) {
@@ -34,7 +38,46 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Webhook-Signature', 'X-Webhook-Secret']
-}));
+};
+
+app.use(cors(corsOptions));
+
+// Configuração do Socket.IO
+const io = new Server(server, {
+  cors: corsOptions
+});
+
+// Armazenar conexões de usuários (userId -> socketId)
+const userSockets = new Map();
+
+io.on('connection', (socket) => {
+  console.log('🔌 Nova conexão Socket.IO:', socket.id);
+
+  // Autenticar usuário e associar socket ao userId
+  socket.on('authenticate', (userId) => {
+    if (userId) {
+      userSockets.set(userId.toString(), socket.id);
+      socket.userId = userId.toString();
+      console.log(`✅ Usuário ${userId} conectado ao Socket.IO`);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    if (socket.userId) {
+      userSockets.delete(socket.userId);
+      console.log(`❌ Usuário ${socket.userId} desconectado do Socket.IO`);
+    }
+  });
+});
+
+// Função para emitir evento de nova resposta para o usuário
+function emitNewReply(userId, reply) {
+  const socketId = userSockets.get(userId.toString());
+  if (socketId) {
+    io.to(socketId).emit('new-reply', reply);
+    console.log(`📨 Evento new-reply enviado para usuário ${userId}`);
+  }
+}
 
 const { authMiddleware, generateToken } = require('./auth');
 const {
@@ -491,6 +534,12 @@ app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), asy
 
     if (result) {
       console.log(`✅ Resposta SMS salva para usuário ${result.user?.email || result.originalMessage?.user_id}`);
+
+      // Emitir evento em tempo real para o frontend
+      emitNewReply(result.originalMessage.user_id, {
+        ...result.reply,
+        original_message: result.originalMessage.message
+      });
     } else {
       console.log(`⚠️ Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
@@ -607,6 +656,12 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
 
     if (result) {
       console.log(`✅ Resposta WhatsApp salva para usuário ${result.user?.email || result.originalMessage?.user_id}`);
+
+      // Emitir evento em tempo real para o frontend
+      emitNewReply(result.originalMessage.user_id, {
+        ...result.reply,
+        original_message: result.originalMessage.message
+      });
     } else {
       console.log(`⚠️ Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
@@ -673,6 +728,12 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
 
     if (result) {
       console.log(`✅ Resposta salva para usuário ${result.user?.email || result.originalMessage?.user_id}`);
+
+      // Emitir evento em tempo real para o frontend
+      emitNewReply(result.originalMessage.user_id, {
+        ...result.reply,
+        original_message: result.originalMessage.message
+      });
     }
 
     res.status(200).json({ success: true });
@@ -908,10 +969,11 @@ app.get('/api/sms/balance', authMiddleware, async (req, res) => {
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
-app.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, () => {
   const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
   console.log(`🚀 Servidor rodando em ${baseUrl}`);
   console.log(`📊 Banco de dados: Supabase`);
+  console.log(`🔌 Socket.IO habilitado para atualizações em tempo real`);
   console.log(`✅ Novos usuários recebem 1 crédito grátis`);
   console.log(`📧 Email configurado: ${process.env.EMAIL_USER ? 'Sim ✓' : 'Não ✗'}`);
 });
