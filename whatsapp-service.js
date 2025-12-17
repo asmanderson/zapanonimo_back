@@ -72,22 +72,32 @@ class WhatsAppService {
     this.emitToAdmins('whatsapp:status', { status: this.status, qrCode: null });
     this.addLog('Inicializando cliente WhatsApp...');
 
+    // Configuração do Puppeteer
+    const puppeteerConfig = {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
+    };
+
+    // Usar Chromium do sistema em produção (Fly.io/Docker)
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      this.addLog(`Usando Chromium: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+    }
+
     this.client = new Client({
       authStrategy: new LocalAuth({
         dataPath: './.wwebjs_auth'
       }),
-      puppeteer: {
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu'
-        ]
-      }
+      puppeteer: puppeteerConfig
     });
 
     // Evento: QR Code gerado
