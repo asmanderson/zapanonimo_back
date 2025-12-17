@@ -22,10 +22,6 @@ primary_region = 'gru'
   min_machines_running = 1
   processes = ['app']
 
-[mounts]
-  source = 'whatsapp_session'
-  destination = '/app/.wwebjs_auth'
-
 [[vm]]
   memory = '1024mb'
   cpu_kind = 'shared'
