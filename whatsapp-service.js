@@ -1,197 +1,260 @@
 require('dotenv').config();
 
-const API_URL = 'https://wasenderapi.com/api/send-message';
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode');
 
 class WhatsAppService {
   constructor() {
-    this.tokens = this.loadTokens();
-    this.currentTokenIndex = 0;
-    this.tokenStats = new Map();
+    this.client = null;
+    this.qrCode = null;
+    this.status = 'disconnected'; // disconnected | connecting | connected
+    this.io = null;
+    this.adminSockets = new Set();
+    this.logs = [];
+    this.stats = {
+      successCount: 0,
+      failureCount: 0,
+      lastUsed: null
+    };
+  }
 
-    this.tokens.forEach((token, index) => {
-      this.tokenStats.set(index, {
-        successCount: 0,
-        failureCount: 0,
-        lastUsed: null,
-        isAvailable: true
+  setSocketIO(io) {
+    this.io = io;
+  }
+
+  addLog(message) {
+    const log = {
+      timestamp: new Date().toISOString(),
+      message
+    };
+    this.logs.push(log);
+    // Manter apenas os últimos 100 logs
+    if (this.logs.length > 100) {
+      this.logs.shift();
+    }
+    // Emitir log para admins conectados
+    this.emitToAdmins('whatsapp:log', log);
+    console.log(`[WhatsApp] ${message}`);
+  }
+
+  emitToAdmins(event, data) {
+    if (this.io) {
+      this.adminSockets.forEach(socketId => {
+        this.io.to(socketId).emit(event, data);
       });
+    }
+  }
+
+  subscribeAdmin(socketId) {
+    this.adminSockets.add(socketId);
+    // Enviar estado atual para o novo admin
+    if (this.io) {
+      this.io.to(socketId).emit('whatsapp:status', {
+        status: this.status,
+        qrCode: this.qrCode
+      });
+      this.io.to(socketId).emit('whatsapp:logs', this.logs);
+    }
+  }
+
+  unsubscribeAdmin(socketId) {
+    this.adminSockets.delete(socketId);
+  }
+
+  initialize() {
+    if (this.client) {
+      this.addLog('Cliente já existe, destruindo antes de reinicializar...');
+      this.client.destroy().catch(() => {});
+    }
+
+    this.status = 'connecting';
+    this.qrCode = null;
+    this.emitToAdmins('whatsapp:status', { status: this.status, qrCode: null });
+    this.addLog('Inicializando cliente WhatsApp...');
+
+    this.client = new Client({
+      authStrategy: new LocalAuth({
+        dataPath: './.wwebjs_auth'
+      }),
+      puppeteer: {
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu'
+        ]
+      }
+    });
+
+    // Evento: QR Code gerado
+    this.client.on('qr', async (qr) => {
+      this.addLog('QR Code gerado - escaneie com seu WhatsApp');
+      try {
+        this.qrCode = await qrcode.toDataURL(qr);
+        this.emitToAdmins('whatsapp:qr', this.qrCode);
+        this.emitToAdmins('whatsapp:status', { status: 'connecting', qrCode: this.qrCode });
+      } catch (err) {
+        this.addLog(`Erro ao gerar QR Code: ${err.message}`);
+      }
+    });
+
+    // Evento: Autenticado
+    this.client.on('authenticated', () => {
+      this.addLog('Autenticado com sucesso!');
+      this.qrCode = null;
+    });
+
+    // Evento: Pronto para usar
+    this.client.on('ready', () => {
+      this.status = 'connected';
+      this.qrCode = null;
+      this.addLog('WhatsApp conectado e pronto!');
+      this.emitToAdmins('whatsapp:status', { status: 'connected', qrCode: null });
+    });
+
+    // Evento: Desconectado
+    this.client.on('disconnected', (reason) => {
+      this.status = 'disconnected';
+      this.qrCode = null;
+      this.addLog(`Desconectado: ${reason}`);
+      this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+    });
+
+    // Evento: Falha na autenticação
+    this.client.on('auth_failure', (msg) => {
+      this.status = 'disconnected';
+      this.addLog(`Falha na autenticação: ${msg}`);
+      this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+    });
+
+    // Evento: Mensagem recebida (para respostas)
+    this.client.on('message', async (msg) => {
+      // Emitir para processamento de respostas
+      if (this.io) {
+        this.io.emit('whatsapp:incoming_message', {
+          from: msg.from.replace('@c.us', ''),
+          body: msg.body,
+          timestamp: msg.timestamp
+        });
+      }
+      this.addLog(`Mensagem recebida de ${msg.from}`);
+    });
+
+    // Inicializar cliente
+    this.client.initialize().catch(err => {
+      this.status = 'disconnected';
+      this.addLog(`Erro ao inicializar: ${err.message}`);
+      this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
     });
   }
 
-  loadTokens() {
-    const tokens = [];
-    let index = 1;
-
-    while (process.env[`WHATSAPP_API_KEY_${index}`]) {
-      tokens.push(process.env[`WHATSAPP_API_KEY_${index}`]);
-      index++;
+  async sendMessage(phone, message) {
+    if (this.status !== 'connected') {
+      throw new Error('WhatsApp não está conectado. Acesse o painel admin para conectar.');
     }
 
-    if (tokens.length === 0 && process.env.WHATSAPP_API_KEY) {
-      tokens.push(process.env.WHATSAPP_API_KEY);
-    }
+    // Formatar número: remover caracteres não numéricos e adicionar @c.us
+    const cleanPhone = phone.replace(/\D/g, '');
+    const chatId = `${cleanPhone}@c.us`;
 
-    if (tokens.length === 0) {
-      throw new Error('Nenhum token do WhatsApp configurado no .env');
-    }
+    try {
+      const result = await this.client.sendMessage(chatId, message);
+      this.stats.successCount++;
+      this.stats.lastUsed = new Date();
+      this.addLog(`Mensagem enviada para ${cleanPhone}`);
 
-    return tokens;
-  }
-
-  getNextToken() {
-    const startIndex = this.currentTokenIndex;
-
-    do {
-      const stats = this.tokenStats.get(this.currentTokenIndex);
-
-      if (stats.isAvailable) {
-        const token = this.tokens[this.currentTokenIndex];
-        const tokenIndex = this.currentTokenIndex;
-
-        this.currentTokenIndex = (this.currentTokenIndex + 1) % this.tokens.length;
-
-        return { token, index: tokenIndex };
-      }
-
-      this.currentTokenIndex = (this.currentTokenIndex + 1) % this.tokens.length;
-
-    } while (this.currentTokenIndex !== startIndex);
-
-    this.tokenStats.forEach(stats => stats.isAvailable = true);
-
-    const token = this.tokens[this.currentTokenIndex];
-    const tokenIndex = this.currentTokenIndex;
-    this.currentTokenIndex = (this.currentTokenIndex + 1) % this.tokens.length;
-
-    return { token, index: tokenIndex };
-  }
-
-  markTokenAsUnavailable(tokenIndex) {
-    const stats = this.tokenStats.get(tokenIndex);
-    if (stats) {
-      stats.isAvailable = false;
-      stats.failureCount++;
+      return {
+        success: true,
+        data: { messageId: result.id._serialized },
+        tokenUsed: 1,
+        attempts: 1
+      };
+    } catch (error) {
+      this.stats.failureCount++;
+      this.addLog(`Erro ao enviar para ${cleanPhone}: ${error.message}`);
+      throw new Error(`Falha ao enviar mensagem: ${error.message}`);
     }
   }
 
-  markTokenSuccess(tokenIndex) {
-    const stats = this.tokenStats.get(tokenIndex);
-    if (stats) {
-      stats.successCount++;
-      stats.lastUsed = new Date();
-      stats.isAvailable = true;
-    }
-  }
-
-  async sendMessage(phone, message, maxRetries = null) {
-    const retriesToUse = maxRetries !== null ? maxRetries : this.tokens.length;
-    let lastError = null;
-    let attemptedTokens = [];
-
-    for (let attempt = 0; attempt < retriesToUse; attempt++) {
-      const { token, index } = this.getNextToken();
-      attemptedTokens.push(index + 1);
-
+  async disconnect() {
+    if (this.client) {
+      this.addLog('Desconectando WhatsApp...');
       try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            to: phone,
-            text: message
-          })
-        });
-
-        const data = await response.json();
-
-        const isSuccess = response.ok &&
-                         data &&
-                         data.success === true;
-
-        if (isSuccess) {
-          this.markTokenSuccess(index);
-
-          return {
-            success: true,
-            data,
-            tokenUsed: index + 1,
-            attempts: attempt + 1
-          };
-        } else {
-          this.markTokenAsUnavailable(index);
-          lastError = data;
-        }
-
-      } catch (error) {
-        this.markTokenAsUnavailable(index);
-        lastError = error;
+        await this.client.destroy();
+        this.status = 'disconnected';
+        this.qrCode = null;
+        this.client = null;
+        this.addLog('WhatsApp desconectado com sucesso');
+        this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+      } catch (err) {
+        this.addLog(`Erro ao desconectar: ${err.message}`);
       }
     }
+  }
 
-    throw new Error(
-      `Falha ao enviar mensagem após ${retriesToUse} tentativa(s). ` +
-      `Tokens testados: ${attemptedTokens.join(', ')}. ` +
-      `Último erro: ${lastError?.message || JSON.stringify(lastError)}`
-    );
+  async reconnect() {
+    this.addLog('Reconectando WhatsApp...');
+    await this.disconnect();
+    // Aguardar um pouco antes de reconectar
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    this.initialize();
+  }
+
+  async logout() {
+    if (this.client) {
+      this.addLog('Fazendo logout do WhatsApp...');
+      try {
+        await this.client.logout();
+        this.status = 'disconnected';
+        this.qrCode = null;
+        this.addLog('Logout realizado - será necessário escanear QR Code novamente');
+        this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+      } catch (err) {
+        this.addLog(`Erro no logout: ${err.message}`);
+      }
+    }
+  }
+
+  getStatus() {
+    return {
+      status: this.status,
+      qrCode: this.qrCode,
+      stats: this.stats,
+      logs: this.logs.slice(-20) // Últimos 20 logs
+    };
   }
 
   getStats() {
-    const stats = [];
-    this.tokens.forEach((token, index) => {
-      const tokenStats = this.tokenStats.get(index);
-      stats.push({
-        tokenNumber: index + 1,
-        tokenPreview: `${token.substring(0, 10)}...`,
-        available: tokenStats.isAvailable,
-        successCount: tokenStats.successCount,
-        failureCount: tokenStats.failureCount,
-        lastUsed: tokenStats.lastUsed
-      });
-    });
-    return stats;
+    return [{
+      tokenNumber: 1,
+      tokenPreview: 'whatsapp-web.js',
+      available: this.status === 'connected',
+      successCount: this.stats.successCount,
+      failureCount: this.stats.failureCount,
+      lastUsed: this.stats.lastUsed
+    }];
   }
 
+  // Método de compatibilidade com código antigo
   async testAllTokens(testPhone, testMessage) {
-    const results = [];
-
-    for (let i = 0; i < this.tokens.length; i++) {
-      const token = this.tokens[i];
-
-      try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            to: testPhone,
-            text: testMessage
-          })
-        });
-
-        const data = await response.json();
-
-        results.push({
-          tokenNumber: i + 1,
-          status: response.ok ? 'OK' : 'ERRO',
-          statusCode: response.status,
-          response: data
-        });
-
-      } catch (error) {
-        results.push({
-          tokenNumber: i + 1,
-          status: 'ERRO',
-          error: error.message
-        });
-      }
+    try {
+      const result = await this.sendMessage(testPhone, testMessage);
+      return [{
+        tokenNumber: 1,
+        status: 'OK',
+        response: result
+      }];
+    } catch (error) {
+      return [{
+        tokenNumber: 1,
+        status: 'ERRO',
+        error: error.message
+      }];
     }
-
-    return results;
   }
 }
 

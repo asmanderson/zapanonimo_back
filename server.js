@@ -54,9 +54,18 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Admin subscribe para receber atualizações do WhatsApp
+  socket.on('admin:subscribe', () => {
+    whatsappService.subscribeAdmin(socket.id);
+    socket.isAdmin = true;
+  });
+
   socket.on('disconnect', () => {
     if (socket.userId) {
       userSockets.delete(socket.userId);
+    }
+    if (socket.isAdmin) {
+      whatsappService.unsubscribeAdmin(socket.id);
     }
   });
 });
@@ -118,6 +127,12 @@ app.use(session({
 }));
 
 const whatsappService = getWhatsAppService();
+
+// Passar Socket.IO para o WhatsApp Service
+whatsappService.setSocketIO(io);
+
+// Inicializar WhatsApp automaticamente ao iniciar servidor
+whatsappService.initialize();
 
 app.post('/api/register', async (req, res) => {
   try {
@@ -809,6 +824,89 @@ app.get('/api/sms/balance', authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// ==================== ROTAS ADMIN ====================
+
+// Credenciais admin do .env
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
+
+// Middleware para verificar sessão admin
+const adminAuthMiddleware = (req, res, next) => {
+  if (req.session && req.session.isAdmin) {
+    next();
+  } else {
+    res.status(401).json({ success: false, error: 'Não autorizado' });
+  }
+};
+
+// Login admin
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
+    req.session.isAdmin = true;
+    res.json({ success: true, message: 'Login realizado com sucesso' });
+  } else {
+    res.status(401).json({ success: false, error: 'Credenciais inválidas' });
+  }
+});
+
+// Logout admin
+app.post('/api/admin/logout', (req, res) => {
+  req.session.isAdmin = false;
+  res.json({ success: true, message: 'Logout realizado' });
+});
+
+// Verificar se está logado como admin
+app.get('/api/admin/check', (req, res) => {
+  res.json({
+    success: true,
+    isAdmin: req.session && req.session.isAdmin === true
+  });
+});
+
+// Status do WhatsApp
+app.get('/api/admin/whatsapp/status', adminAuthMiddleware, (req, res) => {
+  try {
+    const status = whatsappService.getStatus();
+    res.json({ success: true, ...status });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Reconectar WhatsApp
+app.post('/api/admin/whatsapp/reconnect', adminAuthMiddleware, async (req, res) => {
+  try {
+    await whatsappService.reconnect();
+    res.json({ success: true, message: 'Reconectando WhatsApp...' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Desconectar WhatsApp
+app.post('/api/admin/whatsapp/disconnect', adminAuthMiddleware, async (req, res) => {
+  try {
+    await whatsappService.disconnect();
+    res.json({ success: true, message: 'WhatsApp desconectado' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Logout do WhatsApp (remove sessão salva)
+app.post('/api/admin/whatsapp/logout', adminAuthMiddleware, async (req, res) => {
+  try {
+    await whatsappService.logout();
+    res.json({ success: true, message: 'Logout do WhatsApp realizado' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== FIM ROTAS ADMIN ====================
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
