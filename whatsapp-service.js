@@ -176,11 +176,28 @@ class WhatsAppService {
       throw new Error('WhatsApp não está conectado. Acesse o painel admin para conectar.');
     }
 
-    // Formatar número: remover caracteres não numéricos e adicionar @c.us
-    const cleanPhone = phone.replace(/\D/g, '');
+    // Formatar número: remover caracteres não numéricos
+    let cleanPhone = phone.replace(/\D/g, '');
+
+    // Garantir que tem código do país (Brasil = 55)
+    if (cleanPhone.length === 11 || cleanPhone.length === 10) {
+      cleanPhone = '55' + cleanPhone;
+    }
+
+    // Validar formato
+    if (cleanPhone.length < 12 || cleanPhone.length > 13) {
+      throw new Error(`Número inválido: ${cleanPhone}. Use formato: 5511999999999`);
+    }
+
     const chatId = `${cleanPhone}@c.us`;
 
     try {
+      // Verificar se o número existe no WhatsApp
+      const isRegistered = await this.client.isRegisteredUser(chatId);
+      if (!isRegistered) {
+        throw new Error(`O número ${cleanPhone} não está registrado no WhatsApp`);
+      }
+
       const result = await this.client.sendMessage(chatId, message);
       this.stats.successCount++;
       this.stats.lastUsed = new Date();
