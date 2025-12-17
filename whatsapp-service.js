@@ -152,15 +152,32 @@ class WhatsAppService {
 
     // Evento: Mensagem recebida (para respostas)
     this.client.on('message', async (msg) => {
-      // Emitir para processamento de respostas
-      if (this.io) {
-        this.io.emit('whatsapp:incoming_message', {
-          from: msg.from.replace('@c.us', ''),
-          body: msg.body,
-          timestamp: msg.timestamp
-        });
+      try {
+        // Ignorar mensagens de grupo e mensagens próprias
+        if (msg.from.includes('@g.us') || msg.fromMe) {
+          return;
+        }
+
+        const fromPhone = msg.from.replace('@c.us', '').replace('@s.whatsapp.net', '');
+        const messageText = msg.body;
+
+        this.addLog(`Mensagem recebida de ${fromPhone}: ${messageText.substring(0, 50)}...`);
+
+        // Salvar resposta no banco de dados
+        const { saveReplyFromWebhook } = require('./database');
+        const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
+
+        if (result && this.io) {
+          // Emitir notificação em tempo real para o usuário
+          this.io.emit('new-reply', {
+            ...result.reply,
+            original_message: result.originalMessage.message
+          });
+          this.addLog(`Resposta salva para usuário ${result.originalMessage.user_id}`);
+        }
+      } catch (error) {
+        this.addLog(`Erro ao processar mensagem: ${error.message}`);
       }
-      this.addLog(`Mensagem recebida de ${msg.from}`);
     });
 
     // Inicializar cliente
