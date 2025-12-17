@@ -831,13 +831,26 @@ app.get('/api/sms/balance', authMiddleware, async (req, res) => {
 // Credenciais admin do .env
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
+const jwt = require('jsonwebtoken');
+const ADMIN_JWT_SECRET = process.env.JWT_SECRET || 'admin-secret-key';
 
-// Middleware para verificar sessão admin
+// Middleware para verificar token admin
 const adminAuthMiddleware = (req, res, next) => {
-  if (req.session && req.session.isAdmin) {
-    next();
-  } else {
-    res.status(401).json({ success: false, error: 'Não autorizado' });
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Token não fornecido' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, ADMIN_JWT_SECRET);
+    if (decoded.isAdmin) {
+      next();
+    } else {
+      res.status(401).json({ success: false, error: 'Não autorizado' });
+    }
+  } catch (error) {
+    res.status(401).json({ success: false, error: 'Token inválido' });
   }
 };
 
@@ -846,25 +859,32 @@ app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
 
   if (username === ADMIN_USER && password === ADMIN_PASS) {
-    req.session.isAdmin = true;
-    res.json({ success: true, message: 'Login realizado com sucesso' });
+    const token = jwt.sign({ isAdmin: true }, ADMIN_JWT_SECRET, { expiresIn: '24h' });
+    res.json({ success: true, token, message: 'Login realizado com sucesso' });
   } else {
     res.status(401).json({ success: false, error: 'Credenciais inválidas' });
   }
 });
 
-// Logout admin
+// Logout admin (client-side apenas)
 app.post('/api/admin/logout', (req, res) => {
-  req.session.isAdmin = false;
   res.json({ success: true, message: 'Logout realizado' });
 });
 
 // Verificar se está logado como admin
 app.get('/api/admin/check', (req, res) => {
-  res.json({
-    success: true,
-    isAdmin: req.session && req.session.isAdmin === true
-  });
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.json({ success: true, isAdmin: false });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, ADMIN_JWT_SECRET);
+    res.json({ success: true, isAdmin: decoded.isAdmin === true });
+  } catch (error) {
+    res.json({ success: true, isAdmin: false });
+  }
 });
 
 // Status do WhatsApp
