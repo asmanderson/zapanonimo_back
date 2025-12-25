@@ -1,7 +1,8 @@
 require('dotenv').config();
 
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, RemoteAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
+const { SupabaseStore } = require('./supabase-store');
 
 class WhatsAppService {
   constructor() {
@@ -258,8 +259,13 @@ class WhatsAppService {
       this.addLog(`Usando Chromium: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
     }
 
+    // Criar store para persistência da sessão no Supabase
+    const store = new SupabaseStore({ sessionId: 'whatsapp-main' });
+
     this.client = new Client({
-      authStrategy: new LocalAuth({
+      authStrategy: new RemoteAuth({
+        store: store,
+        backupSyncIntervalMs: 300000, // Backup a cada 5 minutos
         dataPath: './.wwebjs_auth'
       }),
       puppeteer: puppeteerConfig
@@ -281,6 +287,11 @@ class WhatsAppService {
     this.client.on('authenticated', () => {
       this.addLog('Autenticado com sucesso!');
       this.qrCode = null;
+    });
+
+    // Evento: Sessão salva remotamente (Supabase)
+    this.client.on('remote_session_saved', () => {
+      this.addLog('Sessão salva no Supabase com sucesso!');
     });
 
     // Evento: Pronto para usar

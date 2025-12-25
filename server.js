@@ -721,6 +721,20 @@ app.post('/api/test-whatsapp', authMiddleware, async (req, res) => {
   }
 });
 
+// Endpoint público para verificar disponibilidade do WhatsApp (usado pelo frontend)
+app.get('/api/whatsapp/available', authMiddleware, (req, res) => {
+  try {
+    const isConnected = whatsappService.status === 'connected';
+    res.json({
+      success: true,
+      available: isConnected,
+      status: whatsappService.status
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get('/api/whatsapp/stats', authMiddleware, async (req, res) => {
   try {
     const stats = whatsappService.getStats();
