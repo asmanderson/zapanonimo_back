@@ -19,7 +19,7 @@ class WhatsAppService {
 
     // Configurações de reconexão
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
+    this.maxReconnectAttempts = 10; // Aumentado de 5 para 10
     this.baseReconnectDelay = 5000; // 5 segundos
     this.maxReconnectDelay = 300000; // 5 minutos
     this.reconnectTimeout = null;
@@ -129,7 +129,7 @@ class WhatsAppService {
     // Limpar intervalo anterior se existir
     this.stopHealthCheck();
 
-    // Verificar a cada 30 segundos
+    // Verificar a cada 60 segundos (aumentado de 30s para dar mais tempo ao servidor)
     this.healthCheckInterval = setInterval(async () => {
       if (this.status === 'connected' && this.client) {
         try {
@@ -137,7 +137,7 @@ class WhatsAppService {
           const state = await Promise.race([
             this.client.getState(),
             new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Health check timeout')), 10000)
+              setTimeout(() => reject(new Error('Health check timeout')), 30000) // Aumentado de 10s para 30s
             )
           ]);
 
@@ -156,7 +156,7 @@ class WhatsAppService {
           this.scheduleReconnect('health check falhou');
         }
       }
-    }, 30000);
+    }, 60000); // Aumentado de 30s para 60s
   }
 
   // Parar health check
@@ -201,11 +201,11 @@ class WhatsAppService {
     this.emitToAdmins('whatsapp:status', { status: this.status, qrCode: null });
     this.addLog('Inicializando cliente WhatsApp...');
 
-    // Timeout de 2 minutos para inicialização
-    const INIT_TIMEOUT = 120000;
+    // Timeout de 5 minutos para inicialização (aumentado para VMs com recursos limitados)
+    const INIT_TIMEOUT = 300000;
     this.initTimeout = setTimeout(() => {
       if (this.status === 'connecting') {
-        this.addLog('Timeout na inicialização - tempo limite de 2 minutos excedido');
+        this.addLog('Timeout na inicialização - tempo limite de 5 minutos excedido');
         this.isInitializing = false;
         this.status = 'disconnected';
         this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
@@ -217,7 +217,7 @@ class WhatsAppService {
       }
     }, INIT_TIMEOUT);
 
-    // Configuração do Puppeteer
+    // Configuração do Puppeteer - otimizado para VMs com recursos limitados
     const puppeteerConfig = {
       headless: true,
       args: [
@@ -236,9 +236,20 @@ class WhatsAppService {
         '--metrics-recording-only',
         '--mute-audio',
         '--no-default-browser-check',
-        '--safebrowsing-disable-auto-update'
+        '--safebrowsing-disable-auto-update',
+        // Flags adicionais para otimização de memória em VMs limitadas
+        '--single-process',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-breakpad',
+        '--disable-component-extensions-with-background-pages',
+        '--disable-features=TranslateUI',
+        '--disable-ipc-flooding-protection',
+        '--disable-renderer-backgrounding',
+        '--memory-pressure-off',
+        '--js-flags=--max-old-space-size=512'
       ],
-      timeout: 60000
+      timeout: 120000 // Aumentado de 60s para 120s
     };
 
     // Usar Chromium do sistema em produção (Fly.io/Docker)

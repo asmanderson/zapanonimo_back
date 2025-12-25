@@ -13,6 +13,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   'https://zapanonimo.com',
   'https://www.zapanonimo.com',
+  'https://zapanonimo.fly.dev',
   'http://localhost:3000',
   'http://localhost:5500',
   'http://127.0.0.1:5500'
@@ -134,6 +135,28 @@ whatsappService.setSocketIO(io);
 
 // Inicializar WhatsApp automaticamente ao iniciar servidor
 whatsappService.initialize();
+
+// ==================== SERVIR ARQUIVOS ESTÁTICOS ====================
+const frontendPath = path.join(__dirname, '../frontend');
+
+// Rotas limpas (sem .html) - devem vir ANTES do express.static
+const cleanRoutes = ['admin', 'index', 'verify-email', 'reset-password', 'payment-success', 'payment-failure', 'payment-pending', 'payment-instructions'];
+
+cleanRoutes.forEach(route => {
+  app.get(`/${route}`, (req, res) => {
+    res.sendFile(path.join(frontendPath, `${route}.html`));
+  });
+});
+
+// Rota raiz serve index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
+// Servir arquivos estáticos (CSS, JS, imagens, etc.)
+app.use(express.static(frontendPath));
+
+// ==================== FIM ARQUIVOS ESTÁTICOS ====================
 
 app.post('/api/register', async (req, res) => {
   try {
