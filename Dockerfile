@@ -43,13 +43,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependências
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copiar o resto dos arquivos
 COPY . .
 
-# Criar pasta para sessão do WhatsApp com permissões
-RUN mkdir -p .wwebjs_auth && chmod -R 777 .wwebjs_auth
+# Criar pastas para sessão do WhatsApp com permissões
+RUN mkdir -p .wwebjs_auth .wwebjs_temp && chmod -R 777 .wwebjs_auth .wwebjs_temp
 
 # Ajustar permissões
 RUN chown -R pptruser:pptruser /app
