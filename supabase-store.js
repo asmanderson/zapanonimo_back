@@ -121,6 +121,8 @@ class SupabaseStore {
    * Extrai a sessão do Supabase Storage
    */
   async extract(options) {
+    const zipPath = path.join(this.tempDir, `${this.sessionId}_download.zip`);
+
     try {
       await this.ensureBucket();
 
@@ -133,25 +135,70 @@ class SupabaseStore {
         .download(filePath);
 
       if (error) {
-        console.log('[SupabaseStore] Nenhuma sessão encontrada');
+        console.log('[SupabaseStore] Nenhuma sessão encontrada:', error.message);
         return null;
       }
 
+      if (!data) {
+        console.log('[SupabaseStore] Dados da sessão vazios');
+        return null;
+      }
+
+      // Limpar arquivo zip anterior se existir
+      if (fs.existsSync(zipPath)) {
+        const stats = fs.statSync(zipPath);
+        if (stats.isDirectory()) {
+          fs.rmSync(zipPath, { recursive: true, force: true });
+        } else {
+          fs.unlinkSync(zipPath);
+        }
+      }
+
       // Salvar arquivo zip temporariamente
-      const zipPath = path.join(this.tempDir, `${this.sessionId}_download.zip`);
       const buffer = Buffer.from(await data.arrayBuffer());
+
+      if (buffer.length === 0) {
+        console.log('[SupabaseStore] Buffer vazio, sessão corrompida');
+        return null;
+      }
+
       fs.writeFileSync(zipPath, buffer);
+
+      // Verificar se foi salvo corretamente
+      if (!fs.existsSync(zipPath) || !fs.statSync(zipPath).isFile()) {
+        console.error('[SupabaseStore] Falha ao salvar arquivo zip temporário');
+        return null;
+      }
+
+      console.log(`[SupabaseStore] Arquivo zip salvo: ${zipPath} (${buffer.length} bytes)`);
 
       // Extrair sessão
       const sessionData = await this.unzipSession(zipPath, options.path);
 
       // Limpar arquivo temporário
-      fs.unlinkSync(zipPath);
+      if (fs.existsSync(zipPath)) {
+        fs.unlinkSync(zipPath);
+      }
 
       console.log('[SupabaseStore] Sessão extraída com sucesso!');
       return sessionData;
     } catch (error) {
-      console.error('[SupabaseStore] Erro ao extrair sessão:', error);
+      console.error('[SupabaseStore] Erro ao extrair sessão:', error.message);
+
+      // Limpar arquivo temporário em caso de erro
+      try {
+        if (fs.existsSync(zipPath)) {
+          const stats = fs.statSync(zipPath);
+          if (stats.isDirectory()) {
+            fs.rmSync(zipPath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(zipPath);
+          }
+        }
+      } catch (cleanupError) {
+        console.error('[SupabaseStore] Erro ao limpar arquivo temporário:', cleanupError.message);
+      }
+
       return null;
     }
   }
@@ -205,15 +252,47 @@ class SupabaseStore {
    */
   unzipSession(zipPath, extractPath) {
     return new Promise((resolve, reject) => {
-      // Criar diretório de destino se não existir
-      if (!fs.existsSync(extractPath)) {
-        fs.mkdirSync(extractPath, { recursive: true });
-      }
+      try {
+        // Verificar se o zipPath é realmente um arquivo
+        if (!fs.existsSync(zipPath)) {
+          return reject(new Error(`Arquivo zip não encontrado: ${zipPath}`));
+        }
 
-      fs.createReadStream(zipPath)
-        .pipe(unzipper.Extract({ path: extractPath }))
-        .on('close', () => resolve(extractPath))
-        .on('error', (err) => reject(err));
+        const zipStats = fs.statSync(zipPath);
+        if (!zipStats.isFile()) {
+          return reject(new Error(`O caminho não é um arquivo: ${zipPath}`));
+        }
+
+        // Limpar diretório de destino se existir
+        if (fs.existsSync(extractPath)) {
+          const extractStats = fs.statSync(extractPath);
+          if (extractStats.isDirectory()) {
+            // Remover conteúdo do diretório
+            fs.rmSync(extractPath, { recursive: true, force: true });
+          }
+        }
+
+        // Criar diretório de destino
+        fs.mkdirSync(extractPath, { recursive: true });
+
+        const readStream = fs.createReadStream(zipPath);
+
+        readStream.on('error', (err) => {
+          console.error('[SupabaseStore] Erro ao ler arquivo zip:', err);
+          reject(err);
+        });
+
+        readStream
+          .pipe(unzipper.Extract({ path: extractPath }))
+          .on('close', () => resolve(extractPath))
+          .on('error', (err) => {
+            console.error('[SupabaseStore] Erro ao extrair zip:', err);
+            reject(err);
+          });
+      } catch (err) {
+        console.error('[SupabaseStore] Erro em unzipSession:', err);
+        reject(err);
+      }
     });
   }
 }
