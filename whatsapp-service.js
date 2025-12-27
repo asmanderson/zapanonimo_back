@@ -8,7 +8,7 @@ class WhatsAppService {
   constructor() {
     this.client = null;
     this.qrCode = null;
-    this.status = 'disconnected'; // disconnected | connecting | connected
+    this._status = 'disconnected'; // disconnected | connecting | connected
     this.io = null;
     this.adminSockets = new Set();
     this.logs = [];
@@ -20,14 +20,45 @@ class WhatsAppService {
 
     // Configurações de reconexão
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 10; // Aumentado de 5 para 10
-    this.baseReconnectDelay = 5000; // 5 segundos
-    this.maxReconnectDelay = 300000; // 5 minutos
+    this.maxReconnectAttempts = 10;
+    this.baseReconnectDelay = 5000;
+    this.maxReconnectDelay = 300000;
     this.reconnectTimeout = null;
     this.isInitializing = false;
     this.initTimeout = null;
     this.healthCheckInterval = null;
     this.lastHealthCheck = null;
+
+    // Controle de estado para evitar race conditions
+    this.lastStatusUpdate = 0;
+    this.statusUpdateDebounce = 1000; // 1 segundo de debounce
+    this.pendingStatusEmit = null;
+  }
+
+  // Getter para status com proteção
+  get status() {
+    return this._status;
+  }
+
+  // Setter para status com validação e debounce
+  set status(newStatus) {
+    const validStatuses = ['disconnected', 'connecting', 'connected'];
+    if (!validStatuses.includes(newStatus)) {
+      this.addLog(`Status inválido ignorado: ${newStatus}`);
+      return;
+    }
+
+    // Não permitir mudança de connected para connecting sem passar por disconnected
+    if (this._status === 'connected' && newStatus === 'connecting') {
+      this.addLog(`Transição inválida de connected para connecting ignorada`);
+      return;
+    }
+
+    const oldStatus = this._status;
+    if (oldStatus !== newStatus) {
+      this._status = newStatus;
+      this.addLog(`Status alterado: ${oldStatus} -> ${newStatus}`);
+    }
   }
 
   setSocketIO(io) {
@@ -50,7 +81,36 @@ class WhatsAppService {
   }
 
   emitToAdmins(event, data) {
-    if (this.io) {
+    if (!this.io) return;
+
+    // Para eventos de status, usar debounce para evitar atualizações rápidas demais
+    if (event === 'whatsapp:status') {
+      const now = Date.now();
+
+      // Cancelar emit pendente
+      if (this.pendingStatusEmit) {
+        clearTimeout(this.pendingStatusEmit);
+        this.pendingStatusEmit = null;
+      }
+
+      // Se passou tempo suficiente, emitir imediatamente
+      if (now - this.lastStatusUpdate >= this.statusUpdateDebounce) {
+        this.lastStatusUpdate = now;
+        this.adminSockets.forEach(socketId => {
+          this.io.to(socketId).emit(event, data);
+        });
+      } else {
+        // Agendar emit com debounce
+        this.pendingStatusEmit = setTimeout(() => {
+          this.lastStatusUpdate = Date.now();
+          this.adminSockets.forEach(socketId => {
+            this.io.to(socketId).emit(event, data);
+          });
+          this.pendingStatusEmit = null;
+        }, this.statusUpdateDebounce);
+      }
+    } else {
+      // Para outros eventos, emitir imediatamente
       this.adminSockets.forEach(socketId => {
         this.io.to(socketId).emit(event, data);
       });
@@ -130,34 +190,53 @@ class WhatsAppService {
     // Limpar intervalo anterior se existir
     this.stopHealthCheck();
 
-    // Verificar a cada 60 segundos (aumentado de 30s para dar mais tempo ao servidor)
+    // Contador de falhas consecutivas do health check
+    this.healthCheckFailures = 0;
+    const maxHealthCheckFailures = 3; // Só marca como desconectado após 3 falhas consecutivas
+
+    // Verificar a cada 2 minutos (mais conservador)
     this.healthCheckInterval = setInterval(async () => {
-      if (this.status === 'connected' && this.client) {
+      // Só verificar se realmente está conectado e não está inicializando
+      if (this._status === 'connected' && this.client && !this.isInitializing) {
         try {
           // Verificar se o cliente ainda está responsivo
           const state = await Promise.race([
             this.client.getState(),
             new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Health check timeout')), 30000) // Aumentado de 10s para 30s
+              setTimeout(() => reject(new Error('Health check timeout')), 45000)
             )
           ]);
 
           this.lastHealthCheck = new Date();
 
-          if (state !== 'CONNECTED') {
-            this.addLog(`Health check: estado inesperado (${state})`);
-            this.status = 'disconnected';
-            this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
-            this.scheduleReconnect('estado inválido detectado');
+          if (state === 'CONNECTED') {
+            // Reset contador de falhas em caso de sucesso
+            this.healthCheckFailures = 0;
+          } else {
+            this.healthCheckFailures++;
+            this.addLog(`Health check: estado inesperado (${state}) - falha ${this.healthCheckFailures}/${maxHealthCheckFailures}`);
+
+            if (this.healthCheckFailures >= maxHealthCheckFailures) {
+              this._status = 'disconnected';
+              this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+              this.scheduleReconnect('estado inválido persistente');
+              this.healthCheckFailures = 0;
+            }
           }
         } catch (error) {
-          this.addLog(`Health check falhou: ${error.message}`);
-          this.status = 'disconnected';
-          this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
-          this.scheduleReconnect('health check falhou');
+          this.healthCheckFailures++;
+          this.addLog(`Health check falhou: ${error.message} - falha ${this.healthCheckFailures}/${maxHealthCheckFailures}`);
+
+          // Só marcar como desconectado após múltiplas falhas
+          if (this.healthCheckFailures >= maxHealthCheckFailures) {
+            this._status = 'disconnected';
+            this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+            this.scheduleReconnect('health check falhou repetidamente');
+            this.healthCheckFailures = 0;
+          }
         }
       }
-    }, 60000); // Aumentado de 30s para 60s
+    }, 120000); // 2 minutos entre verificações
   }
 
   // Parar health check
@@ -396,7 +475,7 @@ class WhatsAppService {
   }
 
   async sendMessage(phone, message) {
-    if (this.status !== 'connected') {
+    if (this._status !== 'connected') {
       throw new Error('WhatsApp não está conectado. Acesse o painel admin para conectar.');
     }
 
@@ -498,7 +577,7 @@ class WhatsAppService {
 
   getStatus() {
     return {
-      status: this.status,
+      status: this._status,
       qrCode: this.qrCode,
       stats: this.stats,
       logs: this.logs.slice(-20), // Últimos 20 logs
@@ -506,7 +585,8 @@ class WhatsAppService {
         attempts: this.reconnectAttempts,
         maxAttempts: this.maxReconnectAttempts,
         isScheduled: !!this.reconnectTimeout,
-        lastHealthCheck: this.lastHealthCheck
+        lastHealthCheck: this.lastHealthCheck,
+        healthCheckFailures: this.healthCheckFailures || 0
       }
     };
   }
@@ -515,7 +595,7 @@ class WhatsAppService {
     return [{
       tokenNumber: 1,
       tokenPreview: 'whatsapp-web.js',
-      available: this.status === 'connected',
+      available: this._status === 'connected',
       successCount: this.stats.successCount,
       failureCount: this.stats.failureCount,
       lastUsed: this.stats.lastUsed
