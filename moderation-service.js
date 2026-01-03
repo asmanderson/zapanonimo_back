@@ -1,12 +1,24 @@
 require('dotenv').config();
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-
 class ModerationService {
   constructor() {
-    this.apiKey = ANTHROPIC_API_KEY;
     this.cache = new Map(); // Cache simples para evitar chamadas repetidas
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutos
+  }
+
+  // Getter para sempre pegar a API key atualizada
+  get apiKey() {
+    return process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
+  }
+
+  // Getter para o modelo
+  get model() {
+    return process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307';
+  }
+
+  // Getter para verificar se está habilitado
+  get isEnabled() {
+    return process.env.CLAUDE_ENABLED === 'true';
   }
 
   // Gerar hash simples para cache
@@ -66,11 +78,11 @@ class ModerationService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
+          'X-Api-Key': this.apiKey,
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
+          model: this.model,
           max_tokens: 256,
           messages: [
             {
@@ -172,6 +184,7 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
       'fdp', 'filho da puta', 'filha da puta', 'fudido', 'foder', 'foda-se', 'fodase',
       'cu', 'cuzao', 'cuzinho', 'arrombado', 'arrombada',
       'viado', 'veado', 'bicha', 'bichona', 'sapatao', 'traveco',
+      'baitola', 'baitolao', 'baitolinha', 'boiola', 'boiolao',
       'buceta', 'xoxota', 'xereca', 'ppk', 'rola', 'pica', 'pau', 'piroca',
       'punheta', 'punheteiro', 'broxa', 'corno', 'cornudo', 'chifrudo',
       'otario', 'otaria', 'idiota', 'imbecil', 'retardado', 'retardada',
@@ -181,6 +194,12 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
       'vagabundo', 'vagal', 'safado', 'safada', 'canalha',
       'puto', 'puta que pariu', 'vsf', 'vai se fuder', 'tnc', 'tomar no cu',
       'vtnc', 'vai tomar no cu', 'pqp',
+      // Ofensas com animais
+      'vaca', 'vaca velha', 'vacona', 'galinha', 'cachorra', 'cadela',
+      'egua', 'jumenta', 'bezerra', 'piranhuda',
+      // Ofensas de idade/aparência
+      'velha', 'velho', 'coroa', 'acabada', 'acabado', 'feia', 'feio',
+      'gorda', 'gordo', 'baleia', 'elefante', 'baranga', 'mocreia',
       // Ameaças e violência
       'matar', 'assassinar', 'estuprar', 'sequestrar', 'bater',
       'socar', 'espancar', 'surrar', 'arrebentar', 'acabar com voce',
