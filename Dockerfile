@@ -45,7 +45,7 @@ COPY package*.json ./
 # Instalar dependências
 RUN npm install --omit=dev
 
-# Copiar o resto dos arquivos do backend
+# Copiar o resto dos arquivos do backend (inclui a pasta frontend)
 COPY . .
 
 # Criar pastas para sessão do WhatsApp com permissões
