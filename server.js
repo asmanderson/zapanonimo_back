@@ -112,6 +112,7 @@ const {
 } = require('./stripe-payment');
 const { getWhatsAppService } = require('./whatsapp-service');
 const smsService = require('./sms-service');
+const { getModerationService } = require('./moderation-service');
 
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
@@ -129,6 +130,7 @@ app.use(session({
 }));
 
 const whatsappService = getWhatsAppService();
+const moderationService = getModerationService();
 
 // Passar Socket.IO para o WhatsApp Service
 whatsappService.setSocketIO(io);
@@ -674,6 +676,17 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
   }
 
   try {
+    // Verificar conteúdo da mensagem com moderação
+    const moderation = await moderationService.validateMessage(message);
+    if (!moderation.allowed) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mensagem bloqueada por conteúdo inadequado',
+        moderationReason: moderation.reason,
+        moderationCategory: moderation.category
+      });
+    }
+
     await useCredit(req.userId, phone, message, 'whatsapp');
 
     const result = await whatsappService.sendMessage(phone, message);
@@ -770,6 +783,17 @@ app.post('/api/send-sms', authMiddleware, async (req, res) => {
   }
 
   try {
+    // Verificar conteúdo da mensagem com moderação
+    const moderation = await moderationService.validateMessage(message);
+    if (!moderation.allowed) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mensagem bloqueada por conteúdo inadequado',
+        moderationReason: moderation.reason,
+        moderationCategory: moderation.category
+      });
+    }
+
     await useCredit(req.userId, phone, message, 'sms');
 
     const result = await smsService.sendSMS(phone, message);
@@ -808,6 +832,17 @@ app.post('/api/send-bulk-sms', authMiddleware, async (req, res) => {
   }
 
   try {
+    // Verificar conteúdo da mensagem com moderação
+    const moderation = await moderationService.validateMessage(message);
+    if (!moderation.allowed) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mensagem bloqueada por conteúdo inadequado',
+        moderationReason: moderation.reason,
+        moderationCategory: moderation.category
+      });
+    }
+
     const user = await getUserById(req.userId);
     if (user.sms_credits < phoneNumbers.length) {
       return res.status(402).json({
