@@ -137,7 +137,10 @@ whatsappService.setSocketIO(io);
 whatsappService.initialize();
 
 // ==================== SERVIR ARQUIVOS ESTÁTICOS ====================
-const frontendPath = path.join(__dirname, '../frontend');
+// Em produção (Docker), frontend fica em ./frontend; localmente em ../zap-frontend
+const frontendPath = process.env.NODE_ENV === 'production'
+  ? path.join(__dirname, './frontend')
+  : path.join(__dirname, '../zap-frontend');
 
 // Rotas limpas (sem .html) - devem vir ANTES do express.static
 const cleanRoutes = ['admin', 'index', 'verify-email', 'reset-password', 'payment-success', 'payment-failure', 'payment-pending', 'payment-instructions'];

@@ -297,7 +297,9 @@ class WhatsAppService {
       }
     }, INIT_TIMEOUT);
 
-    // Configuração do Puppeteer - otimizado para VMs com recursos limitados
+    // Configuração do Puppeteer
+    const isDocker = process.env.NODE_ENV === 'production' || process.env.PUPPETEER_EXECUTABLE_PATH;
+
     const puppeteerConfig = {
       headless: true,
       args: [
@@ -306,30 +308,22 @@ class WhatsAppService {
         '--disable-dev-shm-usage',
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
+        '--no-zygote',
         '--disable-gpu',
-        '--disable-extensions',
-        '--disable-background-networking',
-        '--disable-default-apps',
-        '--disable-sync',
-        '--disable-translate',
-        '--hide-scrollbars',
-        '--metrics-recording-only',
-        '--mute-audio',
-        '--no-default-browser-check',
-        '--safebrowsing-disable-auto-update',
-        // Flags adicionais para otimização de memória em VMs limitadas
-        '--single-process',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-breakpad',
-        '--disable-component-extensions-with-background-pages',
-        '--disable-features=TranslateUI',
-        '--disable-ipc-flooding-protection',
-        '--disable-renderer-backgrounding',
-        '--memory-pressure-off',
-        '--js-flags=--max-old-space-size=512'
-      ],
-      timeout: 120000 // Aumentado de 60s para 120s
+        // Flags adicionais para Docker/produção
+        ...(isDocker ? [
+          '--disable-extensions',
+          '--disable-background-networking',
+          '--disable-default-apps',
+          '--disable-sync',
+          '--disable-translate',
+          '--hide-scrollbars',
+          '--metrics-recording-only',
+          '--mute-audio',
+          '--no-default-browser-check',
+          '--single-process'
+        ] : [])
+      ]
     };
 
     // Usar Chromium do sistema em produção (Fly.io/Docker)

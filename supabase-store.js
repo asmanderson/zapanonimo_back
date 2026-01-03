@@ -144,7 +144,7 @@ class SupabaseStore {
         return null;
       }
 
-      // Limpar arquivo zip anterior se existir
+      // Limpar arquivo/diretório zip anterior se existir
       if (fs.existsSync(zipPath)) {
         const stats = fs.statSync(zipPath);
         if (stats.isDirectory()) {
@@ -157,8 +157,10 @@ class SupabaseStore {
       // Salvar arquivo zip temporariamente
       const buffer = Buffer.from(await data.arrayBuffer());
 
-      if (buffer.length === 0) {
-        console.log('[SupabaseStore] Buffer vazio, sessão corrompida');
+      // Verificar se o arquivo é muito pequeno (corrompido)
+      if (buffer.length < 100) {
+        console.log(`[SupabaseStore] Sessão corrompida (${buffer.length} bytes), deletando...`);
+        await this.delete({});
         return null;
       }
 
@@ -172,11 +174,16 @@ class SupabaseStore {
 
       console.log(`[SupabaseStore] Arquivo zip salvo: ${zipPath} (${buffer.length} bytes)`);
 
+      // Limpar diretório de destino antes de extrair
+      if (options.path && fs.existsSync(options.path)) {
+        fs.rmSync(options.path, { recursive: true, force: true });
+      }
+
       // Extrair sessão
       const sessionData = await this.unzipSession(zipPath, options.path);
 
       // Limpar arquivo temporário
-      if (fs.existsSync(zipPath)) {
+      if (fs.existsSync(zipPath) && fs.statSync(zipPath).isFile()) {
         fs.unlinkSync(zipPath);
       }
 
