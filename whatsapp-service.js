@@ -486,9 +486,18 @@ class WhatsAppService {
       throw new Error(`Número inválido: ${cleanPhone}. Use formato: 5511999999999`);
     }
 
-    const chatId = `${cleanPhone}@c.us`;
-
     try {
+      // Verificar se o número está registrado no WhatsApp e obter o ID correto
+      const numberId = await this.client.getNumberId(cleanPhone);
+
+      if (!numberId) {
+        throw new Error(`O número ${cleanPhone} não está registrado no WhatsApp`);
+      }
+
+      // Usar o ID retornado pelo WhatsApp (pode ser @c.us ou @s.whatsapp.net)
+      const chatId = numberId._serialized;
+      this.addLog(`Enviando para ${chatId}`);
+
       const result = await this.client.sendMessage(chatId, message);
       this.stats.successCount++;
       this.stats.lastUsed = new Date();
