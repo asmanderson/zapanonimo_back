@@ -161,20 +161,46 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
 
   // Validação básica local (sem API)
   basicValidation(message) {
-    // Lista de palavras obviamente proibidas (casos extremos)
-    const extremeWords = [
-      'matar', 'assassinar', 'estuprar', 'sequestrar',
-      'bomba', 'terrorismo', 'pedofilia'
+    const lowerMessage = message.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove acentos
+
+    // Lista de palavrões e ofensas em português
+    const badWords = [
+      // Palavrões comuns
+      'porra', 'caralho', 'cacete', 'merda', 'bosta', 'coco',
+      'puta', 'putaria', 'putinha', 'vagabunda', 'vadia', 'piranha',
+      'fdp', 'filho da puta', 'filha da puta', 'fudido', 'foder', 'foda-se', 'fodase',
+      'cu', 'cuzao', 'cuzinho', 'arrombado', 'arrombada',
+      'viado', 'veado', 'bicha', 'bichona', 'sapatao', 'traveco',
+      'buceta', 'xoxota', 'xereca', 'ppk', 'rola', 'pica', 'pau', 'piroca',
+      'punheta', 'punheteiro', 'broxa', 'corno', 'cornudo', 'chifrudo',
+      'otario', 'otaria', 'idiota', 'imbecil', 'retardado', 'retardada',
+      'babaca', 'besta', 'burro', 'burra', 'animal', 'jumento',
+      'desgraca', 'desgraçado', 'desgraçada', 'maldito', 'maldita',
+      'nojento', 'nojenta', 'lixo', 'escoria', 'verme',
+      'vagabundo', 'vagal', 'safado', 'safada', 'canalha',
+      'puto', 'puta que pariu', 'vsf', 'vai se fuder', 'tnc', 'tomar no cu',
+      'vtnc', 'vai tomar no cu', 'pqp',
+      // Ameaças e violência
+      'matar', 'assassinar', 'estuprar', 'sequestrar', 'bater',
+      'socar', 'espancar', 'surrar', 'arrebentar', 'acabar com voce',
+      'bomba', 'terrorismo', 'pedofilia', 'pedofilo',
+      'vou te pegar', 'vai morrer', 'te mato', 'vou matar',
+      // Discriminação
+      'macaco', 'crioulo', 'negao', 'preto fedido', 'branquelo',
+      'nazista', 'hitler',
+      // Golpes
+      'pix agora', 'me passa', 'senha do banco', 'cartao de credito'
     ];
 
-    const lowerMessage = message.toLowerCase();
-
-    for (const word of extremeWords) {
-      if (lowerMessage.includes(word)) {
+    for (const word of badWords) {
+      // Verificar palavra exata ou como parte de palavra
+      const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+      if (regex.test(lowerMessage) || lowerMessage.includes(word)) {
         return {
           allowed: false,
-          reason: 'Conteúdo potencialmente perigoso detectado',
-          category: 'dangerous_content'
+          reason: 'Mensagem contém conteúdo inadequado ou ofensivo',
+          category: 'inappropriate_content'
         };
       }
     }
