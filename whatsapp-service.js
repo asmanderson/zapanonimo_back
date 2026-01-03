@@ -470,7 +470,7 @@ class WhatsAppService {
 
   async sendMessage(phone, message) {
     if (this._status !== 'connected') {
-      throw new Error('WhatsApp não está conectado. Acesse o painel admin para conectar.');
+      throw new Error('Sistema temporariamente offline. Tente novamente em alguns minutos.');
     }
 
     // Formatar número: remover caracteres não numéricos

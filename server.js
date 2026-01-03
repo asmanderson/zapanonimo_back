@@ -905,7 +905,7 @@ app.get('/api/sms/balance', authMiddleware, async (req, res) => {
 
 // Credenciais admin do .env
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'Z@p4n0n1m0#2025';
 const jwt = require('jsonwebtoken');
 const ADMIN_JWT_SECRET = process.env.JWT_SECRET || 'admin-secret-key';
 
