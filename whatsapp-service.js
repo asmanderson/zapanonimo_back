@@ -469,8 +469,27 @@ class WhatsAppService {
   }
 
   async sendMessage(phone, message) {
+    // Se status interno diz desconectado, mas temos cliente, verificar estado real
     if (this._status !== 'connected') {
-      throw new Error('Sistema temporariamente offline. Tente novamente em alguns minutos.');
+      if (this.client) {
+        try {
+          const state = await Promise.race([
+            this.client.getState(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+          ]);
+          if (state === 'CONNECTED') {
+            this._status = 'connected';
+            this.addLog('Status corrigido automaticamente: cliente estava conectado');
+          }
+        } catch (e) {
+          // Falhou, manter erro original
+        }
+      }
+
+      // Verificar novamente após tentativa de correção
+      if (this._status !== 'connected') {
+        throw new Error('Sistema temporariamente offline. Tente novamente em alguns minutos.');
+      }
     }
 
     // Formatar número: remover caracteres não numéricos

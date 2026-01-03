@@ -738,9 +738,29 @@ app.post('/api/test-whatsapp', authMiddleware, async (req, res) => {
 });
 
 // Endpoint público para verificar disponibilidade do WhatsApp (usado pelo frontend)
-app.get('/api/whatsapp/available', authMiddleware, (req, res) => {
+app.get('/api/whatsapp/available', authMiddleware, async (req, res) => {
   try {
-    const isConnected = whatsappService.status === 'connected';
+    // Verificar status interno primeiro
+    let isConnected = whatsappService.status === 'connected';
+
+    // Se o status interno diz desconectado, mas temos um cliente, verificar estado real
+    if (!isConnected && whatsappService.client) {
+      try {
+        const state = await Promise.race([
+          whatsappService.client.getState(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+        ]);
+        if (state === 'CONNECTED') {
+          // Cliente está conectado mas status interno está errado - corrigir
+          whatsappService._status = 'connected';
+          isConnected = true;
+          console.log('[WhatsApp] Status corrigido: cliente estava conectado mas status interno estava errado');
+        }
+      } catch (e) {
+        // Falhou verificação real, manter status interno
+      }
+    }
+
     res.json({
       success: true,
       available: isConnected,
