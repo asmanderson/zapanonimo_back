@@ -3,16 +3,22 @@
  * Usado com RemoteAuth do whatsapp-web.js
  */
 
+require('dotenv').config();
+
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 const unzipper = require('unzipper');
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://lvjtbzonstvklytiltnm.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseUrl || !supabaseKey) {
+  console.error('[SupabaseStore] ERRO: SUPABASE_URL e SUPABASE_KEY devem estar configuradas no .env');
+}
+
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 const BUCKET_NAME = 'whatsapp-sessions';
 const SESSION_FILE = 'session.zip';
@@ -33,6 +39,11 @@ class SupabaseStore {
    * Verifica se o bucket existe, se não, cria
    */
   async ensureBucket() {
+    if (!supabase) {
+      console.error('[SupabaseStore] Cliente Supabase não inicializado');
+      return;
+    }
+
     try {
       const { data: buckets } = await supabase.storage.listBuckets();
       const bucketExists = buckets?.some(b => b.name === this.bucketName);

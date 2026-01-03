@@ -469,9 +469,14 @@ class WhatsAppService {
   }
 
   async sendMessage(phone, message) {
-    // Verificar se temos cliente disponível (mais tolerante que verificar status)
+    // Verificar se temos cliente disponível e conectado
     if (!this.client) {
       throw new Error('Sistema temporariamente offline. Tente novamente em alguns minutos.');
+    }
+
+    // Verificar se está conectado ou pelo menos tentando conectar
+    if (this._status === 'disconnected') {
+      throw new Error('WhatsApp desconectado. Aguarde a reconexão automática ou entre em contato com o suporte.');
     }
 
     // Formatar número: remover caracteres não numéricos

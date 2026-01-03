@@ -1,10 +1,18 @@
+require('dotenv').config();
+
 const bcrypt = require('bcrypt');
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://lvjtbzonstvklytiltnm.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2anRiem9uc3R2a2x5dGlsdG5tIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTcxMzIwNCwiZXhwIjoyMDc1Mjg5MjA0fQ.eLjJwgEPvXw4wHpRZhRsT02kq8-GF1lxFQTSyls6gBM';
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('[Database] ERRO: SUPABASE_URL e SUPABASE_KEY devem estar configuradas no .env');
+  throw new Error('Configuração do Supabase ausente. Verifique o arquivo .env');
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+console.log('[Database] Conexão com Supabase inicializada');
 
 async function createUser(email, password) {
   const hashedPassword = await bcrypt.hash(password, 10);

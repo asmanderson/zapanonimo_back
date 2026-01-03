@@ -139,10 +139,8 @@ whatsappService.setSocketIO(io);
 whatsappService.initialize();
 
 // ==================== SERVIR ARQUIVOS ESTÁTICOS ====================
-// Em produção (Docker), frontend fica em ./frontend; localmente em ../zap-frontend
-const frontendPath = process.env.NODE_ENV === 'production'
-  ? path.join(__dirname, './frontend')
-  : path.join(__dirname, '../zap-frontend');
+// Frontend sempre fica em ./frontend (tanto em produção quanto em desenvolvimento)
+const frontendPath = path.join(__dirname, './frontend');
 
 // Rotas limpas (sem .html) - devem vir ANTES do express.static
 const cleanRoutes = ['admin', 'index', 'verify-email', 'reset-password', 'payment-success', 'payment-failure', 'payment-pending', 'payment-instructions'];
@@ -444,17 +442,28 @@ app.post('/api/stripe/webhook', async (req, res) => {
   }
 });
 
+// Cache para evitar processamento duplicado de pagamentos
+const processedPayments = new Set();
+
 app.get('/api/verify-payment/:sessionId', authMiddleware, async (req, res) => {
   try {
-    const session = await verifySession(req.params.sessionId);
+    const sessionId = req.params.sessionId;
+    const session = await verifySession(sessionId);
 
+    // Verificar se já foi processado (evita duplicação de créditos)
     if (session.payment_status === 'paid' && session.metadata.userId) {
-      const userId = parseInt(session.metadata.userId);
-      const quantity = parseInt(session.metadata.quantity);
-      const price = session.amount_total / 100;
-      const creditType = session.metadata.creditType || 'whatsapp';
+      if (!processedPayments.has(sessionId)) {
+        const userId = parseInt(session.metadata.userId);
+        const quantity = parseInt(session.metadata.quantity);
+        const price = session.amount_total / 100;
+        const creditType = session.metadata.creditType || 'whatsapp';
 
-      await addCredits(userId, quantity, price, creditType);
+        await addCredits(userId, quantity, price, creditType);
+        processedPayments.add(sessionId);
+
+        // Limpar cache após 1 hora para não consumir memória
+        setTimeout(() => processedPayments.delete(sessionId), 60 * 60 * 1000);
+      }
     }
 
     res.json({
@@ -526,14 +535,18 @@ app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), asy
 
 app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
   try {
-    const webhookSecret = process.env.WASENDER_WEBHOOK_SECRET || '8f3e09312a522a821f1fc24dec0c9428';
+    const webhookSecret = process.env.WASENDER_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.warn('[Webhook] WASENDER_WEBHOOK_SECRET não configurado - webhook desprotegido');
+    }
     const receivedSecret = req.headers['x-webhook-signature'] ||
                           req.headers['x-webhook-secret'] ||
                           req.headers['authorization']?.replace('Bearer ', '') ||
                           req.body.secret ||
                           req.query.secret;
 
-    if (receivedSecret && receivedSecret !== webhookSecret) {
+    // Só valida se o webhook secret estiver configurado
+    if (webhookSecret && receivedSecret && receivedSecret !== webhookSecret) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
@@ -915,7 +928,10 @@ app.get('/api/sms/balance', authMiddleware, async (req, res) => {
 
 // Credenciais admin do .env
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'Z@p4n0n1m0#2025';
+const ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN_PASS) {
+  console.error('[Admin] AVISO: ADMIN_PASS não configurado no .env');
+}
 const jwt = require('jsonwebtoken');
 const ADMIN_JWT_SECRET = process.env.JWT_SECRET || 'admin-secret-key';
 

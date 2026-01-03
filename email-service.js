@@ -13,7 +13,13 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-transporter.verify(function(error, success) {});
+transporter.verify(function(error, success) {
+  if (error) {
+    console.error('[Email] Erro ao verificar transporter SMTP:', error.message);
+  } else {
+    console.log('[Email] Transporter SMTP verificado com sucesso');
+  }
+});
 
 async function sendVerificationEmail(email, verificationToken) {
   const baseUrl = process.env.BASE_URL || 'http://localhost:3000';

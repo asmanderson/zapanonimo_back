@@ -161,6 +161,12 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
 
   // Método principal para validar mensagem antes do envio
   async validateMessage(message) {
+    // Se a moderação estiver desabilitada, permitir todas as mensagens
+    if (!this.isEnabled) {
+      console.log('[Moderation] Moderação desabilitada via CLAUDE_ENABLED');
+      return { allowed: true, reason: null };
+    }
+
     // Verificações básicas primeiro (mais rápidas)
     const basicCheck = this.basicValidation(message);
     if (!basicCheck.allowed) {
