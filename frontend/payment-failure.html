@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagamento Falhou - WhatsApp Sender</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 50px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .error-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #c92a2a;
+            margin-bottom: 15px;
+            font-size: 32px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        .info-box {
+            background: #fff5f5;
+            border-left: 4px solid #c92a2a;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .info-box p {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .info-box strong {
+            color: #c92a2a;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            background-color: #25D366;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            background-color: #128C7E;
+        }
+
+        .btn-secondary {
+            background-color: #495057;
+        }
+
+        .btn-secondary:hover {
+            background-color: #343a40;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-icon">❌</div>
+        <h1>Pagamento Não Aprovado</h1>
+        <p>Infelizmente seu pagamento não foi processado.</p>
+
+        <div class="info-box">
+            <p><strong>Possíveis motivos:</strong></p>
+            <ul style="margin-left: 20px; color: #666;">
+                <li>Saldo insuficiente</li>
+                <li>Cartão bloqueado ou expirado</li>
+                <li>Dados de pagamento incorretos</li>
+                <li>Transação cancelada</li>
+            </ul>
+        </div>
+
+        <a href="/index.html" class="btn">Tentar Novamente</a>
+        <br>
+        <a href="/index.html" class="btn btn-secondary">Voltar à Página Inicial</a>
+    </div>
+</body>
+</html>

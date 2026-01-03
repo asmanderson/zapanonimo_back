@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zap Anônimo - Envie Mensagens pelo WhatsApp</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom, #f0f4f8 0%, #ffffff 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .navbar {
+            max-width: 700px;
+            margin: 0 auto 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 15px;
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+
+        .navbar h1 {
+            color: #1a1a1a;
+            font-size: 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .whatsapp-icon {
+            width: 32px;
+            height: 32px;
+            background: #25D366;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .whatsapp-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        @media (max-width: 768px) {
+            .navbar h1 {
+                font-size: 20px;
+            }
+        }
+
+        .navbar-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-buttons {
+                width: 100%;
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+
+        .user-email {
+            color: #1a1a1a;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+            .user-email {
+                max-width: 100%;
+                width: 100%;
+                text-align: center;
+                font-size: 13px;
+                order: 3;
+                background: #f8fafc;
+                padding: 8px;
+                border-radius: 6px;
+            }
+
+            .credits-badge {
+                order: 1;
+                flex: 1;
+                text-align: center;
+            }
+
+            .btn-nav {
+                order: 2;
+                flex: 1;
+                width: 100%;
+            }
+        }
+
+        .btn-nav {
+            padding: 10px 24px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-nav:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+
+        .credits-badge {
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .channel-btn {
+            flex: 1;
+            padding: 12px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .channel-btn:hover {
+            border-color: #4f46e5;
+        }
+
+        .channel-btn.active {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        h2 {
+            color: #1e293b;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            user-select: none;
+            color: #666;
+            transition: color 0.3s;
+        }
+
+        .toggle-password:hover {
+            color: #25D366;
+        }
+
+        .toggle-password svg {
+            width: 100%;
+            height: 100%;
+            fill: currentColor;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="password"],
+        input.password-input {
+            padding-right: 45px;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #25D366;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: Arial, sans-serif;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background-color: #4338ca;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn:disabled {
+            background-color: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 17px;
+            padding: 18px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #5e3a7f 100%);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 5px;
+            text-align: center;
+            display: none;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .info-box {
+            background: #eef2ff;
+            border-left: 4px solid #4f46e5;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            color: #475569;
+            font-size: 14px;
+        }
+
+        .info-box strong {
+            color: #4f46e5;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 40px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            color: #666;
+            font-weight: bold;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #4f46e5;
+            border-bottom-color: #4f46e5;
+        }
+
+        .form-content {
+            display: none;
+        }
+
+        .form-content.active {
+            display: block;
+        }
+
+        .quantity-selector {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .quantity-selector {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .quantity-option {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .quantity-option:hover {
+            border-color: #4f46e5;
+        }
+
+        .quantity-option.selected {
+            border-color: #4f46e5;
+            background-color: #eef2ff;
+        }
+
+        .quantity-option .amount {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4f46e5;
+            line-height: 1.3;
+        }
+
+        .quantity-option .price {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .history-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-item .date {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .history-item .details {
+            margin-top: 5px;
+            color: #333;
+        }
+
+        .history-item.reply-item {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-left: 4px solid #4f46e5;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .welcome-message {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .welcome-message h2 {
+            color: white;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .welcome-message p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>
+            <div class="whatsapp-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                </svg>
+            </div>
+            Zap Anônimo
+        </h1>
+        <div class="navbar-buttons" id="navbar-buttons">
+            <button class="btn-nav" onclick="openLoginModal()">Entrar / Cadastrar</button>
+        </div>
+    </div>
+
+
+    <div class="main-container" id="welcome-section">
+        <div class="card full-width" style="text-align: center; max-width: 700px; margin: 0 auto;">
+
+            <div style="margin-bottom: 40px;">
+                <h2 style="font-size: 42px; color: #1e293b; font-weight: 700; margin-bottom: 15px; line-height: 1.2;">
+                    Mensagens Anônimas<br>no WhatsApp
+                </h2>
+                <p style="font-size: 20px; color: #64748b; font-weight: 400; margin-top: 15px;">
+                    Envie mensagens sem revelar sua identidade
+                </p>
+            </div>
+
+            <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 40px; border-radius: 16px; margin: 40px 0; color: white; box-shadow: 0 10px 40px rgba(79, 70, 229, 0.2);">
+
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">📱 WhatsApp</div>
+                    <div style="font-size: 48px; font-weight: 700;">R$ 2,00</div>
+                    <div style="font-size: 16px; opacity: 0.85;">por mensagem</div>
+                </div>
+
+
+                <div style="background: rgba(255, 255, 255, 0.15); padding: 20px; border-radius: 12px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; opacity: 0.95;">💰 Pacotes com Desconto (até 30% OFF)</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; font-size: 14px;">
+                        <div style="text-align: left;">
+                            <strong>5 mensagens</strong>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 9,50 <span style="opacity: 0.8;">(5% OFF)</span></div>
+                        </div>
+                        <div style="text-align: left;">
+                            <strong>25 mensagens</strong>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 45 <span style="opacity: 0.8;">(10% OFF)</span></div>
+                        </div>
+                        <div style="text-align: left;">
+                            <strong>50 mensagens</strong>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 80 <span style="opacity: 0.8;">(20% OFF)</span></div>
+                        </div>
+                        <div style="text-align: left;">
+                            <strong>100 mensagens</strong>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 140 <span style="opacity: 0.8;">(30% OFF)</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: left; margin: 40px 0; background: #ffffff; border: 1px solid #e2e8f0; padding: 30px; border-radius: 12px;">
+                <div style="display: flex; align-items: start; gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #4f46e5; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px; font-weight: 600;">1</div>
+                    <div>
+                        <h3 style="color: #1e293b; font-size: 16px; margin-bottom: 5px; font-weight: 600;">Informe o destinatário</h3>
+                        <p style="color: #64748b; font-size: 14px; margin: 0;">Digite o número de WhatsApp para quem deseja enviar</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: start; gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #4f46e5; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px; font-weight: 600;">2</div>
+                    <div>
+                        <h3 style="color: #1e293b; font-size: 16px; margin-bottom: 5px; font-weight: 600;">Escreva sua mensagem</h3>
+                        <p style="color: #64748b; font-size: 14px; margin: 0;">Crie o texto que será enviado de forma anônima</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: start; gap: 15px;">
+                    <div style="background: #4f46e5; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px; font-weight: 600;">3</div>
+                    <div>
+                        <h3 style="color: #1e293b; font-size: 16px; margin-bottom: 5px; font-weight: 600;">Envie com segurança</h3>
+                        <p style="color: #64748b; font-size: 14px; margin: 0;">Sua mensagem é entregue instantaneamente e de forma totalmente anônima</p>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn" onclick="openLoginModal()" style="font-size: 18px; padding: 18px; margin-top: 20px;">
+                Começar Agora
+            </button>
+            <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; color: white;">
+                <p style="font-size: 18px; font-weight: 600; margin: 0 0 10px 0;">
+                    🎁 Bônus de Boas-Vindas
+                </p>
+                <p style="font-size: 15px; margin: 0; opacity: 0.95;">
+                    Cadastre-se e ganhe:<br>
+                    📱 <strong>1 mensagem WhatsApp grátis!</strong>
+                </p>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="main-container hidden" id="main-section">
+
+        <div class="card">
+            <h2>Enviar Mensagem</h2>
+            <p class="subtitle">Envie mensagens de forma anônima e instantânea</p>
+
+            <div class="info-box">
+                <p><strong>Custo:</strong> R$ 2,00 por mensagem</p>
+                <p><strong>Saldo:</strong> 📱 <span id="credits-send-whatsapp">0</span> mensagens</p>
+            </div>
+
+            <form id="sendForm" onsubmit="handleSend(event)">
+                <div class="form-group">
+                    <label for="phone">Número de Telefone</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input
+                            type="text"
+                            value="+55"
+                            readonly
+                            style="width: 60px; background: #f0f0f0; color: #666;"
+                        >
+                        <input
+                            type="tel"
+                            id="phone"
+                            placeholder="11999999999"
+                            required
+                            pattern="[0-9]{10,11}"
+                            maxlength="11"
+                            style="flex: 1;"
+                        >
+                    </div>
+                    <p class="hint">Digite apenas DDD + número (ex: 11999999999)</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="message">Mensagem</label>
+                    <textarea
+                        id="message"
+                        placeholder="Digite sua mensagem aqui..."
+                        maxlength="65536"
+                        required
+                    ></textarea>
+                    <small style="color: #64748b; font-size: 12px;">Máximo: 65.536 caracteres</small>
+                </div>
+
+                <button type="submit" class="btn" id="send-btn">Enviar Mensagem</button>
+            </form>
+
+            <div id="whatsapp-status-indicator" class="message" style="display: none;"></div>
+            <div id="send-message" class="message"></div>
+        </div>
+
+
+        <div class="card">
+            <h2>Comprar Mensagens</h2>
+            <p class="subtitle">R$ 2,00 por mensagem</p>
+
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: 600; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);">
+                Promoção: Até 30% de desconto em pacotes
+            </div>
+
+            <div class="quantity-selector" id="quantity-selector">
+                <div class="quantity-option" onclick="selectQuantity(5)">
+                    <div class="amount">5 mensagens</div>
+                    <div class="price">R$ 9,50 <small style="color: #333;">(5% OFF)</small></div>
+                </div>
+                <div class="quantity-option" onclick="selectQuantity(25)">
+                    <div class="amount">25 mensagens</div>
+                    <div class="price">R$ 45 <small style="color: #333;">(10% OFF)</small></div>
+                </div>
+                <div class="quantity-option" onclick="selectQuantity(50)">
+                    <div class="amount">50 mensagens</div>
+                    <div class="price">R$ 80 <small style="color: #333;">(20% OFF)</small></div>
+                </div>
+                <div class="quantity-option" onclick="selectQuantity(100)">
+                    <div class="amount">100 mensagens</div>
+                    <div class="price">R$ 140 <small style="color: #333;">(30% OFF)</small></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="custom-quantity">Ou digite a quantidade:</label>
+                <input
+                    type="number"
+                    id="custom-quantity"
+                    min="1"
+                    placeholder="Quantidade de mensagens"
+                >
+            </div>
+
+            <button class="btn btn-secondary" onclick="buyCredits()" id="buy-btn">Comprar Mensagens</button>
+
+            <div id="buy-message" class="message"></div>
+        </div>
+
+     
+        <div class="card">
+            <h2>Mensagens Enviadas</h2>
+            <p class="subtitle">Histórico de mensagens que você enviou</p>
+            <div class="history-list" id="history-list">
+                <p style="text-align: center; color: #999;">Carregando...</p>
+            </div>
+        </div>
+
+
+        <div class="card">
+            <h2>Respostas Recebidas</h2>
+            <p class="subtitle">Respostas às suas mensagens anônimas</p>
+            <div class="history-list" id="replies-list">
+                <p style="text-align: center; color: #999;">Carregando...</p>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="forgotPasswordModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeForgotPasswordModal()">&times;</span>
+            <h2 style="color: #1e293b; margin-bottom: 10px;">Recuperar Senha</h2>
+            <p style="color: #64748b; margin-bottom: 30px;">Digite seu email para receber o link de recuperação</p>
+
+            <form onsubmit="handleForgotPassword(event)">
+                <div class="form-group">
+                    <label for="forgot-email">Email</label>
+                    <input type="email" id="forgot-email" required>
+                </div>
+
+                <button type="submit" class="btn" id="forgot-btn">Enviar Link de Recuperação</button>
+            </form>
+
+            <div id="forgot-message" class="message"></div>
+
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="#" onclick="backToLogin(event)" style="color: #4f46e5; text-decoration: none; font-size: 14px;">Voltar ao Login</a>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeLoginModal()">&times;</span>
+            <h2 style="color: #1e293b; margin-bottom: 10px;">Bem-vindo</h2>
+            <p style="color: #64748b; margin-bottom: 30px;">Faça login ou crie sua conta</p>
+
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('login')">Login</div>
+                <div class="tab" onclick="switchTab('register')">Cadastro</div>
+            </div>
+
+       
+            <div id="login-form" class="form-content active">
+                <form onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label for="login-email">Email</label>
+                        <input type="email" id="login-email" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="login-password">Senha</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="login-password" class="password-input" required>
+                            <span class="toggle-password" onclick="togglePassword('login-password')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn" id="login-btn">Entrar</button>
+                </form>
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="#" onclick="openForgotPasswordModal(event)" style="color: #4f46e5; text-decoration: none; font-size: 14px;">Esqueceu sua senha?</a>
+                </div>
+            </div>
+
+            <div id="register-form" class="form-content">
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 18px; margin-bottom: 20px; border-radius: 8px; color: white;">
+                    <p style="font-size: 15px; margin: 0 0 8px 0; font-weight: 600;">
+                        🎁 Bônus de Boas-Vindas
+                    </p>
+                    <p style="font-size: 14px; margin: 0; opacity: 0.95;">
+                        📱 <strong>1 mensagem WhatsApp grátis!</strong>
+                    </p>
+                </div>
+                <form onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label for="register-email">Email</label>
+                        <input type="email" id="register-email" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="register-password">Senha</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="register-password" class="password-input" required minlength="6">
+                            <span class="toggle-password" onclick="togglePassword('register-password')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                </svg>
+                            </span>
+                        </div>
+                        <p class="hint">Mínimo 6 caracteres</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="register-password-confirm">Confirmar Senha</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="register-password-confirm" class="password-input" required>
+                            <span class="toggle-password" onclick="togglePassword('register-password-confirm')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn" id="register-btn">Criar Conta</button>
+                </form>
+            </div>
+
+            <div id="modal-message" class="message"></div>
+        </div>
+    </div>
+
+
+    <script src="config.js"></script>
+    <script src="api.js"></script>
+
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+
+    <script>
+        let token = localStorage.getItem('token');
+        let user = JSON.parse(localStorage.getItem('user') || 'null');
+        let selectedQuantity = 0;
+        let selectedChannel = 'whatsapp';
+        let selectedCreditType = 'whatsapp';
+        let repliesPollingInterval = null;
+        let socket = null;
+
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const toggle = event.currentTarget;
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                toggle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>';
+            } else {
+                input.type = 'password';
+                toggle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>';
+            }
+        }
+
+        function updateUI() {
+            const navButtons = document.getElementById('navbar-buttons');
+            const welcomeSection = document.getElementById('welcome-section');
+            const mainSection = document.getElementById('main-section');
+
+            if (token && user) {
+                navButtons.innerHTML = `
+                    <span class="user-email">${user.email}</span>
+                    <button class="btn-nav" onclick="logout()">Sair</button>
+                `;
+                welcomeSection.classList.add('hidden');
+                mainSection.classList.remove('hidden');
+                loadUserData();
+                loadHistory();
+                loadReplies();
+                connectSocket();
+                startRepliesPolling();
+                checkWhatsAppStatus(); 
+            } else {
+                navButtons.innerHTML = `
+                    <button class="btn-nav" onclick="openLoginModal()">Entrar / Cadastrar</button>
+                `;
+                welcomeSection.classList.remove('hidden');
+                mainSection.classList.add('hidden');
+                disconnectSocket(); 
+                stopRepliesPolling();
+            }
+        }
+
+        async function loadUserData() {
+            if (!token) return;
+
+            try {
+                const response = await API.get('/api/user/profile', token);
+
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    updateCreditsDisplay(data.user.whatsapp_credits, data.user.sms_credits);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+            }
+        }
+
+        function updateCreditsDisplay(whatsappCredits, smsCredits) {
+            document.getElementById('credits-send-whatsapp').textContent = whatsappCredits;
+        }
+
+        async function checkWhatsAppStatus() {
+            const indicator = document.getElementById('whatsapp-status-indicator');
+            try {
+                const response = await API.get('/api/whatsapp/available', token);
+                const data = await response.json();
+
+                if (data.success && data.available) {
+                    indicator.style.display = 'none';
+                } else {
+                    indicator.style.display = 'block';
+                    indicator.className = 'message error';
+                    indicator.innerHTML = 'Sistema temporariamente offline. Tente novamente em alguns minutos.';
+                }
+            } catch (error) {
+                indicator.style.display = 'block';
+                indicator.className = 'message error';
+                indicator.innerHTML = 'Erro ao verificar status do WhatsApp';
+            }
+        }
+
+        function hideWhatsAppStatus() {
+            const indicator = document.getElementById('whatsapp-status-indicator');
+            indicator.style.display = 'none';
+        }
+
+        async function loadHistory() {
+            if (!token) return;
+
+            try {
+                const response = await API.get('/api/messages', token);
+
+                const data = await response.json();
+                const historyList = document.getElementById('history-list');
+
+                if (data.success && data.messages.length > 0) {
+                    historyList.innerHTML = data.messages.map(msg => {
+                        const hasReply = msg.has_reply ? '<span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px;">Respondida</span>' : '';
+                        return `
+                            <div class="history-item">
+                                <div class="date">${new Date(msg.created_at).toLocaleString('pt-BR')}${hasReply}</div>
+                                <div class="details">
+                                    <strong>Para:</strong> ${msg.phone}<br>
+                                    <strong>Mensagem:</strong> ${msg.message}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    historyList.innerHTML = '<p style="text-align: center; color: #999;">Nenhuma mensagem enviada ainda</p>';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar histórico:', error);
+            }
+        }
+
+        async function loadReplies() {
+            if (!token) return;
+
+            const repliesList = document.getElementById('replies-list');
+
+            try {
+                const response = await API.get('/api/replies', token);
+
+                const data = await response.json();
+
+                if (data.success && data.replies && data.replies.length > 0) {
+                    repliesList.innerHTML = data.replies.map(reply => {
+                        return `
+                            <div class="history-item reply-item">
+                                <div class="date">
+                                    <span style="background: #4f46e5; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-right: 8px;">Nova</span>
+                                    ${new Date(reply.created_at).toLocaleString('pt-BR')}
+                                </div>
+                                <div class="details">
+                                    <strong>De:</strong> ${reply.from_phone}<br>
+                                    <strong>Resposta:</strong> ${reply.message}
+                                </div>
+                                ${reply.original_message ? `<div style="margin-top: 10px; padding: 10px; background: #f8fafc; border-radius: 6px; border-left: 3px solid #cbd5e1;">
+                                    <small style="color: #64748b;">Em resposta a:</small><br>
+                                    <span style="color: #475569; font-size: 13px;">${reply.original_message}</span>
+                                </div>` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    repliesList.innerHTML = `
+                        <div style="text-align: center; padding: 30px 20px;">
+                            <div style="font-size: 48px; margin-bottom: 15px;">📭</div>
+                            <p style="color: #64748b; margin: 0;">Nenhuma resposta recebida ainda</p>
+                            <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">Quando alguém responder suas mensagens, aparecerá aqui</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar respostas:', error);
+                repliesList.innerHTML = `
+                    <div style="text-align: center; padding: 30px 20px;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">📭</div>
+                        <p style="color: #64748b; margin: 0;">Nenhuma resposta recebida ainda</p>
+                        <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">Quando alguém responder suas mensagens, aparecerá aqui</p>
+                    </div>
+                `;
+            }
+        }
+
+        function openLoginModal() {
+            document.getElementById('loginModal').style.display = 'block';
+        }
+
+        function closeLoginModal() {
+            document.getElementById('loginModal').style.display = 'none';
+        }
+
+        function openForgotPasswordModal(event) {
+            event.preventDefault();
+            document.getElementById('loginModal').style.display = 'none';
+            document.getElementById('forgotPasswordModal').style.display = 'block';
+        }
+
+        function closeForgotPasswordModal() {
+            document.getElementById('forgotPasswordModal').style.display = 'none';
+        }
+
+        function backToLogin(event) {
+            event.preventDefault();
+            document.getElementById('forgotPasswordModal').style.display = 'none';
+            document.getElementById('loginModal').style.display = 'block';
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-content').forEach(f => f.classList.remove('active'));
+
+            if (tab === 'login') {
+                document.querySelector('.tab:first-child').classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+            } else {
+                document.querySelector('.tab:last-child').classList.add('active');
+                document.getElementById('register-form').classList.add('active');
+            }
+
+            document.getElementById('modal-message').style.display = 'none';
+        }
+
+
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const btn = document.getElementById('login-btn');
+
+            btn.disabled = true;
+            btn.textContent = 'Entrando...';
+
+            try {
+                const response = await API.post('/api/login', { email, password });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    token = data.token;
+                    user = data.user;
+                    showModalMessage('Login realizado com sucesso!', 'success');
+                    setTimeout(() => {
+                        closeLoginModal();
+                        updateUI();
+                    }, 1000);
+                } else {
+                    showModalMessage(data.error, 'error');
+                }
+            } catch (error) {
+                showModalMessage('Erro ao fazer login: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Entrar';
+            }
+        }
+
+        async function handleForgotPassword(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('forgot-email').value;
+            const btn = document.getElementById('forgot-btn');
+            const messageDiv = document.getElementById('forgot-message');
+
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+            messageDiv.style.display = 'none';
+
+            try {
+                const response = await API.post('/api/forgot-password', { email });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    messageDiv.textContent = 'Link de recuperação enviado! Verifique seu email.';
+                    messageDiv.className = 'message success';
+                    messageDiv.style.display = 'block';
+                    document.getElementById('forgot-email').value = '';
+                } else {
+                    messageDiv.textContent = data.error || 'Erro ao enviar link de recuperação';
+                    messageDiv.className = 'message error';
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                messageDiv.textContent = 'Erro ao processar solicitação: ' + error.message;
+                messageDiv.className = 'message error';
+                messageDiv.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Enviar Link de Recuperação';
+            }
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const passwordConfirm = document.getElementById('register-password-confirm').value;
+            const btn = document.getElementById('register-btn');
+
+            if (password !== passwordConfirm) {
+                showModalMessage('As senhas não coincidem', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Criando conta...';
+
+            try {
+                const response = await API.post('/api/register', { email, password });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const email = document.getElementById('register-email').value;
+
+                    document.getElementById('register-form').querySelector('form').reset();
+
+
+                    closeLoginModal();
+
+
+                    alert(`✅ CONTA CRIADA COM SUCESSO!\n\n📧 Um email de verificação foi enviado para:\n${email}\n\n⚠️ IMPORTANTE:\n• Verifique sua caixa de entrada (e spam)\n• Clique no link de verificação\n• Só então você poderá fazer login\n\nSem a verificação do email, você NÃO conseguirá acessar o sistema.`);
+
+
+                    openLoginModal();
+                    switchTab('login');
+                    showModalMessage('Verifique seu email para ativar sua conta antes de fazer login.', 'success');
+                } else {
+                    showModalMessage(data.error, 'error');
+                }
+            } catch (error) {
+                showModalMessage('Erro ao criar conta: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Criar Conta';
+            }
+        }
+
+
+        async function handleSend(event) {
+            event.preventDefault();
+
+            const phoneNumber = document.getElementById('phone').value;
+            const fullPhone = '+55' + phoneNumber;
+            const message = document.getElementById('message').value;
+            const btn = document.getElementById('send-btn');
+
+            const endpoint = '/api/send-whatsapp';
+
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+
+            try {
+                const response = await API.post(endpoint, { phone: fullPhone, message }, token);
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('send-message', 'Mensagem enviada com sucesso! ✓', 'success');
+                    document.getElementById('sendForm').reset();
+                    updateCreditsDisplay(data.whatsapp_credits, data.sms_credits);
+                    loadHistory();
+                } else {
+                    // Verificar se foi bloqueado por moderação
+                    if (data.moderationReason) {
+                        showMessage('send-message', '⚠️ Mensagem bloqueada: Sua mensagem contém conteúdo inadequado e não pode ser enviada. Por favor, revise o texto e tente novamente.', 'error');
+                    } else {
+                        showMessage('send-message', data.error, 'error');
+                    }
+                }
+            } catch (error) {
+                showMessage('send-message', 'Erro: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Enviar Mensagem';
+            }
+        }
+
+
+        function selectQuantity(qty) {
+            selectedQuantity = qty;
+            document.querySelectorAll('.quantity-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            event.target.closest('.quantity-option').classList.add('selected');
+            document.getElementById('custom-quantity').value = qty;
+        }
+
+        async function buyCredits() {
+            const quantity = parseInt(document.getElementById('custom-quantity').value) || selectedQuantity;
+
+            if (!quantity || quantity < 1) {
+                showMessage('buy-message', 'Por favor, selecione ou digite uma quantidade', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('buy-btn');
+            btn.disabled = true;
+            btn.textContent = 'Criando pagamento...';
+
+            try {
+                const response = await API.post('/api/create-payment', {
+                    quantity: quantity,
+                    creditType: 'whatsapp'
+                }, token);
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.href = data.checkoutUrl;
+                } else {
+                    showMessage('buy-message', data.error, 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Comprar Mensagens';
+                }
+            } catch (error) {
+                showMessage('buy-message', 'Erro: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Comprar Mensagens';
+            }
+        }
+
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            token = null;
+            user = null;
+            disconnectSocket(); 
+            stopRepliesPolling();
+            updateUI();
+        }
+
+        function connectSocket() {
+            if (socket) return; 
+
+            socket = io(API_CONFIG.baseURL, {
+                transports: ['websocket', 'polling']
+            });
+
+            socket.on('connect', () => {
+                if (user && user.id) {
+                    socket.emit('authenticate', user.id);
+                }
+            });
+
+            socket.on('disconnect', () => {});
+
+            socket.on('new-reply', (reply) => {
+                loadReplies();
+  
+                loadHistory();
+                showNewReplyNotification(reply);
+            });
+        }
+
+        function disconnectSocket() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+
+        function showNewReplyNotification(reply) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 12px;
+                box-shadow: 0 10px 40px rgba(79, 70, 229, 0.4);
+                z-index: 10000;
+                animation: slideIn 0.3s ease-out;
+                max-width: 350px;
+            `;
+            notification.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 5px;">📱 Nova Resposta!</div>
+                <div style="font-size: 14px; opacity: 0.95;">${reply.message.substring(0, 100)}${reply.message.length > 100 ? '...' : ''}</div>
+            `;
+
+ 
+            if (!document.getElementById('notification-styles')) {
+                const style = document.createElement('style');
+                style.id = 'notification-styles';
+                style.textContent = `
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                    @keyframes slideOut {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(100%); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            document.body.appendChild(notification);
+
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-in forwards';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+
+        function startRepliesPolling() {
+            if (repliesPollingInterval) return; 
+
+
+            repliesPollingInterval = setInterval(() => {
+                if (token) {
+                    loadReplies();
+                    loadHistory();
+                }
+            }, 60000);
+        }
+
+        function stopRepliesPolling() {
+            if (repliesPollingInterval) {
+                clearInterval(repliesPollingInterval);
+                repliesPollingInterval = null;
+            }
+        }
+
+
+        function showMessage(elementId, text, type) {
+            const message = document.getElementById(elementId);
+            message.innerHTML = text;
+            message.className = `message ${type}`;
+            message.style.display = 'block';
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    message.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function showModalMessage(text, type) {
+            const message = document.getElementById('modal-message');
+            message.textContent = text;
+            message.className = `message ${type}`;
+            message.style.display = 'block';
+        }
+
+        window.onclick = function(event) {
+            const loginModal = document.getElementById('loginModal');
+            const forgotModal = document.getElementById('forgotPasswordModal');
+
+            if (event.target == loginModal) {
+                closeLoginModal();
+            }
+            if (event.target == forgotModal) {
+                closeForgotPasswordModal();
+            }
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('payment') === 'success' && token) {
+            setTimeout(() => {
+                loadUserData();
+                showMessage('buy-message', 'Mensagens adicionadas com sucesso!', 'success');
+            }, 1000);
+        }
+
+        updateUI();
+    </script>
+
+    <!-- Seção de Suporte -->
+    <div style="max-width: 700px; margin: 30px auto 20px; padding: 0 20px;">
+        <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; padding: 25px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);">
+            <h3 style="color: white; font-size: 18px; margin-bottom: 10px; font-weight: 600;">
+                🦸‍♂️ Suporte 24 Horas (Sim, a gente nao dorme!)
+            </h3>
+            <p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 15px;">
+                Ficou com duvida? Nossa equipe ta sempre de plantao<br>- tipo aquele amigo que responde de madrugada! ☕
+            </p>
+            <a href="mailto:zapanonimo2025@gmail.com" style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white">
+                    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                </svg>
+                zapanonimo2025@gmail.com
+            </a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar Email - Zap Anônimo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #128C7E;
+            margin-bottom: 20px;
+        }
+
+        .status-icon {
+            font-size: 80px;
+            margin: 20px 0;
+        }
+
+        .success-icon {
+            color: #25D366;
+        }
+
+        .error-icon {
+            color: #dc3545;
+        }
+
+        .loading-icon {
+            color: #ffc107;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading-message {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffc107;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #25D366;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .button:hover {
+            background-color: #128C7E;
+        }
+
+        .button.secondary {
+            background-color: #6c757d;
+        }
+
+        .button.secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .resend-section {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .resend-section input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .resend-section input:focus {
+            outline: none;
+            border-color: #25D366;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Zap Anônimo</h1>
+
+        <div id="loading-state">
+            <div class="status-icon loading-icon">⏳</div>
+            <div class="message loading-message">
+                Verificando seu email...
+            </div>
+        </div>
+
+        <div id="success-state" style="display: none;">
+            <div class="status-icon success-icon">✅</div>
+            <div class="message success-message">
+                <strong>Email verificado com sucesso!</strong>
+                <p style="margin-top: 10px;">Sua conta foi ativada e você já pode fazer login.</p>
+            </div>
+            <a href="/" class="button">Fazer Login</a>
+        </div>
+
+        <div id="error-state" style="display: none;">
+            <div class="status-icon error-icon">❌</div>
+            <div class="message error-message" id="error-message">
+                Erro ao verificar email.
+            </div>
+            <div class="resend-section">
+                <h3>Reenviar Email de Verificação</h3>
+                <p style="margin: 10px 0; color: #666;">Digite seu email para receber um novo link:</p>
+                <input type="email" id="resend-email" placeholder="seu@email.com" required>
+                <button class="button" onclick="resendVerification()">Reenviar Email</button>
+            </div>
+            <a href="/" class="button secondary" style="margin-top: 10px;">Voltar ao Login</a>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        async function verifyEmail() {
+            if (!token) {
+                showError('Token de verificação não encontrado na URL.');
+                return;
+            }
+
+            try {
+                const apiUrl = window.API_CONFIG ? window.API_CONFIG.baseURL : 'https://zapanonimo.fly.dev';
+                const response = await fetch(`${apiUrl}/api/verify-email/${token}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess();
+                } else {
+                    showError(data.error || 'Erro ao verificar email.');
+                }
+            } catch (error) {
+                showError('Erro ao conectar com o servidor: ' + error.message);
+            }
+        }
+
+        async function resendVerification() {
+            const email = document.getElementById('resend-email').value;
+
+            if (!email) {
+                alert('Por favor, digite seu email.');
+                return;
+            }
+
+            try {
+                const apiUrl = window.API_CONFIG ? window.API_CONFIG.baseURL : 'https://zapanonimo.fly.dev';
+                const response = await fetch(`${apiUrl}/api/resend-verification`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Email reenviado com sucesso! Verifique sua caixa de entrada.');
+                } else {
+                    alert(data.error || 'Erro ao reenviar email.');
+                }
+            } catch (error) {
+                alert('Erro ao conectar com o servidor: ' + error.message);
+            }
+        }
+
+        function showSuccess() {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-state').style.display = 'none';
+            document.getElementById('success-state').style.display = 'block';
+        }
+
+        function showError(message) {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('success-state').style.display = 'none';
+            document.getElementById('error-state').style.display = 'block';
+            document.getElementById('error-message').innerHTML = `<strong>Erro:</strong> ${message}`;
+        }
+
+        verifyEmail();
+    </script>
+</body>
+</html>

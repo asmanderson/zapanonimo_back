@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin - Zap Anonimo</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="config.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #888;
+        }
+
+        /* Login Form */
+        .login-container {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 400px;
+            margin: 50px auto;
+        }
+
+        .login-container h2 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #25D366;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(37, 211, 102, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        .btn-small {
+            width: auto;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+
+        /* Dashboard */
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .status-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .status-header h3 {
+            font-size: 1.2rem;
+        }
+
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-badge.connected {
+            background: rgba(37, 211, 102, 0.2);
+            color: #25D366;
+        }
+
+        .status-badge.connecting {
+            background: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+        }
+
+        .status-badge.disconnected {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+        }
+
+        .qr-container {
+            text-align: center;
+            padding: 30px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .qr-container img {
+            max-width: 280px;
+            border-radius: 8px;
+        }
+
+        .qr-container p {
+            margin-top: 15px;
+            color: #888;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Logs */
+        .logs-container {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .logs-container h4 {
+            margin-bottom: 15px;
+            color: #888;
+        }
+
+        .log-entry {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .log-entry .timestamp {
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .log-entry .message {
+            color: #aaa;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            background: rgba(0,0,0,0.2);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-item .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #25D366;
+        }
+
+        .stat-item .label {
+            color: #888;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .error-message {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            color: #e74c3c;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn-small {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Painel Admin</h1>
+            <p>Gerenciamento do WhatsApp</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginContainer" class="login-container">
+            <h2>Login Admin</h2>
+            <div id="loginError" class="error-message"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Usuario</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Senha</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary">Entrar</button>
+            </form>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="dashboard">
+            <button id="logoutBtn" class="btn btn-secondary btn-small logout-btn">Sair</button>
+
+            <div class="status-card">
+                <div class="status-header">
+                    <h3>Status do WhatsApp</h3>
+                    <span id="statusBadge" class="status-badge disconnected">Desconectado</span>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div id="successCount" class="value">0</div>
+                        <div class="label">Enviadas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="failureCount" class="value">0</div>
+                        <div class="label">Falhas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="lastUsed" class="value">-</div>
+                        <div class="label">Ultimo Uso</div>
+                    </div>
+                </div>
+
+                <div id="qrContainer" class="qr-container" style="display: none;">
+                    <img id="qrCode" src="" alt="QR Code">
+                    <p>Escaneie o QR Code com seu WhatsApp</p>
+                </div>
+
+                <div id="connectedMessage" class="qr-container" style="display: none;">
+                    <p style="font-size: 48px;">&#10004;</p>
+                    <p>WhatsApp conectado e funcionando!</p>
+                </div>
+
+                <div class="actions">
+                    <button id="reconnectBtn" class="btn btn-primary btn-small">Reconectar</button>
+                    <button id="disconnectBtn" class="btn btn-secondary btn-small">Desconectar</button>
+                    <button id="logoutWhatsAppBtn" class="btn btn-danger btn-small">Logout WhatsApp</button>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="logs-container">
+                    <h4>Logs em Tempo Real</h4>
+                    <div id="logsArea"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.API_CONFIG.baseURL;
+        let socket = null;
+        let adminToken = localStorage.getItem('adminToken');
+
+        // Estado centralizado para evitar conflitos
+        const appState = {
+            _currentStatus: 'disconnected',
+            _currentQrCode: null,
+            _lastUpdate: 0,
+            _updateDebounce: 500, // 500ms de debounce
+            _pendingUpdate: null,
+
+            // Atualizar status com debounce
+            setStatus(status, qrCode = null, force = false) {
+                const now = Date.now();
+
+                // Cancelar update pendente
+                if (this._pendingUpdate) {
+                    clearTimeout(this._pendingUpdate);
+                    this._pendingUpdate = null;
+                }
+
+                // Validar transição de estado
+                const validTransitions = {
+                    'disconnected': ['connecting', 'connected'],
+                    'connecting': ['connected', 'disconnected'],
+                    'connected': ['disconnected']
+                };
+
+                if (!force && this._currentStatus !== status) {
+                    if (!validTransitions[this._currentStatus]?.includes(status)) {
+                        console.log(`Transição inválida ignorada: ${this._currentStatus} -> ${status}`);
+                        return;
+                    }
+                }
+
+                // Se passou tempo suficiente ou é forçado, aplicar imediatamente
+                if (force || now - this._lastUpdate >= this._updateDebounce) {
+                    this._applyStatusUpdate(status, qrCode);
+                } else {
+                    // Agendar update com debounce
+                    this._pendingUpdate = setTimeout(() => {
+                        this._applyStatusUpdate(status, qrCode);
+                        this._pendingUpdate = null;
+                    }, this._updateDebounce);
+                }
+            },
+
+            _applyStatusUpdate(status, qrCode) {
+                this._lastUpdate = Date.now();
+
+                // Só atualizar se realmente mudou
+                if (this._currentStatus !== status || this._currentQrCode !== qrCode) {
+                    console.log(`Status atualizado: ${this._currentStatus} -> ${status}`);
+                    this._currentStatus = status;
+                    this._currentQrCode = qrCode;
+
+                    // Atualizar UI
+                    updateStatusUI(status);
+
+                    if (status === 'connected') {
+                        hideQRCode();
+                        connectedMessage.style.display = 'block';
+                    } else if (qrCode) {
+                        showQRCode(qrCode);
+                    } else if (status === 'disconnected') {
+                        hideQRCode();
+                        connectedMessage.style.display = 'none';
+                    }
+                }
+            },
+
+            getStatus() {
+                return this._currentStatus;
+            }
+        };
+
+        // Elements
+        const loginContainer = document.getElementById('loginContainer');
+        const dashboard = document.getElementById('dashboard');
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        const statusBadge = document.getElementById('statusBadge');
+        const qrContainer = document.getElementById('qrContainer');
+        const qrCode = document.getElementById('qrCode');
+        const connectedMessage = document.getElementById('connectedMessage');
+        const logsArea = document.getElementById('logsArea');
+        const successCount = document.getElementById('successCount');
+        const failureCount = document.getElementById('failureCount');
+        const lastUsed = document.getElementById('lastUsed');
+
+        // Helper para requisicoes autenticadas
+        function authFetch(url, options = {}) {
+            if (!options.headers) options.headers = {};
+            if (adminToken) {
+                options.headers['Authorization'] = `Bearer ${adminToken}`;
+            }
+            return fetch(url, options);
+        }
+
+        // Check if already logged in
+        async function checkAuth() {
+            if (!adminToken) return;
+
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/check`);
+                const data = await response.json();
+
+                if (data.isAdmin) {
+                    showDashboard();
+                } else {
+                    localStorage.removeItem('adminToken');
+                    adminToken = null;
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+            }
+        }
+
+        // Login
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.token) {
+                    adminToken = data.token;
+                    localStorage.setItem('adminToken', adminToken);
+                    loginError.style.display = 'none';
+                    showDashboard();
+                } else {
+                    loginError.textContent = data.error || 'Credenciais invalidas';
+                    loginError.style.display = 'block';
+                }
+            } catch (error) {
+                loginError.textContent = 'Erro de conexao';
+                loginError.style.display = 'block';
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            localStorage.removeItem('adminToken');
+            adminToken = null;
+
+            if (socket) {
+                socket.disconnect();
+            }
+
+            loginContainer.style.display = 'block';
+            dashboard.classList.remove('active');
+        });
+
+        // Show Dashboard
+        function showDashboard() {
+            loginContainer.style.display = 'none';
+            dashboard.classList.add('active');
+            connectSocket();
+            loadStatus();
+        }
+
+        // Connect WebSocket
+        function connectSocket() {
+            socket = io(API_URL, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                reconnectionAttempts: 10,
+                timeout: 20000
+            });
+
+            socket.on('connect', () => {
+                console.log('Socket connected');
+                socket.emit('admin:subscribe');
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Socket connection error:', error);
+                addLog({ timestamp: new Date().toISOString(), message: `Erro de conexão: ${error.message}` });
+            });
+
+            socket.on('disconnect', (reason) => {
+                console.log('Socket disconnected:', reason);
+                addLog({ timestamp: new Date().toISOString(), message: `Socket desconectado: ${reason}` });
+            });
+
+            socket.on('whatsapp:status', (data) => {
+                // Usar o estado centralizado
+                appState.setStatus(data.status, data.qrCode);
+            });
+
+            socket.on('whatsapp:qr', (qrCodeData) => {
+                // Atualizar apenas o QR code mantendo o status atual como connecting
+                appState.setStatus('connecting', qrCodeData);
+            });
+
+            socket.on('whatsapp:log', (log) => {
+                addLog(log);
+            });
+
+            socket.on('whatsapp:logs', (logs) => {
+                logsArea.innerHTML = '';
+                logs.forEach(log => addLog(log));
+            });
+        }
+
+        // Load Status
+        async function loadStatus() {
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/whatsapp/status`);
+                const data = await response.json();
+
+                if (data.success) {
+                    // Usar o estado centralizado com force=true para o carregamento inicial
+                    appState.setStatus(data.status, data.qrCode, true);
+
+                    if (data.stats) {
+                        successCount.textContent = data.stats.successCount || 0;
+                        failureCount.textContent = data.stats.failureCount || 0;
+                        lastUsed.textContent = data.stats.lastUsed
+                            ? new Date(data.stats.lastUsed).toLocaleTimeString('pt-BR')
+                            : '-';
+                    }
+
+                    if (data.logs) {
+                        logsArea.innerHTML = '';
+                        data.logs.forEach(log => addLog(log));
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load status:', error);
+            }
+        }
+
+        // Update Status Badge UI (chamado pelo appState)
+        function updateStatusUI(status) {
+            statusBadge.className = 'status-badge ' + status;
+
+            const statusTexts = {
+                'connected': 'Conectado',
+                'connecting': 'Conectando...',
+                'disconnected': 'Desconectado'
+            };
+
+            statusBadge.textContent = statusTexts[status] || status;
+        }
+
+        // Show QR Code (chamado pelo appState)
+        function showQRCode(qrCodeData) {
+            if (qrCodeData) {
+                qrCode.src = qrCodeData;
+                qrContainer.style.display = 'block';
+                connectedMessage.style.display = 'none';
+            }
+        }
+
+        // Hide QR Code (chamado pelo appState)
+        function hideQRCode() {
+            qrContainer.style.display = 'none';
+        }
+
+        // Add Log Entry
+        function addLog(log) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const time = new Date(log.timestamp).toLocaleTimeString('pt-BR');
+            entry.innerHTML = `<span class="timestamp">${time}</span><span class="message">${log.message}</span>`;
+
+            logsArea.insertBefore(entry, logsArea.firstChild);
+
+            // Keep only last 50 logs
+            while (logsArea.children.length > 50) {
+                logsArea.removeChild(logsArea.lastChild);
+            }
+        }
+
+        // Reconnect Button
+        document.getElementById('reconnectBtn').addEventListener('click', async () => {
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/whatsapp/reconnect`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    alert('Erro: ' + data.error);
+                }
+            } catch (error) {
+                alert('Erro ao reconectar');
+            }
+        });
+
+        // Disconnect Button
+        document.getElementById('disconnectBtn').addEventListener('click', async () => {
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/whatsapp/disconnect`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    alert('Erro: ' + data.error);
+                }
+            } catch (error) {
+                alert('Erro ao desconectar');
+            }
+        });
+
+        // Logout WhatsApp Button
+        document.getElementById('logoutWhatsAppBtn').addEventListener('click', async () => {
+            if (!confirm('Isso ira remover a sessao salva. Voce precisara escanear o QR Code novamente. Continuar?')) {
+                return;
+            }
+
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/whatsapp/logout`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    alert('Erro: ' + data.error);
+                }
+            } catch (error) {
+                alert('Erro ao fazer logout');
+            }
+        });
+
+        // Initialize
+        checkAuth();
+    </script>
+</body>
+</html>

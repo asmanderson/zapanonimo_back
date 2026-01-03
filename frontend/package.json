@@ -1,0 +1,9 @@
+{
+  "name": "zapanonimo-frontend",
+  "version": "1.0.0",
+  "description": "Frontend para Zap Anônimo",
+  "scripts": {
+    "dev": "npx serve -l 5500",
+    "start": "npx serve -l 5500"
+  }
+}

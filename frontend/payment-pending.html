@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagamento Pendente - WhatsApp Sender</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 50px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .pending-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #FF8C00;
+            margin-bottom: 15px;
+            font-size: 32px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        .info-box {
+            background: #fff8e1;
+            border-left: 4px solid #FFA500;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .info-box p {
+            margin: 10px 0;
+            font-size: 16px;
+            color: #666;
+        }
+
+        .info-box strong {
+            color: #FF8C00;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            background-color: #25D366;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background-color: #128C7E;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="pending-icon">⏳</div>
+        <h1>Pagamento Pendente</h1>
+        <p>Seu pagamento está sendo processado.</p>
+
+        <div class="info-box">
+            <p><strong>O que acontece agora?</strong></p>
+            <p>Estamos aguardando a confirmação do pagamento. Isso pode levar alguns minutos ou até algumas horas, dependendo do método de pagamento escolhido.</p>
+            <p style="margin-top: 15px;"><strong>Você receberá um email quando o pagamento for confirmado.</strong></p>
+            <p>Seus créditos serão adicionados automaticamente assim que recebermos a confirmação.</p>
+        </div>
+
+        <a href="/index.html" class="btn">Voltar à Página Inicial</a>
+    </div>
+</body>
+</html>
