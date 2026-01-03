@@ -17,7 +17,7 @@ transporter.verify(function(error, success) {});
 
 async function sendVerificationEmail(email, verificationToken) {
   const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-  const verificationUrl = `${baseUrl}/verify-email.html?token=${verificationToken}`;
+  const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
 
   const mailOptions = {
     from: `"Zap Anônimo" <${process.env.EMAIL_USER}>`,
@@ -231,7 +231,7 @@ async function sendWelcomeEmail(email) {
 
 async function sendPasswordResetEmail(email, resetToken) {
   const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-  const resetUrl = `${baseUrl}/reset-password.html?token=${resetToken}`;
+  const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
 
   const mailOptions = {
     from: `"Zap Anônimo" <${process.env.EMAIL_USER}>`,
