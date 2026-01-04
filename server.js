@@ -994,10 +994,10 @@ app.get('/api/admin/check', (req, res) => {
   }
 });
 
-// Status do WhatsApp
-app.get('/api/admin/whatsapp/status', adminAuthMiddleware, (req, res) => {
+// Status do WhatsApp (busca stats do banco para consistência)
+app.get('/api/admin/whatsapp/status', adminAuthMiddleware, async (req, res) => {
   try {
-    const status = whatsappService.getStatus();
+    const status = await whatsappService.getStatusAsync();
     res.json({ success: true, ...status });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -403,7 +403,9 @@ async function getWhatsAppStats() {
         return {
           successCount: 0,
           failureCount: 0,
-          lastUsed: null
+          lastUsed: null,
+          lastConnectedStatus: null,
+          lastStatusUpdate: null
         };
       }
       throw error;
@@ -412,29 +414,41 @@ async function getWhatsAppStats() {
     return data?.value || {
       successCount: 0,
       failureCount: 0,
-      lastUsed: null
+      lastUsed: null,
+      lastConnectedStatus: null,
+      lastStatusUpdate: null
     };
   } catch (error) {
     console.error('[Database] Erro ao carregar WhatsApp stats:', error.message);
     return {
       successCount: 0,
       failureCount: 0,
-      lastUsed: null
+      lastUsed: null,
+      lastConnectedStatus: null,
+      lastStatusUpdate: null
     };
   }
 }
 
-async function saveWhatsAppStats(stats) {
+async function saveWhatsAppStats(stats, status = null) {
   try {
+    const value = {
+      successCount: stats.successCount || 0,
+      failureCount: stats.failureCount || 0,
+      lastUsed: stats.lastUsed
+    };
+
+    // Salvar status apenas se fornecido
+    if (status !== null) {
+      value.lastConnectedStatus = status;
+      value.lastStatusUpdate = new Date().toISOString();
+    }
+
     const { error } = await supabase
       .from('system_settings')
       .upsert({
         key: 'whatsapp_stats',
-        value: {
-          successCount: stats.successCount || 0,
-          failureCount: stats.failureCount || 0,
-          lastUsed: stats.lastUsed
-        },
+        value: value,
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'key'

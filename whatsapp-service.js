@@ -21,6 +21,8 @@ class WhatsAppService {
     };
     this._statsLoaded = false;
     this._statsSaveTimeout = null;
+    this._qrCodeDelayTimeout = null;
+    this._showQrCode = false; // Só mostrar QR após delay
 
     // Configurações de reconexão
     this.reconnectAttempts = 0;
@@ -89,7 +91,7 @@ class WhatsAppService {
   }
 
   // Salvar stats no banco de dados (com debounce de 5 segundos)
-  saveStats() {
+  saveStats(includeStatus = false) {
     // Cancelar save pendente
     if (this._statsSaveTimeout) {
       clearTimeout(this._statsSaveTimeout);
@@ -98,12 +100,23 @@ class WhatsAppService {
     // Agendar save com debounce para não sobrecarregar o banco
     this._statsSaveTimeout = setTimeout(async () => {
       try {
-        await saveWhatsAppStats(this.stats);
-        console.log(`[WhatsApp] Stats salvos no banco: ${this.stats.successCount} enviadas, ${this.stats.failureCount} falhas`);
+        const status = includeStatus ? this._status : null;
+        await saveWhatsAppStats(this.stats, status);
+        console.log(`[WhatsApp] Stats salvos no banco: ${this.stats.successCount} enviadas, ${this.stats.failureCount} falhas${status ? `, status: ${status}` : ''}`);
       } catch (error) {
         console.error(`[WhatsApp] Erro ao salvar stats no banco: ${error.message}`);
       }
     }, 5000); // 5 segundos de debounce
+  }
+
+  // Salvar status imediatamente (sem debounce)
+  async saveStatusNow() {
+    try {
+      await saveWhatsAppStats(this.stats, this._status);
+      console.log(`[WhatsApp] Status salvo no banco: ${this._status}`);
+    } catch (error) {
+      console.error(`[WhatsApp] Erro ao salvar status no banco: ${error.message}`);
+    }
   }
 
   addLog(message) {
@@ -305,6 +318,14 @@ class WhatsAppService {
       clearTimeout(this.initTimeout);
       this.initTimeout = null;
     }
+    if (this._qrCodeDelayTimeout) {
+      clearTimeout(this._qrCodeDelayTimeout);
+      this._qrCodeDelayTimeout = null;
+    }
+    if (this._statsSaveTimeout) {
+      clearTimeout(this._statsSaveTimeout);
+      this._statsSaveTimeout = null;
+    }
   }
 
   async initialize() {
@@ -328,8 +349,26 @@ class WhatsAppService {
 
     this.status = 'connecting';
     this.qrCode = null;
+    this._showQrCode = false; // Reset - não mostrar QR imediatamente
     this.emitStatusUpdate();
     this.addLog('Inicializando cliente WhatsApp...');
+
+    // Delay antes de habilitar exibição do QR code
+    // Isso permite que a sessão seja restaurada primeiro
+    if (this._qrCodeDelayTimeout) {
+      clearTimeout(this._qrCodeDelayTimeout);
+    }
+    this._qrCodeDelayTimeout = setTimeout(() => {
+      if (this._status !== 'connected') {
+        this._showQrCode = true;
+        this.addLog('QR Code habilitado para exibição');
+        // Se já temos um QR code pendente, emitir agora
+        if (this.qrCode) {
+          this.emitToAdmins('whatsapp:qr', this.qrCode);
+          this.emitStatusUpdate('connecting');
+        }
+      }
+    }, 8000); // 8 segundos de delay para permitir restauração de sessão
 
     // Timeout de 5 minutos para inicialização (aumentado para VMs com recursos limitados)
     const INIT_TIMEOUT = 300000;
@@ -397,11 +436,17 @@ class WhatsAppService {
 
     // Evento: QR Code gerado
     this.client.on('qr', async (qr) => {
-      this.addLog('QR Code gerado - escaneie com seu WhatsApp');
+      this.addLog('QR Code gerado');
       try {
         this.qrCode = await qrcode.toDataURL(qr);
-        this.emitToAdmins('whatsapp:qr', this.qrCode);
-        this.emitStatusUpdate('connecting');
+        // Só emitir se o delay já passou (permite restauração de sessão primeiro)
+        if (this._showQrCode) {
+          this.addLog('Exibindo QR Code - escaneie com seu WhatsApp');
+          this.emitToAdmins('whatsapp:qr', this.qrCode);
+          this.emitStatusUpdate('connecting');
+        } else {
+          this.addLog('QR Code armazenado (aguardando delay para exibir)');
+        }
       } catch (err) {
         this.addLog(`Erro ao gerar QR Code: ${err.message}`);
       }
@@ -411,6 +456,12 @@ class WhatsAppService {
     this.client.on('authenticated', () => {
       this.addLog('Autenticado com sucesso!');
       this.qrCode = null;
+      this._showQrCode = false; // Não precisa mais do QR code
+      // Limpar timeout do QR code delay
+      if (this._qrCodeDelayTimeout) {
+        clearTimeout(this._qrCodeDelayTimeout);
+        this._qrCodeDelayTimeout = null;
+      }
     });
 
     // Evento: Sessão salva remotamente (Supabase)
@@ -423,11 +474,18 @@ class WhatsAppService {
       this.status = 'connected';
       this.qrCode = null;
       this.isInitializing = false;
+      this._showQrCode = false;
 
       // Limpar timeout de inicialização
       if (this.initTimeout) {
         clearTimeout(this.initTimeout);
         this.initTimeout = null;
+      }
+
+      // Limpar timeout do QR code delay
+      if (this._qrCodeDelayTimeout) {
+        clearTimeout(this._qrCodeDelayTimeout);
+        this._qrCodeDelayTimeout = null;
       }
 
       // Resetar tentativas de reconexão após sucesso
@@ -438,6 +496,9 @@ class WhatsAppService {
 
       this.addLog('WhatsApp conectado e pronto!');
       this.emitStatusUpdate();
+
+      // Salvar status no banco imediatamente
+      this.saveStatusNow();
     });
 
     // Evento: Desconectado
@@ -445,13 +506,23 @@ class WhatsAppService {
       this.status = 'disconnected';
       this.qrCode = null;
       this.isInitializing = false;
+      this._showQrCode = false;
       this.client = null;
+
+      // Limpar timeout do QR code delay
+      if (this._qrCodeDelayTimeout) {
+        clearTimeout(this._qrCodeDelayTimeout);
+        this._qrCodeDelayTimeout = null;
+      }
 
       // Parar health check
       this.stopHealthCheck();
 
       this.addLog(`Desconectado: ${reason}`);
       this.emitStatusUpdate();
+
+      // Salvar status no banco
+      this.saveStatusNow();
 
       // Agendar reconexão automática (exceto logout manual)
       if (reason !== 'LOGOUT') {
@@ -718,13 +789,77 @@ class WhatsAppService {
     }
   }
 
+  // Versão async que busca stats do banco
+  async getStatusAsync() {
+    // Sempre buscar stats do banco para garantir consistência entre instâncias
+    let stats = this.stats;
+    let effectiveStatus = this._status;
+    let effectiveQrCode = this.qrCode;
+
+    try {
+      const dbStats = await getWhatsAppStats();
+      if (dbStats) {
+        stats = {
+          successCount: dbStats.successCount || 0,
+          failureCount: dbStats.failureCount || 0,
+          lastUsed: dbStats.lastUsed || null,
+          _lastUpdate: Date.now()
+        };
+        // Atualizar memória local também
+        this.stats = stats;
+
+        // Durante inicialização, considerar o último status conhecido do banco
+        // para evitar mostrar QR code enquanto a sessão está sendo restaurada
+        if (this._status === 'connecting' && !this._showQrCode) {
+          // Se ainda estamos no período de delay do QR code,
+          // verificar se o último status conhecido era 'connected'
+          if (dbStats.lastConnectedStatus === 'connected') {
+            // Verificar se o status é recente (menos de 1 hora)
+            const lastUpdate = dbStats.lastStatusUpdate ? new Date(dbStats.lastStatusUpdate) : null;
+            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+            if (lastUpdate && lastUpdate > oneHourAgo) {
+              // Último status era conectado e é recente - provavelmente só reiniciou
+              // Não mostrar QR code, aguardar restauração
+              effectiveQrCode = null;
+              this.addLog('Aguardando restauração de sessão (última conexão recente)');
+            }
+          }
+        }
+
+        // Só mostrar QR code se o delay já passou
+        if (this._status === 'connecting' && !this._showQrCode) {
+          effectiveQrCode = null;
+        }
+      }
+    } catch (error) {
+      console.error('[WhatsApp] Erro ao buscar stats do banco:', error.message);
+    }
+
+    return {
+      status: effectiveStatus,
+      qrCode: effectiveQrCode,
+      stats: { ...stats },
+      logs: this.logs.slice(-20),
+      _timestamp: Date.now(),
+      reconnect: {
+        attempts: this.reconnectAttempts,
+        maxAttempts: this.maxReconnectAttempts,
+        isScheduled: !!this.reconnectTimeout,
+        lastHealthCheck: this.lastHealthCheck,
+        healthCheckFailures: this.healthCheckFailures || 0
+      }
+    };
+  }
+
+  // Versão sync para compatibilidade (usa memória)
   getStatus() {
     return {
       status: this._status,
       qrCode: this.qrCode,
       stats: { ...this.stats },
-      logs: this.logs.slice(-20), // Últimos 20 logs
-      _timestamp: Date.now(), // Timestamp para sincronização
+      logs: this.logs.slice(-20),
+      _timestamp: Date.now(),
       reconnect: {
         attempts: this.reconnectAttempts,
         maxAttempts: this.maxReconnectAttempts,
