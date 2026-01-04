@@ -6,19 +6,44 @@ class ModerationService {
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutos
   }
 
-  // Getter para sempre pegar a API key atualizada
-  get apiKey() {
+  // === CLAUDE CONFIG ===
+  get claudeApiKey() {
     return process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
   }
 
-  // Getter para o modelo
-  get model() {
+  get claudeModel() {
     return process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307';
   }
 
-  // Getter para verificar se está habilitado
+  get claudeEnabled() {
+    return process.env.CLAUDE_ENABLED === 'true' && !!this.claudeApiKey;
+  }
+
+  // === GEMINI CONFIG ===
+  get geminiApiKey() {
+    return process.env.GEMINI_API_KEY;
+  }
+
+  get geminiModel() {
+    return process.env.GEMINI_MODEL || 'gemini-pro';
+  }
+
+  get geminiEnabled() {
+    return process.env.GEMINI_ENABLED === 'true' && !!this.geminiApiKey;
+  }
+
+  // Getter para verificar se alguma IA está habilitada
   get isEnabled() {
-    return process.env.CLAUDE_ENABLED === 'true';
+    return this.claudeEnabled || this.geminiEnabled;
+  }
+
+  // Compatibilidade com código antigo
+  get apiKey() {
+    return this.claudeApiKey || this.geminiApiKey;
+  }
+
+  get model() {
+    return this.claudeModel;
   }
 
   // Gerar hash simples para cache
@@ -59,35 +84,9 @@ class ModerationService {
     }
   }
 
-  async analyzeMessage(message) {
-    // Verificar se a API key está configurada
-    if (!this.apiKey) {
-      console.log('[Moderation] API key não configurada, permitindo mensagem');
-      return { allowed: true, reason: null };
-    }
-
-    // Verificar cache primeiro
-    const cached = this.checkCache(message);
-    if (cached !== null) {
-      console.log('[Moderation] Resultado do cache:', cached.allowed ? 'permitido' : 'bloqueado');
-      return cached;
-    }
-
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': this.apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: 256,
-          messages: [
-            {
-              role: 'user',
-              content: `Você é um moderador de conteúdo. Analise a mensagem abaixo e determine se ela deve ser BLOQUEADA ou PERMITIDA.
+  // Prompt de moderação compartilhado
+  getModerationPrompt(message) {
+    return `Você é um moderador de conteúdo. Analise a mensagem abaixo e determine se ela deve ser BLOQUEADA ou PERMITIDA.
 
 BLOQUEAR mensagens que contenham:
 - Palavrões ou linguagem obscena
@@ -114,49 +113,121 @@ ${message}
 Responda APENAS com um JSON no formato:
 {"allowed": true/false, "reason": "motivo se bloqueado ou null se permitido", "category": "categoria da violação ou null"}
 
-Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem ser permitidas.`
-            }
-          ]
-        })
-      });
+Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem ser permitidas.`;
+  }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[Moderation] Erro na API:', response.status, errorText);
-        // Em caso de erro na API, permite a mensagem (fail-open)
-        return { allowed: true, reason: null };
+  // Analisar com Claude
+  async analyzeWithClaude(message) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.claudeApiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: this.claudeModel,
+        max_tokens: 256,
+        messages: [{ role: 'user', content: this.getModerationPrompt(message) }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Claude API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
+  }
+
+  // Analisar com Gemini
+  async analyzeWithGemini(message) {
+    const url = `https://generativelanguage.googleapis.com/v1/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: this.getModerationPrompt(message) }] }],
+        generationConfig: { maxOutputTokens: 256 }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+  }
+
+  // Parsear resultado JSON da IA
+  parseAIResponse(content) {
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
       }
+    } catch (parseError) {
+      console.error('[Moderation] Erro ao parsear resposta:', content);
+    }
+    return { allowed: true, reason: null };
+  }
 
-      const data = await response.json();
-      const content = data.content[0].text;
-
-      // Extrair JSON da resposta
-      let result;
-      try {
-        // Tentar encontrar JSON na resposta
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          result = JSON.parse(jsonMatch[0]);
-        } else {
-          // Se não encontrar JSON, assumir permitido
-          result = { allowed: true, reason: null };
-        }
-      } catch (parseError) {
-        console.error('[Moderation] Erro ao parsear resposta:', content);
-        result = { allowed: true, reason: null };
-      }
-
-      // Salvar no cache
-      this.saveCache(message, result);
-
-      console.log('[Moderation] Resultado:', result.allowed ? 'permitido' : `bloqueado (${result.reason})`);
-      return result;
-
-    } catch (error) {
-      console.error('[Moderation] Erro:', error.message);
-      // Em caso de erro, permite a mensagem (fail-open)
+  async analyzeMessage(message) {
+    // Verificar se alguma IA está configurada
+    if (!this.claudeEnabled && !this.geminiEnabled) {
+      console.log('[Moderation] Nenhuma IA configurada, permitindo mensagem');
       return { allowed: true, reason: null };
     }
+
+    // Verificar cache primeiro
+    const cached = this.checkCache(message);
+    if (cached !== null) {
+      console.log('[Moderation] Resultado do cache:', cached.allowed ? 'permitido' : 'bloqueado');
+      return cached;
+    }
+
+    let result = null;
+    let usedProvider = null;
+
+    // Tentar Claude primeiro
+    if (this.claudeEnabled) {
+      try {
+        console.log('[Moderation] Tentando Claude...');
+        const content = await this.analyzeWithClaude(message);
+        result = this.parseAIResponse(content);
+        usedProvider = 'Claude';
+      } catch (error) {
+        console.error('[Moderation] Claude falhou:', error.message);
+      }
+    }
+
+    // Se Claude falhou, tentar Gemini como fallback
+    if (!result && this.geminiEnabled) {
+      try {
+        console.log('[Moderation] Tentando Gemini (fallback)...');
+        const content = await this.analyzeWithGemini(message);
+        result = this.parseAIResponse(content);
+        usedProvider = 'Gemini';
+      } catch (error) {
+        console.error('[Moderation] Gemini falhou:', error.message);
+      }
+    }
+
+    // Se ambos falharam, permitir (fail-open)
+    if (!result) {
+      console.log('[Moderation] Todas as IAs falharam, permitindo mensagem');
+      return { allowed: true, reason: null };
+    }
+
+    // Salvar no cache
+    this.saveCache(message, result);
+
+    console.log(`[Moderation] Resultado via ${usedProvider}:`, result.allowed ? 'permitido' : `bloqueado (${result.reason})`);
+    return result;
   }
 
   // Método principal para validar mensagem antes do envio

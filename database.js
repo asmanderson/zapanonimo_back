@@ -23,8 +23,8 @@ async function createUser(email, password) {
       {
         email,
         password: hashedPassword,
-        whatsapp_credits: 1,
-        sms_credits: 1,
+        whatsapp_credits: 5,
+        sms_credits: 5,
         email_verified: false
       }
     ])
