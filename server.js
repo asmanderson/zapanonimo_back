@@ -135,8 +135,14 @@ const moderationService = getModerationService();
 // Passar Socket.IO para o WhatsApp Service
 whatsappService.setSocketIO(io);
 
-// Inicializar WhatsApp automaticamente ao iniciar servidor
-whatsappService.initialize();
+// Carregar stats do banco antes de inicializar
+whatsappService.loadStats().then(() => {
+  // Inicializar WhatsApp automaticamente ao iniciar servidor
+  whatsappService.initialize();
+}).catch(err => {
+  console.error('[Server] Erro ao carregar stats:', err);
+  whatsappService.initialize();
+});
 
 // ==================== SERVIR ARQUIVOS ESTÁTICOS ====================
 // Frontend sempre fica em ./frontend (tanto em produção quanto em desenvolvimento)

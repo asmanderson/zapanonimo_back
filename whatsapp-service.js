@@ -3,6 +3,7 @@ require('dotenv').config();
 const { Client, RemoteAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const { SupabaseStore } = require('./supabase-store');
+const { getWhatsAppStats, saveWhatsAppStats } = require('./database');
 
 class WhatsAppService {
   constructor() {
@@ -18,6 +19,8 @@ class WhatsAppService {
       lastUsed: null,
       _lastUpdate: Date.now() // Timestamp para sincronização
     };
+    this._statsLoaded = false;
+    this._statsSaveTimeout = null;
 
     // Configurações de reconexão
     this.reconnectAttempts = 0;
@@ -64,6 +67,43 @@ class WhatsAppService {
 
   setSocketIO(io) {
     this.io = io;
+  }
+
+  // Carregar stats do banco de dados
+  async loadStats() {
+    if (this._statsLoaded) return;
+
+    try {
+      const savedStats = await getWhatsAppStats();
+      if (savedStats) {
+        this.stats.successCount = savedStats.successCount || 0;
+        this.stats.failureCount = savedStats.failureCount || 0;
+        this.stats.lastUsed = savedStats.lastUsed || null;
+        this.stats._lastUpdate = Date.now();
+        this._statsLoaded = true;
+        this.addLog(`Stats carregados do banco: ${this.stats.successCount} enviadas, ${this.stats.failureCount} falhas`);
+      }
+    } catch (error) {
+      this.addLog(`Erro ao carregar stats do banco: ${error.message}`);
+    }
+  }
+
+  // Salvar stats no banco de dados (com debounce de 5 segundos)
+  saveStats() {
+    // Cancelar save pendente
+    if (this._statsSaveTimeout) {
+      clearTimeout(this._statsSaveTimeout);
+    }
+
+    // Agendar save com debounce para não sobrecarregar o banco
+    this._statsSaveTimeout = setTimeout(async () => {
+      try {
+        await saveWhatsAppStats(this.stats);
+        console.log(`[WhatsApp] Stats salvos no banco: ${this.stats.successCount} enviadas, ${this.stats.failureCount} falhas`);
+      } catch (error) {
+        console.error(`[WhatsApp] Erro ao salvar stats no banco: ${error.message}`);
+      }
+    }, 5000); // 5 segundos de debounce
   }
 
   addLog(message) {
@@ -572,6 +612,9 @@ class WhatsAppService {
         // Emitir stats atualizados para admins
         this.emitToAdmins('whatsapp:stats', { ...this.stats });
 
+        // Salvar stats no banco (com debounce)
+        this.saveStats();
+
         return {
           success: true,
           data: { messageId: result.id._serialized },
@@ -608,6 +651,9 @@ class WhatsAppService {
 
     // Emitir stats atualizados para admins
     this.emitToAdmins('whatsapp:stats', { ...this.stats });
+
+    // Salvar stats no banco (com debounce)
+    this.saveStats();
 
     throw new Error(`Falha ao enviar mensagem: ${lastError.message}`);
   }

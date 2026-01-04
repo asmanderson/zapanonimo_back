@@ -386,6 +386,78 @@ async function resetPassword(token, newPassword) {
   return true;
 }
 
+// ==================== WHATSAPP STATS PERSISTENCE ====================
+
+async function getWhatsAppStats() {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'whatsapp_stats')
+      .single();
+
+    if (error) {
+      // Se a tabela ou registro não existe, retorna valores default
+      if (error.code === 'PGRST116' || error.code === '42P01') {
+        console.log('[Database] WhatsApp stats não encontrado, usando valores default');
+        return {
+          successCount: 0,
+          failureCount: 0,
+          lastUsed: null
+        };
+      }
+      throw error;
+    }
+
+    return data?.value || {
+      successCount: 0,
+      failureCount: 0,
+      lastUsed: null
+    };
+  } catch (error) {
+    console.error('[Database] Erro ao carregar WhatsApp stats:', error.message);
+    return {
+      successCount: 0,
+      failureCount: 0,
+      lastUsed: null
+    };
+  }
+}
+
+async function saveWhatsAppStats(stats) {
+  try {
+    const { error } = await supabase
+      .from('system_settings')
+      .upsert({
+        key: 'whatsapp_stats',
+        value: {
+          successCount: stats.successCount || 0,
+          failureCount: stats.failureCount || 0,
+          lastUsed: stats.lastUsed
+        },
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'key'
+      });
+
+    if (error) {
+      // Se a tabela não existe, tentar criar
+      if (error.code === '42P01') {
+        console.log('[Database] Tabela system_settings não existe, stats não serão persistidos');
+        return false;
+      }
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[Database] Erro ao salvar WhatsApp stats:', error.message);
+    return false;
+  }
+}
+
+// ==================== FIM WHATSAPP STATS ====================
+
 module.exports = {
   supabase,
   createUser,
@@ -405,5 +477,7 @@ module.exports = {
   isEmailVerified,
   createPasswordResetToken,
   verifyPasswordResetToken,
-  resetPassword
+  resetPassword,
+  getWhatsAppStats,
+  saveWhatsAppStats
 };
