@@ -468,6 +468,34 @@ class WhatsAppService {
     });
   }
 
+  // Verificar se o cliente está realmente pronto para enviar
+  async isClientReady() {
+    if (!this.client) return false;
+    if (this._status !== 'connected') return false;
+
+    try {
+      // Tenta uma operação simples para verificar se o cliente está funcional
+      const state = await this.client.getState();
+      return state === 'CONNECTED';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Aguardar cliente ficar pronto com timeout
+  async waitForClientReady(maxWaitMs = 10000) {
+    const startTime = Date.now();
+    const checkInterval = 500; // Verificar a cada 500ms
+
+    while (Date.now() - startTime < maxWaitMs) {
+      if (await this.isClientReady()) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
+    }
+    return false;
+  }
+
   async sendMessage(phone, message) {
     // Verificar se temos cliente disponível e conectado
     if (!this.client) {
@@ -492,34 +520,68 @@ class WhatsAppService {
       throw new Error(`Número inválido: ${cleanPhone}. Use formato: 5511999999999`);
     }
 
-    try {
-      // Verificar se o número está registrado no WhatsApp e obter o ID correto
-      const numberId = await this.client.getNumberId(cleanPhone);
+    // Sistema de retry para erros de WidFactory (cliente não pronto)
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 segundos entre tentativas
+    let lastError = null;
 
-      if (!numberId) {
-        throw new Error(`O número ${cleanPhone} não está registrado no WhatsApp`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Na primeira tentativa ou após erro de WidFactory, aguardar cliente ficar pronto
+        if (attempt > 1) {
+          this.addLog(`Tentativa ${attempt}/${maxRetries} - aguardando cliente ficar pronto...`);
+          await this.waitForClientReady(5000);
+        }
+
+        // Verificar se o número está registrado no WhatsApp e obter o ID correto
+        const numberId = await this.client.getNumberId(cleanPhone);
+
+        if (!numberId) {
+          throw new Error(`O número ${cleanPhone} não está registrado no WhatsApp`);
+        }
+
+        // Usar o ID retornado pelo WhatsApp (pode ser @c.us ou @s.whatsapp.net)
+        const chatId = numberId._serialized;
+        this.addLog(`Enviando para ${chatId}`);
+
+        const result = await this.client.sendMessage(chatId, message);
+        this.stats.successCount++;
+        this.stats.lastUsed = new Date();
+        this.addLog(`Mensagem enviada para ${cleanPhone}${attempt > 1 ? ` (tentativa ${attempt})` : ''}`);
+
+        return {
+          success: true,
+          data: { messageId: result.id._serialized },
+          tokenUsed: 1,
+          attempts: attempt
+        };
+      } catch (error) {
+        lastError = error;
+
+        // Verificar se é erro de WidFactory ou cliente não pronto
+        const isRetryableError =
+          error.message.includes('WidFactory') ||
+          error.message.includes('Evaluation failed') ||
+          error.message.includes('not ready') ||
+          error.message.includes('Protocol error') ||
+          error.message.includes('Target closed') ||
+          error.message.includes('Session closed');
+
+        if (isRetryableError && attempt < maxRetries) {
+          this.addLog(`Erro recuperável na tentativa ${attempt}: ${error.message}. Aguardando ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        }
+
+        // Se não é erro recuperável ou acabaram as tentativas, lançar erro
+        break;
       }
-
-      // Usar o ID retornado pelo WhatsApp (pode ser @c.us ou @s.whatsapp.net)
-      const chatId = numberId._serialized;
-      this.addLog(`Enviando para ${chatId}`);
-
-      const result = await this.client.sendMessage(chatId, message);
-      this.stats.successCount++;
-      this.stats.lastUsed = new Date();
-      this.addLog(`Mensagem enviada para ${cleanPhone}`);
-
-      return {
-        success: true,
-        data: { messageId: result.id._serialized },
-        tokenUsed: 1,
-        attempts: 1
-      };
-    } catch (error) {
-      this.stats.failureCount++;
-      this.addLog(`Erro ao enviar para ${cleanPhone}: ${error.message}`);
-      throw new Error(`Falha ao enviar mensagem: ${error.message}`);
     }
+
+    // Se chegou aqui, todas as tentativas falharam
+    this.stats.failureCount++;
+    this.addLog(`Erro ao enviar para ${cleanPhone} após ${maxRetries} tentativas: ${lastError.message}`);
+    throw new Error(`Falha ao enviar mensagem: ${lastError.message}`);
   }
 
   async disconnect() {
