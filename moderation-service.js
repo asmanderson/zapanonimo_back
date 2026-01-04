@@ -1,5 +1,19 @@
 require('dotenv').config();
 
+// === CREDENCIAIS HARDCODED (não use .env para IA) ===
+const AI_CONFIG = {
+  claude: {
+    apiKey: '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',
+    model: 'claude-3-5-haiku-latest',
+    enabled: true
+  },
+  gemini: {
+    apiKey: 'AIzaSyDPPtcBOJsPEvROruae4RGt0UZLlVT-dq8',
+    model: 'gemini-2.0-flash',
+    enabled: true
+  }
+};
+
 class ModerationService {
   constructor() {
     this.cache = new Map(); // Cache simples para evitar chamadas repetidas
@@ -8,28 +22,28 @@ class ModerationService {
 
   // === CLAUDE CONFIG ===
   get claudeApiKey() {
-    return process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
+    return AI_CONFIG.claude.apiKey;
   }
 
   get claudeModel() {
-    return process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307';
+    return AI_CONFIG.claude.model;
   }
 
   get claudeEnabled() {
-    return process.env.CLAUDE_ENABLED === 'true' && !!this.claudeApiKey;
+    return AI_CONFIG.claude.enabled && !!this.claudeApiKey;
   }
 
   // === GEMINI CONFIG ===
   get geminiApiKey() {
-    return process.env.GEMINI_API_KEY;
+    return AI_CONFIG.gemini.apiKey;
   }
 
   get geminiModel() {
-    return process.env.GEMINI_MODEL || 'gemini-pro';
+    return AI_CONFIG.gemini.model;
   }
 
   get geminiEnabled() {
-    return process.env.GEMINI_ENABLED === 'true' && !!this.geminiApiKey;
+    return AI_CONFIG.gemini.enabled && !!this.geminiApiKey;
   }
 
   // Getter para verificar se alguma IA está habilitada
