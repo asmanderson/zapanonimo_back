@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const { Client, RemoteAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
-const { SupabaseStore } = require('./supabase-store');
+const { DatabaseSessionStore } = require('./session-store');
 const { getWhatsAppStats, saveWhatsAppStats } = require('./database');
 
 class WhatsAppService {
@@ -389,8 +389,8 @@ class WhatsAppService {
       this.addLog(`Usando Chromium: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
     }
 
-    // Criar store para persistência da sessão no Supabase
-    const store = new SupabaseStore({ sessionId: 'whatsapp-main' });
+    // Criar store para persistência da sessão no banco de dados
+    const store = new DatabaseSessionStore({ sessionId: 'whatsapp-main' });
 
     this.client = new Client({
       authStrategy: new RemoteAuth({
