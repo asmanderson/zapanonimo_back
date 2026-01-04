@@ -119,11 +119,12 @@ class WhatsAppService {
 
   subscribeAdmin(socketId) {
     this.adminSockets.add(socketId);
-    // Enviar estado atual para o novo admin
+    // Enviar estado atual para o novo admin (incluindo stats)
     if (this.io) {
       this.io.to(socketId).emit('whatsapp:status', {
         status: this.status,
-        qrCode: this.qrCode
+        qrCode: this.qrCode,
+        stats: this.stats
       });
       this.io.to(socketId).emit('whatsapp:logs', this.logs);
     }
@@ -549,6 +550,9 @@ class WhatsAppService {
         this.stats.lastUsed = new Date();
         this.addLog(`Mensagem enviada para ${cleanPhone}${attempt > 1 ? ` (tentativa ${attempt})` : ''}`);
 
+        // Emitir stats atualizados para admins
+        this.emitToAdmins('whatsapp:stats', this.stats);
+
         return {
           success: true,
           data: { messageId: result.id._serialized },
@@ -581,6 +585,10 @@ class WhatsAppService {
     // Se chegou aqui, todas as tentativas falharam
     this.stats.failureCount++;
     this.addLog(`Erro ao enviar para ${cleanPhone} após ${maxRetries} tentativas: ${lastError.message}`);
+
+    // Emitir stats atualizados para admins
+    this.emitToAdmins('whatsapp:stats', this.stats);
+
     throw new Error(`Falha ao enviar mensagem: ${lastError.message}`);
   }
 

@@ -369,6 +369,14 @@
             _updateDebounce: 500, // 500ms de debounce
             _pendingUpdate: null,
 
+            // Stats com timestamp para saber qual é mais recente
+            _stats: {
+                successCount: 0,
+                failureCount: 0,
+                lastUsed: null,
+                _lastStatsUpdate: 0
+            },
+
             // Atualizar status com debounce
             setStatus(status, qrCode = null, force = false) {
                 const now = Date.now();
@@ -431,6 +439,45 @@
 
             getStatus() {
                 return this._currentStatus;
+            },
+
+            // Atualizar stats apenas se forem mais recentes ou maiores
+            updateStats(newStats) {
+                if (!newStats) return;
+
+                const now = Date.now();
+
+                // Sempre aceitar valores maiores (stats só aumentam)
+                if (typeof newStats.successCount === 'number' && newStats.successCount >= this._stats.successCount) {
+                    this._stats.successCount = newStats.successCount;
+                }
+                if (typeof newStats.failureCount === 'number' && newStats.failureCount >= this._stats.failureCount) {
+                    this._stats.failureCount = newStats.failureCount;
+                }
+
+                // lastUsed: aceitar se for mais recente
+                if (newStats.lastUsed) {
+                    const newLastUsed = new Date(newStats.lastUsed).getTime();
+                    const currentLastUsed = this._stats.lastUsed ? new Date(this._stats.lastUsed).getTime() : 0;
+                    if (newLastUsed > currentLastUsed) {
+                        this._stats.lastUsed = newStats.lastUsed;
+                    }
+                }
+
+                this._stats._lastStatsUpdate = now;
+                this._renderStats();
+            },
+
+            _renderStats() {
+                successCount.textContent = this._stats.successCount;
+                failureCount.textContent = this._stats.failureCount;
+                lastUsed.textContent = this._stats.lastUsed
+                    ? new Date(this._stats.lastUsed).toLocaleTimeString('pt-BR')
+                    : '-';
+            },
+
+            getStats() {
+                return this._stats;
             }
         };
 
@@ -557,6 +604,15 @@
             socket.on('whatsapp:status', (data) => {
                 // Usar o estado centralizado
                 appState.setStatus(data.status, data.qrCode);
+                // Atualizar stats se vierem junto com o status
+                if (data.stats) {
+                    appState.updateStats(data.stats);
+                }
+            });
+
+            socket.on('whatsapp:stats', (stats) => {
+                // Atualizar stats em tempo real
+                appState.updateStats(stats);
             });
 
             socket.on('whatsapp:qr', (qrCodeData) => {
@@ -584,12 +640,9 @@
                     // Usar o estado centralizado com force=true para o carregamento inicial
                     appState.setStatus(data.status, data.qrCode, true);
 
+                    // Usar o sistema centralizado de stats (aceita apenas valores maiores)
                     if (data.stats) {
-                        successCount.textContent = data.stats.successCount || 0;
-                        failureCount.textContent = data.stats.failureCount || 0;
-                        lastUsed.textContent = data.stats.lastUsed
-                            ? new Date(data.stats.lastUsed).toLocaleTimeString('pt-BR')
-                            : '-';
+                        appState.updateStats(data.stats);
                     }
 
                     if (data.logs) {
