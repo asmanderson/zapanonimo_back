@@ -15,7 +15,8 @@ class WhatsAppService {
     this.stats = {
       successCount: 0,
       failureCount: 0,
-      lastUsed: null
+      lastUsed: null,
+      _lastUpdate: Date.now() // Timestamp para sincronização
     };
 
     // Configurações de reconexão
@@ -117,14 +118,26 @@ class WhatsAppService {
     }
   }
 
+  // Helper para emitir status SEMPRE com stats incluídos
+  emitStatusUpdate(overrideStatus = null, overrideQrCode = undefined) {
+    const statusData = {
+      status: overrideStatus !== null ? overrideStatus : this._status,
+      qrCode: overrideQrCode !== undefined ? overrideQrCode : this.qrCode,
+      stats: { ...this.stats },
+      _timestamp: Date.now() // Timestamp para sincronização
+    };
+    this.emitToAdmins('whatsapp:status', statusData);
+  }
+
   subscribeAdmin(socketId) {
     this.adminSockets.add(socketId);
-    // Enviar estado atual para o novo admin (incluindo stats)
+    // Enviar estado atual para o novo admin (incluindo stats e timestamp)
     if (this.io) {
       this.io.to(socketId).emit('whatsapp:status', {
-        status: this.status,
+        status: this._status,
         qrCode: this.qrCode,
-        stats: this.stats
+        stats: { ...this.stats },
+        _timestamp: Date.now()
       });
       this.io.to(socketId).emit('whatsapp:logs', this.logs);
     }
@@ -219,7 +232,8 @@ class WhatsAppService {
 
             if (this.healthCheckFailures >= maxHealthCheckFailures) {
               this._status = 'disconnected';
-              this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+              this.qrCode = null;
+              this.emitStatusUpdate();
               this.scheduleReconnect('estado inválido persistente');
               this.healthCheckFailures = 0;
             }
@@ -231,7 +245,8 @@ class WhatsAppService {
           // Só marcar como desconectado após múltiplas falhas
           if (this.healthCheckFailures >= maxHealthCheckFailures) {
             this._status = 'disconnected';
-            this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+            this.qrCode = null;
+            this.emitStatusUpdate();
             this.scheduleReconnect('health check falhou repetidamente');
             this.healthCheckFailures = 0;
           }
@@ -279,7 +294,7 @@ class WhatsAppService {
 
     this.status = 'connecting';
     this.qrCode = null;
-    this.emitToAdmins('whatsapp:status', { status: this.status, qrCode: null });
+    this.emitStatusUpdate();
     this.addLog('Inicializando cliente WhatsApp...');
 
     // Timeout de 5 minutos para inicialização (aumentado para VMs com recursos limitados)
@@ -289,7 +304,8 @@ class WhatsAppService {
         this.addLog('Timeout na inicialização - tempo limite de 5 minutos excedido');
         this.isInitializing = false;
         this.status = 'disconnected';
-        this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+        this.qrCode = null;
+        this.emitStatusUpdate();
         if (this.client) {
           this.client.destroy().catch(() => {});
           this.client = null;
@@ -351,7 +367,7 @@ class WhatsAppService {
       try {
         this.qrCode = await qrcode.toDataURL(qr);
         this.emitToAdmins('whatsapp:qr', this.qrCode);
-        this.emitToAdmins('whatsapp:status', { status: 'connecting', qrCode: this.qrCode });
+        this.emitStatusUpdate('connecting');
       } catch (err) {
         this.addLog(`Erro ao gerar QR Code: ${err.message}`);
       }
@@ -387,7 +403,7 @@ class WhatsAppService {
       this.startHealthCheck();
 
       this.addLog('WhatsApp conectado e pronto!');
-      this.emitToAdmins('whatsapp:status', { status: 'connected', qrCode: null });
+      this.emitStatusUpdate();
     });
 
     // Evento: Desconectado
@@ -401,7 +417,7 @@ class WhatsAppService {
       this.stopHealthCheck();
 
       this.addLog(`Desconectado: ${reason}`);
-      this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+      this.emitStatusUpdate();
 
       // Agendar reconexão automática (exceto logout manual)
       if (reason !== 'LOGOUT') {
@@ -412,9 +428,10 @@ class WhatsAppService {
     // Evento: Falha na autenticação
     this.client.on('auth_failure', (msg) => {
       this.status = 'disconnected';
+      this.qrCode = null;
       this.isInitializing = false;
       this.addLog(`Falha na autenticação: ${msg}`);
-      this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+      this.emitStatusUpdate();
 
       // Agendar reconexão (pode precisar escanear QR novamente)
       this.scheduleReconnect('falha na autenticação');
@@ -453,6 +470,7 @@ class WhatsAppService {
     // Inicializar cliente
     this.client.initialize().catch(err => {
       this.status = 'disconnected';
+      this.qrCode = null;
       this.isInitializing = false;
 
       // Limpar timeout de inicialização
@@ -462,7 +480,7 @@ class WhatsAppService {
       }
 
       this.addLog(`Erro ao inicializar: ${err.message}`);
-      this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+      this.emitStatusUpdate();
 
       // Agendar reconexão automática
       this.scheduleReconnect(`erro: ${err.message}`);
@@ -548,10 +566,11 @@ class WhatsAppService {
         const result = await this.client.sendMessage(chatId, message);
         this.stats.successCount++;
         this.stats.lastUsed = new Date();
+        this.stats._lastUpdate = Date.now();
         this.addLog(`Mensagem enviada para ${cleanPhone}${attempt > 1 ? ` (tentativa ${attempt})` : ''}`);
 
         // Emitir stats atualizados para admins
-        this.emitToAdmins('whatsapp:stats', this.stats);
+        this.emitToAdmins('whatsapp:stats', { ...this.stats });
 
         return {
           success: true,
@@ -584,10 +603,11 @@ class WhatsAppService {
 
     // Se chegou aqui, todas as tentativas falharam
     this.stats.failureCount++;
+    this.stats._lastUpdate = Date.now();
     this.addLog(`Erro ao enviar para ${cleanPhone} após ${maxRetries} tentativas: ${lastError.message}`);
 
     // Emitir stats atualizados para admins
-    this.emitToAdmins('whatsapp:stats', this.stats);
+    this.emitToAdmins('whatsapp:stats', { ...this.stats });
 
     throw new Error(`Falha ao enviar mensagem: ${lastError.message}`);
   }
@@ -605,13 +625,15 @@ class WhatsAppService {
         this.client = null;
         this.isInitializing = false;
         this.addLog('WhatsApp desconectado com sucesso');
-        this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+        this.emitStatusUpdate();
       } catch (err) {
         this.addLog(`Erro ao desconectar: ${err.message}`);
         // Forçar reset do estado mesmo com erro
         this.status = 'disconnected';
+        this.qrCode = null;
         this.client = null;
         this.isInitializing = false;
+        this.emitStatusUpdate();
       }
     }
   }
@@ -643,13 +665,15 @@ class WhatsAppService {
         this.client = null;
         this.isInitializing = false;
         this.addLog('Logout realizado - será necessário escanear QR Code novamente');
-        this.emitToAdmins('whatsapp:status', { status: 'disconnected', qrCode: null });
+        this.emitStatusUpdate();
       } catch (err) {
         this.addLog(`Erro no logout: ${err.message}`);
         // Forçar reset do estado mesmo com erro
         this.status = 'disconnected';
+        this.qrCode = null;
         this.client = null;
         this.isInitializing = false;
+        this.emitStatusUpdate();
       }
     }
   }
@@ -658,8 +682,9 @@ class WhatsAppService {
     return {
       status: this._status,
       qrCode: this.qrCode,
-      stats: this.stats,
+      stats: { ...this.stats },
       logs: this.logs.slice(-20), // Últimos 20 logs
+      _timestamp: Date.now(), // Timestamp para sincronização
       reconnect: {
         attempts: this.reconnectAttempts,
         maxAttempts: this.maxReconnectAttempts,

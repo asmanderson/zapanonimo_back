@@ -366,15 +366,17 @@
             _currentStatus: 'disconnected',
             _currentQrCode: null,
             _lastUpdate: 0,
+            _lastServerTimestamp: 0, // Timestamp do servidor para sincronização
             _updateDebounce: 500, // 500ms de debounce
             _pendingUpdate: null,
+            _initialized: false, // Flag para saber se já carregou dados iniciais
 
             // Stats com timestamp para saber qual é mais recente
             _stats: {
                 successCount: 0,
                 failureCount: 0,
                 lastUsed: null,
-                _lastStatsUpdate: 0
+                _lastUpdate: 0
             },
 
             // Atualizar status com debounce
@@ -441,18 +443,33 @@
                 return this._currentStatus;
             },
 
-            // Atualizar stats apenas se forem mais recentes ou maiores
-            updateStats(newStats) {
+            // Atualizar stats usando timestamp do servidor para sincronização
+            updateStats(newStats, serverTimestamp = null) {
                 if (!newStats) return;
 
-                const now = Date.now();
+                // Se temos timestamp do servidor, usar para comparação
+                const newTimestamp = serverTimestamp || newStats._lastUpdate || Date.now();
 
-                // Sempre aceitar valores maiores (stats só aumentam)
-                if (typeof newStats.successCount === 'number' && newStats.successCount >= this._stats.successCount) {
-                    this._stats.successCount = newStats.successCount;
+                // Ignorar dados mais antigos que os atuais
+                if (this._stats._lastUpdate && newTimestamp < this._stats._lastUpdate) {
+                    console.log(`[Stats] Ignorando dados antigos: ${newTimestamp} < ${this._stats._lastUpdate}`);
+                    return;
                 }
-                if (typeof newStats.failureCount === 'number' && newStats.failureCount >= this._stats.failureCount) {
-                    this._stats.failureCount = newStats.failureCount;
+
+                // Atualizar valores (aceitar valores maiores ou timestamp mais recente)
+                let updated = false;
+
+                if (typeof newStats.successCount === 'number') {
+                    if (newStats.successCount > this._stats.successCount || newTimestamp > this._stats._lastUpdate) {
+                        this._stats.successCount = newStats.successCount;
+                        updated = true;
+                    }
+                }
+                if (typeof newStats.failureCount === 'number') {
+                    if (newStats.failureCount > this._stats.failureCount || newTimestamp > this._stats._lastUpdate) {
+                        this._stats.failureCount = newStats.failureCount;
+                        updated = true;
+                    }
                 }
 
                 // lastUsed: aceitar se for mais recente
@@ -461,10 +478,15 @@
                     const currentLastUsed = this._stats.lastUsed ? new Date(this._stats.lastUsed).getTime() : 0;
                     if (newLastUsed > currentLastUsed) {
                         this._stats.lastUsed = newStats.lastUsed;
+                        updated = true;
                     }
                 }
 
-                this._stats._lastStatsUpdate = now;
+                if (updated) {
+                    this._stats._lastUpdate = newTimestamp;
+                    console.log(`[Stats] Atualizado: success=${this._stats.successCount}, failure=${this._stats.failureCount}, lastUsed=${this._stats.lastUsed}`);
+                }
+
                 this._renderStats();
             },
 
@@ -567,12 +589,15 @@
             dashboard.classList.remove('active');
         });
 
-        // Show Dashboard
-        function showDashboard() {
+        // Show Dashboard - sequenciado para evitar race conditions
+        async function showDashboard() {
             loginContainer.style.display = 'none';
             dashboard.classList.add('active');
+
+            // IMPORTANTE: Primeiro carregar status via API, depois conectar socket
+            // Isso evita race conditions entre os dois
+            await loadStatus();
             connectSocket();
-            loadStatus();
         }
 
         // Connect WebSocket
@@ -602,15 +627,30 @@
             });
 
             socket.on('whatsapp:status', (data) => {
+                console.log('[Socket] Status recebido:', data.status, 'timestamp:', data._timestamp);
+
+                // Verificar se os dados são mais recentes que os atuais
+                if (data._timestamp && data._timestamp < appState._lastServerTimestamp) {
+                    console.log('[Socket] Ignorando status antigo:', data._timestamp, '<', appState._lastServerTimestamp);
+                    return;
+                }
+
+                // Atualizar timestamp
+                if (data._timestamp) {
+                    appState._lastServerTimestamp = data._timestamp;
+                }
+
                 // Usar o estado centralizado
                 appState.setStatus(data.status, data.qrCode);
+
                 // Atualizar stats se vierem junto com o status
                 if (data.stats) {
-                    appState.updateStats(data.stats);
+                    appState.updateStats(data.stats, data._timestamp);
                 }
             });
 
             socket.on('whatsapp:stats', (stats) => {
+                console.log('[Socket] Stats recebidos:', stats);
                 // Atualizar stats em tempo real
                 appState.updateStats(stats);
             });
@@ -633,25 +673,36 @@
         // Load Status
         async function loadStatus() {
             try {
+                console.log('[LoadStatus] Carregando status via API...');
                 const response = await authFetch(`${API_URL}/api/admin/whatsapp/status`);
                 const data = await response.json();
 
                 if (data.success) {
+                    console.log('[LoadStatus] Dados recebidos:', data.status, 'timestamp:', data._timestamp);
+
                     // Usar o estado centralizado com force=true para o carregamento inicial
                     appState.setStatus(data.status, data.qrCode, true);
 
-                    // Usar o sistema centralizado de stats (aceita apenas valores maiores)
+                    // Salvar timestamp do servidor
+                    if (data._timestamp) {
+                        appState._lastServerTimestamp = data._timestamp;
+                    }
+
+                    // Usar o sistema centralizado de stats com timestamp
                     if (data.stats) {
-                        appState.updateStats(data.stats);
+                        appState.updateStats(data.stats, data._timestamp);
                     }
 
                     if (data.logs) {
                         logsArea.innerHTML = '';
                         data.logs.forEach(log => addLog(log));
                     }
+
+                    // Marcar como inicializado
+                    appState._initialized = true;
                 }
             } catch (error) {
-                console.error('Failed to load status:', error);
+                console.error('[LoadStatus] Failed to load status:', error);
             }
         }
 
