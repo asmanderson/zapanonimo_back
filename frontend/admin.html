@@ -360,148 +360,7 @@
         const API_URL = window.API_CONFIG.baseURL;
         let socket = null;
         let adminToken = localStorage.getItem('adminToken');
-
-        // Estado centralizado para evitar conflitos
-        const appState = {
-            _currentStatus: 'disconnected',
-            _currentQrCode: null,
-            _lastUpdate: 0,
-            _lastServerTimestamp: 0, // Timestamp do servidor para sincronização
-            _updateDebounce: 500, // 500ms de debounce
-            _pendingUpdate: null,
-            _initialized: false, // Flag para saber se já carregou dados iniciais
-
-            // Stats com timestamp para saber qual é mais recente
-            _stats: {
-                successCount: 0,
-                failureCount: 0,
-                lastUsed: null,
-                _lastUpdate: 0
-            },
-
-            // Atualizar status com debounce
-            setStatus(status, qrCode = null, force = false) {
-                const now = Date.now();
-
-                // Cancelar update pendente
-                if (this._pendingUpdate) {
-                    clearTimeout(this._pendingUpdate);
-                    this._pendingUpdate = null;
-                }
-
-                // Validar transição de estado
-                const validTransitions = {
-                    'disconnected': ['connecting', 'connected'],
-                    'connecting': ['connected', 'disconnected'],
-                    'connected': ['disconnected']
-                };
-
-                if (!force && this._currentStatus !== status) {
-                    if (!validTransitions[this._currentStatus]?.includes(status)) {
-                        console.log(`Transição inválida ignorada: ${this._currentStatus} -> ${status}`);
-                        return;
-                    }
-                }
-
-                // Se passou tempo suficiente ou é forçado, aplicar imediatamente
-                if (force || now - this._lastUpdate >= this._updateDebounce) {
-                    this._applyStatusUpdate(status, qrCode);
-                } else {
-                    // Agendar update com debounce
-                    this._pendingUpdate = setTimeout(() => {
-                        this._applyStatusUpdate(status, qrCode);
-                        this._pendingUpdate = null;
-                    }, this._updateDebounce);
-                }
-            },
-
-            _applyStatusUpdate(status, qrCode) {
-                this._lastUpdate = Date.now();
-
-                // Só atualizar se realmente mudou
-                if (this._currentStatus !== status || this._currentQrCode !== qrCode) {
-                    console.log(`Status atualizado: ${this._currentStatus} -> ${status}`);
-                    this._currentStatus = status;
-                    this._currentQrCode = qrCode;
-
-                    // Atualizar UI
-                    updateStatusUI(status);
-
-                    if (status === 'connected') {
-                        hideQRCode();
-                        connectedMessage.style.display = 'block';
-                    } else if (qrCode) {
-                        showQRCode(qrCode);
-                    } else if (status === 'disconnected') {
-                        hideQRCode();
-                        connectedMessage.style.display = 'none';
-                    }
-                }
-            },
-
-            getStatus() {
-                return this._currentStatus;
-            },
-
-            // Atualizar stats usando timestamp do servidor para sincronização
-            updateStats(newStats, serverTimestamp = null) {
-                if (!newStats) return;
-
-                // Se temos timestamp do servidor, usar para comparação
-                const newTimestamp = serverTimestamp || newStats._lastUpdate || Date.now();
-
-                // Ignorar dados mais antigos que os atuais
-                if (this._stats._lastUpdate && newTimestamp < this._stats._lastUpdate) {
-                    console.log(`[Stats] Ignorando dados antigos: ${newTimestamp} < ${this._stats._lastUpdate}`);
-                    return;
-                }
-
-                // Atualizar valores (aceitar valores maiores ou timestamp mais recente)
-                let updated = false;
-
-                if (typeof newStats.successCount === 'number') {
-                    if (newStats.successCount > this._stats.successCount || newTimestamp > this._stats._lastUpdate) {
-                        this._stats.successCount = newStats.successCount;
-                        updated = true;
-                    }
-                }
-                if (typeof newStats.failureCount === 'number') {
-                    if (newStats.failureCount > this._stats.failureCount || newTimestamp > this._stats._lastUpdate) {
-                        this._stats.failureCount = newStats.failureCount;
-                        updated = true;
-                    }
-                }
-
-                // lastUsed: aceitar se for mais recente
-                if (newStats.lastUsed) {
-                    const newLastUsed = new Date(newStats.lastUsed).getTime();
-                    const currentLastUsed = this._stats.lastUsed ? new Date(this._stats.lastUsed).getTime() : 0;
-                    if (newLastUsed > currentLastUsed) {
-                        this._stats.lastUsed = newStats.lastUsed;
-                        updated = true;
-                    }
-                }
-
-                if (updated) {
-                    this._stats._lastUpdate = newTimestamp;
-                    console.log(`[Stats] Atualizado: success=${this._stats.successCount}, failure=${this._stats.failureCount}, lastUsed=${this._stats.lastUsed}`);
-                }
-
-                this._renderStats();
-            },
-
-            _renderStats() {
-                successCount.textContent = this._stats.successCount;
-                failureCount.textContent = this._stats.failureCount;
-                lastUsed.textContent = this._stats.lastUsed
-                    ? new Date(this._stats.lastUsed).toLocaleTimeString('pt-BR')
-                    : '-';
-            },
-
-            getStats() {
-                return this._stats;
-            }
-        };
+        let refreshInterval = null;
 
         // Elements
         const loginContainer = document.getElementById('loginContainer');
@@ -510,12 +369,16 @@
         const loginError = document.getElementById('loginError');
         const statusBadge = document.getElementById('statusBadge');
         const qrContainer = document.getElementById('qrContainer');
-        const qrCode = document.getElementById('qrCode');
+        const qrCodeImg = document.getElementById('qrCode');
         const connectedMessage = document.getElementById('connectedMessage');
         const logsArea = document.getElementById('logsArea');
-        const successCount = document.getElementById('successCount');
-        const failureCount = document.getElementById('failureCount');
-        const lastUsed = document.getElementById('lastUsed');
+        const successCountEl = document.getElementById('successCount');
+        const failureCountEl = document.getElementById('failureCount');
+        const lastUsedEl = document.getElementById('lastUsed');
+
+        // Estado atual
+        let currentStatus = 'disconnected';
+        let currentQrCode = null;
 
         // Helper para requisicoes autenticadas
         function authFetch(url, options = {}) {
@@ -526,7 +389,152 @@
             return fetch(url, options);
         }
 
-        // Check if already logged in
+        // Atualizar UI de status
+        function updateUI(status, qrCode, stats) {
+            // Status badge
+            statusBadge.className = 'status-badge ' + status;
+            const statusTexts = {
+                'connected': 'Conectado',
+                'connecting': 'Conectando...',
+                'disconnected': 'Desconectado'
+            };
+            statusBadge.textContent = statusTexts[status] || status;
+
+            // QR Code / Connected message
+            if (status === 'connected') {
+                qrContainer.style.display = 'none';
+                connectedMessage.style.display = 'block';
+            } else if (qrCode) {
+                qrCodeImg.src = qrCode;
+                qrContainer.style.display = 'block';
+                connectedMessage.style.display = 'none';
+            } else {
+                qrContainer.style.display = 'none';
+                connectedMessage.style.display = 'none';
+            }
+
+            // Stats
+            if (stats) {
+                successCountEl.textContent = stats.successCount || 0;
+                failureCountEl.textContent = stats.failureCount || 0;
+                lastUsedEl.textContent = stats.lastUsed
+                    ? new Date(stats.lastUsed).toLocaleTimeString('pt-BR')
+                    : '-';
+            }
+
+            currentStatus = status;
+            currentQrCode = qrCode;
+        }
+
+        // Carregar status da API (fonte de verdade)
+        async function loadStatus() {
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/whatsapp/status`);
+                const data = await response.json();
+
+                if (data.success) {
+                    updateUI(data.status, data.qrCode, data.stats);
+
+                    if (data.logs && logsArea.children.length === 0) {
+                        data.logs.forEach(log => addLog(log));
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao carregar status:', error);
+            }
+        }
+
+        // Conectar WebSocket (apenas para atualizações em tempo real)
+        function connectSocket() {
+            if (socket) {
+                socket.disconnect();
+            }
+
+            socket = io(API_URL, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                reconnectionAttempts: 10,
+                timeout: 20000
+            });
+
+            socket.on('connect', () => {
+                console.log('Socket connected');
+                socket.emit('admin:subscribe');
+            });
+
+            // Quando receber status via socket, recarregar da API para garantir consistência
+            socket.on('whatsapp:status', (data) => {
+                console.log('[Socket] Status recebido:', data.status);
+                // Atualizar status visual imediatamente
+                if (data.status === 'connected') {
+                    statusBadge.className = 'status-badge connected';
+                    statusBadge.textContent = 'Conectado';
+                    qrContainer.style.display = 'none';
+                    connectedMessage.style.display = 'block';
+                } else if (data.status === 'connecting' && data.qrCode) {
+                    statusBadge.className = 'status-badge connecting';
+                    statusBadge.textContent = 'Conectando...';
+                    qrCodeImg.src = data.qrCode;
+                    qrContainer.style.display = 'block';
+                    connectedMessage.style.display = 'none';
+                }
+                // Recarregar stats da API após 1 segundo
+                setTimeout(loadStatus, 1000);
+            });
+
+            // QR Code atualizado
+            socket.on('whatsapp:qr', (qrCodeData) => {
+                console.log('[Socket] QR Code recebido');
+                qrCodeImg.src = qrCodeData;
+                qrContainer.style.display = 'block';
+                connectedMessage.style.display = 'none';
+                statusBadge.className = 'status-badge connecting';
+                statusBadge.textContent = 'Conectando...';
+            });
+
+            // Stats atualizados (quando mensagem é enviada)
+            socket.on('whatsapp:stats', (stats) => {
+                console.log('[Socket] Stats recebidos:', stats);
+                if (stats) {
+                    successCountEl.textContent = stats.successCount || 0;
+                    failureCountEl.textContent = stats.failureCount || 0;
+                    lastUsedEl.textContent = stats.lastUsed
+                        ? new Date(stats.lastUsed).toLocaleTimeString('pt-BR')
+                        : '-';
+                }
+            });
+
+            // Logs
+            socket.on('whatsapp:log', (log) => {
+                addLog(log);
+            });
+
+            socket.on('whatsapp:logs', (logs) => {
+                logsArea.innerHTML = '';
+                logs.forEach(log => addLog(log));
+            });
+
+            socket.on('disconnect', (reason) => {
+                console.log('Socket disconnected:', reason);
+            });
+        }
+
+        // Adicionar log
+        function addLog(log) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date(log.timestamp).toLocaleTimeString('pt-BR');
+            entry.innerHTML = `<span class="timestamp">${time}</span><span class="message">${log.message}</span>`;
+            logsArea.insertBefore(entry, logsArea.firstChild);
+
+            while (logsArea.children.length > 50) {
+                logsArea.removeChild(logsArea.lastChild);
+            }
+        }
+
+        // Verificar autenticação
         async function checkAuth() {
             if (!adminToken) return;
 
@@ -543,6 +551,22 @@
             } catch (error) {
                 console.error('Auth check failed:', error);
             }
+        }
+
+        // Mostrar dashboard
+        async function showDashboard() {
+            loginContainer.style.display = 'none';
+            dashboard.classList.add('active');
+
+            // Carregar status inicial
+            await loadStatus();
+
+            // Conectar socket para atualizações em tempo real
+            connectSocket();
+
+            // Atualizar status a cada 30 segundos como backup
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(loadStatus, 30000);
         }
 
         // Login
@@ -577,231 +601,50 @@
         });
 
         // Logout
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
+        document.getElementById('logoutBtn').addEventListener('click', () => {
             localStorage.removeItem('adminToken');
             adminToken = null;
-
-            if (socket) {
-                socket.disconnect();
-            }
-
+            if (socket) socket.disconnect();
+            if (refreshInterval) clearInterval(refreshInterval);
             loginContainer.style.display = 'block';
             dashboard.classList.remove('active');
         });
 
-        // Show Dashboard - sequenciado para evitar race conditions
-        async function showDashboard() {
-            loginContainer.style.display = 'none';
-            dashboard.classList.add('active');
-
-            // IMPORTANTE: Primeiro carregar status via API, depois conectar socket
-            // Isso evita race conditions entre os dois
-            await loadStatus();
-            connectSocket();
-        }
-
-        // Connect WebSocket
-        function connectSocket() {
-            socket = io(API_URL, {
-                transports: ['websocket', 'polling'],
-                reconnection: true,
-                reconnectionDelay: 1000,
-                reconnectionDelayMax: 5000,
-                reconnectionAttempts: 10,
-                timeout: 20000
-            });
-
-            socket.on('connect', () => {
-                console.log('Socket connected');
-                socket.emit('admin:subscribe');
-            });
-
-            socket.on('connect_error', (error) => {
-                console.error('Socket connection error:', error);
-                addLog({ timestamp: new Date().toISOString(), message: `Erro de conexão: ${error.message}` });
-            });
-
-            socket.on('disconnect', (reason) => {
-                console.log('Socket disconnected:', reason);
-                addLog({ timestamp: new Date().toISOString(), message: `Socket desconectado: ${reason}` });
-            });
-
-            socket.on('whatsapp:status', (data) => {
-                console.log('[Socket] Status recebido:', data.status, 'timestamp:', data._timestamp);
-
-                // Verificar se os dados são mais recentes que os atuais
-                if (data._timestamp && data._timestamp < appState._lastServerTimestamp) {
-                    console.log('[Socket] Ignorando status antigo:', data._timestamp, '<', appState._lastServerTimestamp);
-                    return;
-                }
-
-                // Atualizar timestamp
-                if (data._timestamp) {
-                    appState._lastServerTimestamp = data._timestamp;
-                }
-
-                // Usar o estado centralizado
-                appState.setStatus(data.status, data.qrCode);
-
-                // Atualizar stats se vierem junto com o status
-                if (data.stats) {
-                    appState.updateStats(data.stats, data._timestamp);
-                }
-            });
-
-            socket.on('whatsapp:stats', (stats) => {
-                console.log('[Socket] Stats recebidos:', stats);
-                // Atualizar stats em tempo real
-                appState.updateStats(stats);
-            });
-
-            socket.on('whatsapp:qr', (qrCodeData) => {
-                // Atualizar apenas o QR code mantendo o status atual como connecting
-                appState.setStatus('connecting', qrCodeData);
-            });
-
-            socket.on('whatsapp:log', (log) => {
-                addLog(log);
-            });
-
-            socket.on('whatsapp:logs', (logs) => {
-                logsArea.innerHTML = '';
-                logs.forEach(log => addLog(log));
-            });
-        }
-
-        // Load Status
-        async function loadStatus() {
-            try {
-                console.log('[LoadStatus] Carregando status via API...');
-                const response = await authFetch(`${API_URL}/api/admin/whatsapp/status`);
-                const data = await response.json();
-
-                if (data.success) {
-                    console.log('[LoadStatus] Dados recebidos:', data.status, 'timestamp:', data._timestamp);
-
-                    // Usar o estado centralizado com force=true para o carregamento inicial
-                    appState.setStatus(data.status, data.qrCode, true);
-
-                    // Salvar timestamp do servidor
-                    if (data._timestamp) {
-                        appState._lastServerTimestamp = data._timestamp;
-                    }
-
-                    // Usar o sistema centralizado de stats com timestamp
-                    if (data.stats) {
-                        appState.updateStats(data.stats, data._timestamp);
-                    }
-
-                    if (data.logs) {
-                        logsArea.innerHTML = '';
-                        data.logs.forEach(log => addLog(log));
-                    }
-
-                    // Marcar como inicializado
-                    appState._initialized = true;
-                }
-            } catch (error) {
-                console.error('[LoadStatus] Failed to load status:', error);
-            }
-        }
-
-        // Update Status Badge UI (chamado pelo appState)
-        function updateStatusUI(status) {
-            statusBadge.className = 'status-badge ' + status;
-
-            const statusTexts = {
-                'connected': 'Conectado',
-                'connecting': 'Conectando...',
-                'disconnected': 'Desconectado'
-            };
-
-            statusBadge.textContent = statusTexts[status] || status;
-        }
-
-        // Show QR Code (chamado pelo appState)
-        function showQRCode(qrCodeData) {
-            if (qrCodeData) {
-                qrCode.src = qrCodeData;
-                qrContainer.style.display = 'block';
-                connectedMessage.style.display = 'none';
-            }
-        }
-
-        // Hide QR Code (chamado pelo appState)
-        function hideQRCode() {
-            qrContainer.style.display = 'none';
-        }
-
-        // Add Log Entry
-        function addLog(log) {
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-
-            const time = new Date(log.timestamp).toLocaleTimeString('pt-BR');
-            entry.innerHTML = `<span class="timestamp">${time}</span><span class="message">${log.message}</span>`;
-
-            logsArea.insertBefore(entry, logsArea.firstChild);
-
-            // Keep only last 50 logs
-            while (logsArea.children.length > 50) {
-                logsArea.removeChild(logsArea.lastChild);
-            }
-        }
-
-        // Reconnect Button
+        // Botões de ação
         document.getElementById('reconnectBtn').addEventListener('click', async () => {
             try {
-                const response = await authFetch(`${API_URL}/api/admin/whatsapp/reconnect`, {
-                    method: 'POST'
-                });
+                const response = await authFetch(`${API_URL}/api/admin/whatsapp/reconnect`, { method: 'POST' });
                 const data = await response.json();
-
-                if (!data.success) {
-                    alert('Erro: ' + data.error);
-                }
+                if (!data.success) alert('Erro: ' + data.error);
             } catch (error) {
                 alert('Erro ao reconectar');
             }
         });
 
-        // Disconnect Button
         document.getElementById('disconnectBtn').addEventListener('click', async () => {
             try {
-                const response = await authFetch(`${API_URL}/api/admin/whatsapp/disconnect`, {
-                    method: 'POST'
-                });
+                const response = await authFetch(`${API_URL}/api/admin/whatsapp/disconnect`, { method: 'POST' });
                 const data = await response.json();
-
-                if (!data.success) {
-                    alert('Erro: ' + data.error);
-                }
+                if (!data.success) alert('Erro: ' + data.error);
             } catch (error) {
                 alert('Erro ao desconectar');
             }
         });
 
-        // Logout WhatsApp Button
         document.getElementById('logoutWhatsAppBtn').addEventListener('click', async () => {
             if (!confirm('Isso ira remover a sessao salva. Voce precisara escanear o QR Code novamente. Continuar?')) {
                 return;
             }
-
             try {
-                const response = await authFetch(`${API_URL}/api/admin/whatsapp/logout`, {
-                    method: 'POST'
-                });
+                const response = await authFetch(`${API_URL}/api/admin/whatsapp/logout`, { method: 'POST' });
                 const data = await response.json();
-
-                if (!data.success) {
-                    alert('Erro: ' + data.error);
-                }
+                if (!data.success) alert('Erro: ' + data.error);
             } catch (error) {
                 alert('Erro ao fazer logout');
             }
         });
 
-        // Initialize
+        // Iniciar
         checkAuth();
     </script>
 </body>

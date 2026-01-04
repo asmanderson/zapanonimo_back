@@ -171,14 +171,8 @@ class WhatsAppService {
 
   subscribeAdmin(socketId) {
     this.adminSockets.add(socketId);
-    // Enviar estado atual para o novo admin (incluindo stats e timestamp)
+    // Apenas enviar logs - o frontend vai buscar status e stats da API
     if (this.io) {
-      this.io.to(socketId).emit('whatsapp:status', {
-        status: this._status,
-        qrCode: this.qrCode,
-        stats: { ...this.stats },
-        _timestamp: Date.now()
-      });
       this.io.to(socketId).emit('whatsapp:logs', this.logs);
     }
   }
