@@ -48,10 +48,16 @@ const io = new Server(server, {
 const userSockets = new Map();
 
 io.on('connection', (socket) => {
+  console.log(`[Socket.IO] Nova conexão: ${socket.id}`);
+
   socket.on('authenticate', (userId) => {
     if (userId) {
-      userSockets.set(userId.toString(), socket.id);
-      socket.userId = userId.toString();
+      const userIdStr = userId.toString();
+      userSockets.set(userIdStr, socket.id);
+      socket.userId = userIdStr;
+      // Entrar na sala do usuário para receber notificações direcionadas
+      socket.join(`user:${userIdStr}`);
+      console.log(`[Socket.IO] Usuário ${userIdStr} autenticado e entrou na sala user:${userIdStr}`);
     }
   });
 
@@ -59,11 +65,13 @@ io.on('connection', (socket) => {
   socket.on('admin:subscribe', () => {
     whatsappService.subscribeAdmin(socket.id);
     socket.isAdmin = true;
+    console.log(`[Socket.IO] Admin inscrito: ${socket.id}`);
   });
 
   socket.on('disconnect', () => {
     if (socket.userId) {
       userSockets.delete(socket.userId);
+      console.log(`[Socket.IO] Usuário ${socket.userId} desconectado`);
     }
     if (socket.isAdmin) {
       whatsappService.unsubscribeAdmin(socket.id);
@@ -72,10 +80,10 @@ io.on('connection', (socket) => {
 });
 
 function emitNewReply(userId, reply) {
-  const socketId = userSockets.get(userId.toString());
-  if (socketId) {
-    io.to(socketId).emit('new-reply', reply);
-  }
+  const userIdStr = userId.toString();
+  // Usar a sala do usuário para garantir entrega
+  io.to(`user:${userIdStr}`).emit('new-reply', reply);
+  console.log(`[Socket.IO] Notificação enviada para sala user:${userIdStr}`);
 }
 
 const { authMiddleware, generateToken } = require('./auth');
@@ -96,7 +104,8 @@ const {
   verifyEmailToken,
   isEmailVerified,
   createPasswordResetToken,
-  resetPassword
+  resetPassword,
+  generateTrackingCode
 } = require('./database');
 const {
   sendVerificationEmail,
@@ -518,7 +527,10 @@ app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), asy
       MessageSid: messageSid
     } = req.body;
 
+    console.log(`[Webhook Twilio] Recebido de ${fromPhone}: ${message?.substring(0, 50)}...`);
+
     if (!fromPhone || !message) {
+      console.log('[Webhook Twilio] Dados incompletos - ignorando');
       return res.status(200).send('<Response></Response>');
     }
 
@@ -529,12 +541,16 @@ app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), asy
         ...result.reply,
         original_message: result.originalMessage.message
       });
+      console.log(`[Webhook Twilio] Resposta salva e notificada para usuário ${result.originalMessage.user_id}`);
+    } else {
+      console.log(`[Webhook Twilio] Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
 
     res.set('Content-Type', 'text/xml');
     res.status(200).send('<Response></Response>');
 
   } catch (error) {
+    console.error('[Webhook Twilio] Erro ao processar:', error);
     res.status(200).send('<Response></Response>');
   }
 });
@@ -607,6 +623,8 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
       return res.status(200).json({ success: true, message: 'Tipo ignorado' });
     }
 
+    console.log(`[Webhook WASender] Processando mensagem de ${fromPhone}: ${messageText?.substring(0, 50)}...`);
+
     const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
 
     if (result) {
@@ -614,11 +632,15 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
         ...result.reply,
         original_message: result.originalMessage.message
       });
+      console.log(`[Webhook WASender] Resposta salva e notificada para usuário ${result.originalMessage.user_id}`);
+    } else {
+      console.log(`[Webhook WASender] Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
 
     res.status(200).json({ success: true, message: 'Resposta processada' });
 
   } catch (error) {
+    console.error('[Webhook WASender] Erro ao processar:', error);
     res.status(200).json({ success: false, error: error.message });
   }
 });
@@ -652,10 +674,13 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
     }
 
     if (!fromPhone || !messageText) {
+      console.log('[Webhook WhatsApp] Dados incompletos - ignorando');
       return res.status(200).json({ success: true });
     }
 
     fromPhone = fromPhone.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '');
+
+    console.log(`[Webhook WhatsApp] Processando mensagem de ${fromPhone}: ${messageText?.substring(0, 50)}...`);
 
     const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
 
@@ -664,11 +689,15 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
         ...result.reply,
         original_message: result.originalMessage.message
       });
+      console.log(`[Webhook WhatsApp] Resposta salva e notificada para usuário ${result.originalMessage.user_id}`);
+    } else {
+      console.log(`[Webhook WhatsApp] Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
 
     res.status(200).json({ success: true });
 
   } catch (error) {
+    console.error('[Webhook WhatsApp] Erro ao processar:', error);
     res.status(200).json({ success: false });
   }
 });
@@ -706,9 +735,17 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
       });
     }
 
-    await useCredit(req.userId, phone, message, 'whatsapp');
+    // Gerar código de rastreamento único
+    const trackingCode = generateTrackingCode();
 
-    const result = await whatsappService.sendMessage(phone, message);
+    // Adicionar código no final da mensagem
+    const messageWithCode = `${message}\n\n[Cód: ${trackingCode}]`;
+
+    // Salvar no banco com o código de rastreamento
+    const creditResult = await useCredit(req.userId, phone, message, 'whatsapp', trackingCode);
+
+    // Enviar mensagem COM o código
+    const result = await whatsappService.sendMessage(phone, messageWithCode);
 
     const user = await getUserById(req.userId);
 
@@ -718,7 +755,8 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
       whatsapp_credits: user.whatsapp_credits,
       sms_credits: user.sms_credits,
       tokenUsed: result.tokenUsed,
-      attempts: result.attempts
+      attempts: result.attempts,
+      trackingCode: trackingCode
     });
 
   } catch (error) {
@@ -823,9 +861,17 @@ app.post('/api/send-sms', authMiddleware, async (req, res) => {
       });
     }
 
-    await useCredit(req.userId, phone, message, 'sms');
+    // Gerar código de rastreamento único
+    const trackingCode = generateTrackingCode();
 
-    const result = await smsService.sendSMS(phone, message);
+    // Adicionar código no final da mensagem
+    const messageWithCode = `${message}\n\n[Cód: ${trackingCode}]`;
+
+    // Salvar no banco com o código de rastreamento
+    await useCredit(req.userId, phone, message, 'sms', trackingCode);
+
+    // Enviar SMS COM o código
+    const result = await smsService.sendSMS(phone, messageWithCode);
 
     const user = await getUserById(req.userId);
 
@@ -833,7 +879,8 @@ app.post('/api/send-sms', authMiddleware, async (req, res) => {
       success: true,
       data: result,
       whatsapp_credits: user.whatsapp_credits,
-      sms_credits: user.sms_credits
+      sms_credits: user.sms_credits,
+      trackingCode: trackingCode
     });
 
   } catch (error) {

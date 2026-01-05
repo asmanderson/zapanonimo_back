@@ -1,7 +1,25 @@
 require('dotenv').config();
 
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
+
+// Gera código de rastreamento único (ex: by7K2m)
+function generateTrackingCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'; // Sem caracteres ambíguos (0, O, 1, l, I)
+  let code = 'by';
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+// Extrai código de rastreamento de uma mensagem (se existir)
+function extractTrackingCode(message) {
+  // Procura por padrão "by" seguido de 4 caracteres alfanuméricos
+  const match = message.match(/\bby([A-HJ-NP-Za-hj-np-z2-9]{4})\b/i);
+  return match ? 'by' + match[1] : null;
+}
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
@@ -99,7 +117,7 @@ async function addCredits(userId, creditsToAdd, price, creditType = 'whatsapp') 
   return true;
 }
 
-async function useCredit(userId, phone, message, channel = 'whatsapp') {
+async function useCredit(userId, phone, message, channel = 'whatsapp', trackingCode = null) {
   const creditColumn = channel === 'whatsapp' ? 'whatsapp_credits' : 'sms_credits';
 
   const user = await getUserById(userId);
@@ -109,11 +127,15 @@ async function useCredit(userId, phone, message, channel = 'whatsapp') {
     throw new Error(`Créditos de ${channel === 'whatsapp' ? 'WhatsApp' : 'SMS'} insuficientes`);
   }
 
+  // Gerar código de rastreamento se não foi fornecido
+  const code = trackingCode || generateTrackingCode();
+
   const { data, error } = await supabase.rpc('use_credit_transaction', {
     p_user_id: userId,
     p_phone: phone,
     p_message: message,
-    p_channel: channel
+    p_channel: channel,
+    p_tracking_code: code
   });
 
   if (error) {
@@ -145,13 +167,14 @@ async function useCredit(userId, phone, message, channel = 'whatsapp') {
         user_id: userId,
         phone: phone,
         message: message,
-        channel: channel
+        channel: channel,
+        tracking_code: code
       }]);
 
     if (messageError) throw messageError;
   }
 
-  return true;
+  return { success: true, trackingCode: code };
 }
 
 async function getUserTransactions(userId, limit = 20) {
@@ -221,14 +244,54 @@ async function saveReply(userId, messageId, fromPhone, replyMessage, channel) {
   return data;
 }
 
+// Busca mensagem pelo código de rastreamento (match exato)
+async function findMessageByTrackingCode(trackingCode, channel = null) {
+  console.log(`[Database] Buscando mensagem pelo código: ${trackingCode}`);
+
+  let query = supabase
+    .from('messages')
+    .select('*, users(id, email)')
+    .eq('tracking_code', trackingCode)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (channel) {
+    query = query.eq('channel', channel);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error(`[Database] Erro ao buscar por código: ${error.message}`);
+    return null;
+  }
+
+  if (data && data.length > 0) {
+    console.log(`[Database] Mensagem encontrada pelo código ${trackingCode}: ID ${data[0].id}, usuário ${data[0].user_id}`);
+    return data[0];
+  }
+
+  console.log(`[Database] Nenhuma mensagem encontrada com código ${trackingCode}`);
+  return null;
+}
+
+// Busca mensagem pelo telefone (fallback quando não há código)
 async function findMessageByPhone(phone, channel = null) {
   const normalizedPhone = phone.replace(/\D/g, '');
   const last9Digits = normalizedPhone.slice(-9);
   const last8Digits = normalizedPhone.slice(-8);
 
+  // Limite de 7 dias para associar respostas
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysAgoISO = sevenDaysAgo.toISOString();
+
+  console.log(`[Database] Buscando mensagem para telefone: ${phone} (normalizado: ${normalizedPhone}, últimos 9: ${last9Digits}, últimos 8: ${last8Digits}, canal: ${channel || 'qualquer'}, após: ${sevenDaysAgoISO})`);
+
   let query = supabase
     .from('messages')
     .select('*, users(id, email)')
+    .gte('created_at', sevenDaysAgoISO)  // Apenas mensagens dos últimos 7 dias
     .order('created_at', { ascending: false })
     .limit(1);
 
@@ -238,15 +301,43 @@ async function findMessageByPhone(phone, channel = null) {
 
   const { data, error } = await query.or(`phone.ilike.%${normalizedPhone}%,phone.ilike.%${last9Digits}%,phone.ilike.%${last8Digits}%`);
 
-  if (error) throw error;
+  if (error) {
+    console.error(`[Database] Erro ao buscar mensagem: ${error.message}`);
+    throw error;
+  }
 
-  return data && data.length > 0 ? data[0] : null;
+  if (data && data.length > 0) {
+    console.log(`[Database] Mensagem encontrada: ID ${data[0].id}, usuário ${data[0].user_id}, telefone armazenado: ${data[0].phone}`);
+    return data[0];
+  } else {
+    console.log(`[Database] Nenhuma mensagem encontrada para ${normalizedPhone} nos últimos 7 dias`);
+    return null;
+  }
 }
 
 async function saveReplyFromWebhook(fromPhone, replyMessage, channel) {
-  const originalMessage = await findMessageByPhone(fromPhone, channel);
+  console.log(`[Database] Salvando resposta do webhook - telefone: ${fromPhone}, canal: ${channel}`);
+
+  let originalMessage = null;
+
+  // 1. Primeiro, tentar encontrar pelo código de rastreamento na resposta
+  const trackingCode = extractTrackingCode(replyMessage);
+  if (trackingCode) {
+    console.log(`[Database] Código de rastreamento encontrado na resposta: ${trackingCode}`);
+    originalMessage = await findMessageByTrackingCode(trackingCode, channel);
+    if (originalMessage) {
+      console.log(`[Database] Mensagem encontrada pelo código! Usuário: ${originalMessage.user_id}`);
+    }
+  }
+
+  // 2. Se não encontrou pelo código, buscar pelo telefone (método tradicional)
+  if (!originalMessage) {
+    console.log(`[Database] Buscando pelo telefone (fallback)...`);
+    originalMessage = await findMessageByPhone(fromPhone, channel);
+  }
 
   if (!originalMessage) {
+    console.log(`[Database] Não foi possível salvar resposta - mensagem original não encontrada para ${fromPhone}`);
     return null;
   }
 
@@ -262,12 +353,21 @@ async function saveReplyFromWebhook(fromPhone, replyMessage, channel) {
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error(`[Database] Erro ao inserir resposta: ${error.message}`);
+    throw error;
+  }
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('messages')
     .update({ has_reply: true })
     .eq('id', originalMessage.id);
+
+  if (updateError) {
+    console.error(`[Database] Erro ao atualizar has_reply: ${updateError.message}`);
+  }
+
+  console.log(`[Database] Resposta salva com sucesso - ID: ${data.id}, para usuário: ${originalMessage.user_id}`);
 
   return {
     reply: data,
@@ -485,6 +585,7 @@ module.exports = {
   getUserReplies,
   saveReply,
   findMessageByPhone,
+  findMessageByTrackingCode,
   saveReplyFromWebhook,
   createVerificationToken,
   verifyEmailToken,
@@ -493,5 +594,7 @@ module.exports = {
   verifyPasswordResetToken,
   resetPassword,
   getWhatsAppStats,
-  saveWhatsAppStats
+  saveWhatsAppStats,
+  generateTrackingCode,
+  extractTrackingCode
 };

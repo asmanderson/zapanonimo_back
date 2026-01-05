@@ -1,16 +1,16 @@
 require('dotenv').config();
 
-// === CREDENCIAIS HARDCODED (não use .env para IA) ===
+// === CONFIGURAÇÃO DAS IAs (credenciais via Fly.io secrets) ===
 const AI_CONFIG = {
   claude: {
-    apiKey: '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',
-    model: 'claude-3-5-haiku-latest',
-    enabled: true
+    apiKey: process.env.CLAUDE_API_KEY || '',
+    model: process.env.CLAUDE_MODEL || 'claude-3-5-haiku-latest',
+    enabled: process.env.CLAUDE_ENABLED === 'true'
   },
   gemini: {
-    apiKey: 'AIzaSyDPPtcBOJsPEvROruae4RGt0UZLlVT-dq8',
-    model: 'gemini-2.0-flash',
-    enabled: true
+    apiKey: process.env.GEMINI_API_KEY || '',
+    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+    enabled: process.env.GEMINI_ENABLED === 'true'
   }
 };
 
@@ -274,8 +274,8 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
       'puta', 'putaria', 'putinha', 'vagabunda', 'vadia', 'piranha',
       'fdp', 'filho da puta', 'filha da puta', 'fudido', 'foder', 'foda-se', 'fodase',
       'cu', 'cuzao', 'cuzinho', 'arrombado', 'arrombada',
-      'viado', 'veado', 'bicha', 'bichona', 'sapatao', 'traveco',
-      'baitola', 'baitolao', 'baitolinha', 'boiola', 'boiolao',
+      'viado', 'viadinho', 'viadao', 'veado', 'veadinho', 'bicha', 'bichinha', 'bichona', 'sapatao', 'sapatona', 'traveco',
+      'baitola', 'baitolao', 'baitolinha', 'boiola', 'boiolao', 'boiolinha',
       'buceta', 'xoxota', 'xereca', 'ppk', 'rola', 'pica', 'pau', 'piroca',
       'punheta', 'punheteiro', 'broxa', 'corno', 'cornudo', 'chifrudo',
       'otario', 'otaria', 'idiota', 'imbecil', 'retardado', 'retardada',

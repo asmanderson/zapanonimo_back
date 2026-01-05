@@ -218,7 +218,7 @@ async function sendWelcomeEmail(email) {
             </div>
 
             <p style="text-align: center; margin-top: 30px;">
-              <strong>Você recebeu 1 crédito grátis para começar!</strong>
+              <strong>Você recebeu 5 créditos grátis para começar!</strong>
             </p>
           </div>
 

@@ -560,15 +560,21 @@ class WhatsAppService {
         const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
 
         if (result && this.io) {
-          // Emitir notificação em tempo real para o usuário
-          this.io.emit('new-reply', {
+          // Emitir notificação em tempo real APENAS para o usuário correto
+          const userId = result.originalMessage.user_id.toString();
+          this.io.to(`user:${userId}`).emit('new-reply', {
             ...result.reply,
             original_message: result.originalMessage.message
           });
-          this.addLog(`Resposta salva para usuário ${result.originalMessage.user_id}`);
+          this.addLog(`Resposta salva e notificada para usuário ${userId}`);
+        } else if (result) {
+          this.addLog(`Resposta salva para usuário ${result.originalMessage.user_id}, mas Socket.IO não disponível`);
+        } else {
+          this.addLog(`Nenhuma mensagem original encontrada para ${fromPhone}`);
         }
       } catch (error) {
         this.addLog(`Erro ao processar mensagem: ${error.message}`);
+        console.error('[WhatsApp] Erro ao processar mensagem recebida:', error);
       }
     });
 
