@@ -6,7 +6,7 @@ const API_CONFIG = {
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             return this.development;
         }
-        
+
         return this.production;
     }
 };
