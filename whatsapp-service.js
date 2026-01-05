@@ -550,10 +550,81 @@ class WhatsAppService {
           return;
         }
 
-        const fromPhone = msg.from.replace('@c.us', '').replace('@s.whatsapp.net', '');
         const messageText = msg.body;
+        let fromPhone = null;
+        const originalFrom = msg.from;
 
-        this.addLog(`Mensagem recebida de ${fromPhone}: ${messageText.substring(0, 50)}...`);
+        this.addLog(`Recebido de: ${originalFrom}`);
+
+        // Se for um LID, tentar obter o número real de várias formas
+        if (originalFrom.includes('@lid')) {
+          this.addLog(`LID detectado, tentando obter número real...`);
+
+          // Método 1: Via getContact()
+          try {
+            const contact = await msg.getContact();
+            if (contact) {
+              // Tentar várias propriedades
+              if (contact.number) {
+                fromPhone = contact.number;
+                this.addLog(`Número via contact.number: ${fromPhone}`);
+              } else if (contact.id?.user && !contact.id.user.includes('@')) {
+                fromPhone = contact.id.user;
+                this.addLog(`Número via contact.id.user: ${fromPhone}`);
+              } else if (contact.id?._serialized) {
+                const serialized = contact.id._serialized;
+                if (!serialized.includes('@lid')) {
+                  fromPhone = serialized.replace('@c.us', '').replace('@s.whatsapp.net', '');
+                  this.addLog(`Número via contact.id._serialized: ${fromPhone}`);
+                }
+              }
+            }
+          } catch (e) {
+            this.addLog(`Erro getContact: ${e.message}`);
+          }
+
+          // Método 2: Via getChat()
+          if (!fromPhone) {
+            try {
+              const chat = await msg.getChat();
+              if (chat) {
+                if (chat.id?.user && !chat.id.user.includes('@')) {
+                  fromPhone = chat.id.user;
+                  this.addLog(`Número via chat.id.user: ${fromPhone}`);
+                } else if (chat.id?._serialized && !chat.id._serialized.includes('@lid')) {
+                  fromPhone = chat.id._serialized.replace('@c.us', '').replace('@s.whatsapp.net', '');
+                  this.addLog(`Número via chat.id._serialized: ${fromPhone}`);
+                }
+              }
+            } catch (e) {
+              this.addLog(`Erro getChat: ${e.message}`);
+            }
+          }
+
+          // Método 3: Via quotedMsg (se for resposta a uma mensagem)
+          if (!fromPhone && msg.hasQuotedMsg) {
+            try {
+              const quotedMsg = await msg.getQuotedMessage();
+              if (quotedMsg && quotedMsg.to) {
+                fromPhone = quotedMsg.to.replace('@c.us', '').replace('@s.whatsapp.net', '');
+                this.addLog(`Número via quotedMsg.to: ${fromPhone}`);
+              }
+            } catch (e) {
+              this.addLog(`Erro getQuotedMessage: ${e.message}`);
+            }
+          }
+
+          // Se ainda não encontrou, usar o LID mesmo (vai tentar match pelo código de rastreamento)
+          if (!fromPhone) {
+            fromPhone = originalFrom.replace('@lid', '');
+            this.addLog(`Usando LID como fallback: ${fromPhone}`);
+          }
+        } else {
+          // Não é LID, usar normalmente
+          fromPhone = originalFrom.replace('@c.us', '').replace('@s.whatsapp.net', '');
+        }
+
+        this.addLog(`Mensagem de ${fromPhone}: ${messageText.substring(0, 50)}...`);
 
         // Salvar resposta no banco de dados
         const { saveReplyFromWebhook } = require('./database');
