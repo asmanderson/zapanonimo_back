@@ -32,6 +32,61 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 console.log('[Database] Conexão com Supabase inicializada');
 
+// ==================== MAPEAMENTO LID -> NÚMERO ====================
+// Cache em memória para mapeamento LID -> número de telefone
+const lidToPhoneMap = new Map();
+
+// Salva mapeamento LID -> número
+function saveLidMapping(lid, phone) {
+  const cleanLid = lid.replace('@lid', '').replace(/\D/g, '');
+  const cleanPhone = phone.replace(/\D/g, '');
+  lidToPhoneMap.set(cleanLid, cleanPhone);
+  console.log(`[Database] Mapeamento salvo: LID ${cleanLid} -> Telefone ${cleanPhone}`);
+}
+
+// Busca número pelo LID
+function getPhoneByLid(lid) {
+  const cleanLid = lid.replace('@lid', '').replace(/\D/g, '');
+  const phone = lidToPhoneMap.get(cleanLid);
+  if (phone) {
+    console.log(`[Database] Mapeamento encontrado: LID ${cleanLid} -> Telefone ${phone}`);
+  }
+  return phone || null;
+}
+
+// Busca a mensagem mais recente sem resposta (para mapeamento automático)
+async function findRecentMessageWithoutReply(channel = 'whatsapp', maxMinutes = 30) {
+  const cutoffTime = new Date();
+  cutoffTime.setMinutes(cutoffTime.getMinutes() - maxMinutes);
+  const cutoffISO = cutoffTime.toISOString();
+
+  console.log(`[Database] Buscando mensagem recente sem resposta (últimos ${maxMinutes} min, canal: ${channel})`);
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*, users(id, email)')
+    .eq('channel', channel)
+    .eq('has_reply', false)
+    .gte('created_at', cutoffISO)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error(`[Database] Erro ao buscar mensagem recente: ${error.message}`);
+    return null;
+  }
+
+  if (data && data.length > 0) {
+    console.log(`[Database] Mensagem recente encontrada: ID ${data[0].id}, telefone ${data[0].phone}, usuário ${data[0].user_id}`);
+    return data[0];
+  }
+
+  console.log(`[Database] Nenhuma mensagem recente sem resposta encontrada`);
+  return null;
+}
+
+// ==================== FIM MAPEAMENTO LID ====================
+
 async function createUser(email, password) {
   const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -315,25 +370,52 @@ async function findMessageByPhone(phone, channel = null) {
   }
 }
 
-async function saveReplyFromWebhook(fromPhone, replyMessage, channel) {
-  console.log(`[Database] Salvando resposta do webhook - telefone: ${fromPhone}, canal: ${channel}`);
+async function saveReplyFromWebhook(fromPhone, replyMessage, channel, isLid = false) {
+  console.log(`[Database] Salvando resposta - de: ${fromPhone}, canal: ${channel}, isLid: ${isLid}`);
 
   let originalMessage = null;
+  let phoneToSearch = fromPhone;
 
   // 1. Primeiro, tentar encontrar pelo código de rastreamento na resposta
   const trackingCode = extractTrackingCode(replyMessage);
   if (trackingCode) {
-    console.log(`[Database] Código de rastreamento encontrado na resposta: ${trackingCode}`);
+    console.log(`[Database] Código de rastreamento encontrado: ${trackingCode}`);
     originalMessage = await findMessageByTrackingCode(trackingCode, channel);
     if (originalMessage) {
       console.log(`[Database] Mensagem encontrada pelo código! Usuário: ${originalMessage.user_id}`);
+      // Salvar mapeamento LID -> número para futuras mensagens
+      if (isLid && originalMessage.phone) {
+        saveLidMapping(fromPhone, originalMessage.phone);
+      }
     }
   }
 
-  // 2. Se não encontrou pelo código, buscar pelo telefone (método tradicional)
+  // 2. Se é um LID, verificar se tem mapeamento salvo
+  if (!originalMessage && isLid) {
+    const mappedPhone = getPhoneByLid(fromPhone);
+    if (mappedPhone) {
+      console.log(`[Database] Usando número mapeado: ${mappedPhone}`);
+      phoneToSearch = mappedPhone;
+      originalMessage = await findMessageByPhone(phoneToSearch, channel);
+    }
+  }
+
+  // 3. Se não encontrou, buscar pelo telefone (método tradicional)
   if (!originalMessage) {
-    console.log(`[Database] Buscando pelo telefone (fallback)...`);
-    originalMessage = await findMessageByPhone(fromPhone, channel);
+    console.log(`[Database] Buscando pelo telefone: ${phoneToSearch}`);
+    originalMessage = await findMessageByPhone(phoneToSearch, channel);
+  }
+
+  // 4. Se ainda não encontrou e é um LID, tentar buscar mensagem recente sem resposta
+  if (!originalMessage && isLid) {
+    console.log(`[Database] LID sem match - tentando encontrar mensagem recente sem resposta...`);
+    originalMessage = await findRecentMessageWithoutReply(channel, 60); // últimos 60 minutos
+
+    if (originalMessage) {
+      console.log(`[Database] Mensagem recente encontrada! Criando mapeamento LID -> ${originalMessage.phone}`);
+      // Salvar mapeamento para futuras mensagens
+      saveLidMapping(fromPhone, originalMessage.phone);
+    }
   }
 
   if (!originalMessage) {
@@ -586,6 +668,7 @@ module.exports = {
   saveReply,
   findMessageByPhone,
   findMessageByTrackingCode,
+  findRecentMessageWithoutReply,
   saveReplyFromWebhook,
   createVerificationToken,
   verifyEmailToken,
@@ -596,5 +679,7 @@ module.exports = {
   getWhatsAppStats,
   saveWhatsAppStats,
   generateTrackingCode,
-  extractTrackingCode
+  extractTrackingCode,
+  saveLidMapping,
+  getPhoneByLid
 };

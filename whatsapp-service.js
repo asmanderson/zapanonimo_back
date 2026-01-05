@@ -624,11 +624,16 @@ class WhatsAppService {
           fromPhone = originalFrom.replace('@c.us', '').replace('@s.whatsapp.net', '');
         }
 
-        this.addLog(`Mensagem de ${fromPhone}: ${messageText.substring(0, 50)}...`);
+        // Verificar se é um LID
+        const isLid = originalFrom.includes('@lid');
 
-        // Salvar resposta no banco de dados
+        this.addLog(`Mensagem de ${fromPhone} (isLid: ${isLid}): ${messageText.substring(0, 50)}...`);
+
+        // Salvar resposta no banco de dados (passando flag isLid para mapeamento automático)
         const { saveReplyFromWebhook } = require('./database');
-        const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
+
+        this.addLog(`Chamando saveReplyFromWebhook com isLid=${isLid}...`);
+        const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp', isLid);
 
         if (result && this.io) {
           // Emitir notificação em tempo real APENAS para o usuário correto
@@ -637,11 +642,11 @@ class WhatsAppService {
             ...result.reply,
             original_message: result.originalMessage.message
           });
-          this.addLog(`Resposta salva e notificada para usuário ${userId}`);
+          this.addLog(`✅ Resposta salva e notificada para usuário ${userId}`);
         } else if (result) {
-          this.addLog(`Resposta salva para usuário ${result.originalMessage.user_id}, mas Socket.IO não disponível`);
+          this.addLog(`✅ Resposta salva para usuário ${result.originalMessage.user_id}, mas Socket.IO não disponível`);
         } else {
-          this.addLog(`Nenhuma mensagem original encontrada para ${fromPhone}`);
+          this.addLog(`❌ Nenhuma mensagem original encontrada para ${fromPhone} (isLid: ${isLid})`);
         }
       } catch (error) {
         this.addLog(`Erro ao processar mensagem: ${error.message}`);
