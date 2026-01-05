@@ -544,7 +544,7 @@
 
                 <div style="text-align: center; margin-bottom: 25px;">
                     <div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">📱 WhatsApp</div>
-                    <div style="font-size: 48px; font-weight: 700;">R$ 2,00</div>
+                    <div style="font-size: 48px; font-weight: 700;">R$ 1,00</div>
                     <div style="font-size: 16px; opacity: 0.85;">por mensagem</div>
                 </div>
 
@@ -554,19 +554,19 @@
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; font-size: 14px;">
                         <div style="text-align: left;">
                             <strong>5 mensagens</strong>
-                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 9,50 <span style="opacity: 0.8;">(5% OFF)</span></div>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 4,75 <span style="opacity: 0.8;">(5% OFF)</span></div>
                         </div>
                         <div style="text-align: left;">
                             <strong>25 mensagens</strong>
-                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 45 <span style="opacity: 0.8;">(10% OFF)</span></div>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 22,50 <span style="opacity: 0.8;">(10% OFF)</span></div>
                         </div>
                         <div style="text-align: left;">
                             <strong>50 mensagens</strong>
-                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 80 <span style="opacity: 0.8;">(20% OFF)</span></div>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 40 <span style="opacity: 0.8;">(20% OFF)</span></div>
                         </div>
                         <div style="text-align: left;">
                             <strong>100 mensagens</strong>
-                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 140 <span style="opacity: 0.8;">(30% OFF)</span></div>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 70 <span style="opacity: 0.8;">(30% OFF)</span></div>
                         </div>
                     </div>
                 </div>
@@ -619,7 +619,7 @@
             <p class="subtitle">Envie mensagens de forma anônima e instantânea</p>
 
             <div class="info-box">
-                <p><strong>Custo:</strong> R$ 2,00 por mensagem</p>
+                <p><strong>Custo:</strong> R$ 1,00 por mensagem</p>
                 <p><strong>Saldo:</strong> 📱 <span id="credits-send-whatsapp">0</span> mensagens</p>
             </div>
 
@@ -667,7 +667,7 @@
 
         <div class="card">
             <h2>Comprar Mensagens</h2>
-            <p class="subtitle">R$ 2,00 por mensagem</p>
+            <p class="subtitle">R$ 1,00 por mensagem</p>
 
             <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: 600; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);">
                 Promoção: Até 30% de desconto em pacotes
@@ -676,19 +676,19 @@
             <div class="quantity-selector" id="quantity-selector">
                 <div class="quantity-option" onclick="selectQuantity(5)">
                     <div class="amount">5 mensagens</div>
-                    <div class="price">R$ 9,50 <small style="color: #333;">(5% OFF)</small></div>
+                    <div class="price">R$ 4,75 <small style="color: #333;">(5% OFF)</small></div>
                 </div>
                 <div class="quantity-option" onclick="selectQuantity(25)">
                     <div class="amount">25 mensagens</div>
-                    <div class="price">R$ 45 <small style="color: #333;">(10% OFF)</small></div>
+                    <div class="price">R$ 22,50 <small style="color: #333;">(10% OFF)</small></div>
                 </div>
                 <div class="quantity-option" onclick="selectQuantity(50)">
                     <div class="amount">50 mensagens</div>
-                    <div class="price">R$ 80 <small style="color: #333;">(20% OFF)</small></div>
+                    <div class="price">R$ 40 <small style="color: #333;">(20% OFF)</small></div>
                 </div>
                 <div class="quantity-option" onclick="selectQuantity(100)">
                     <div class="amount">100 mensagens</div>
-                    <div class="price">R$ 140 <small style="color: #333;">(30% OFF)</small></div>
+                    <div class="price">R$ 70 <small style="color: #333;">(30% OFF)</small></div>
                 </div>
             </div>
 
@@ -1207,7 +1207,7 @@
                     updateCreditsDisplay(data.whatsapp_credits, data.sms_credits);
                     loadHistory();
                 } else {
-                    // Verificar se foi bloqueado por moderação
+
                     if (data.moderationReason) {
                         showMessage('send-message', '⚠️ Mensagem bloqueada: Sua mensagem contém conteúdo inadequado e não pode ser enviada. Por favor, revise o texto e tente novamente.', 'error');
                     } else {

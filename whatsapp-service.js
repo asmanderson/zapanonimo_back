@@ -9,7 +9,7 @@ class WhatsAppService {
   constructor() {
     this.client = null;
     this.qrCode = null;
-    this._status = 'disconnected'; // disconnected | connecting | connected
+    this._status = 'disconnected'; 
     this.io = null;
     this.adminSockets = new Set();
     this.logs = [];
@@ -17,14 +17,14 @@ class WhatsAppService {
       successCount: 0,
       failureCount: 0,
       lastUsed: null,
-      _lastUpdate: Date.now() // Timestamp para sincronização
+      _lastUpdate: Date.now() 
     };
     this._statsLoaded = false;
     this._statsSaveTimeout = null;
     this._qrCodeDelayTimeout = null;
-    this._showQrCode = false; // Só mostrar QR após delay
+    this._showQrCode = false; 
 
-    // Configurações de reconexão
+
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
     this.baseReconnectDelay = 5000;
@@ -35,18 +35,18 @@ class WhatsAppService {
     this.healthCheckInterval = null;
     this.lastHealthCheck = null;
 
-    // Controle de estado para evitar race conditions
+
     this.lastStatusUpdate = 0;
-    this.statusUpdateDebounce = 1000; // 1 segundo de debounce
+    this.statusUpdateDebounce = 1000; 
     this.pendingStatusEmit = null;
   }
 
-  // Getter para status com proteção
+
   get status() {
     return this._status;
   }
 
-  // Setter para status com validação e debounce
+ 
   set status(newStatus) {
     const validStatuses = ['disconnected', 'connecting', 'connected'];
     if (!validStatuses.includes(newStatus)) {
@@ -54,7 +54,7 @@ class WhatsAppService {
       return;
     }
 
-    // Não permitir mudança de connected para connecting sem passar por disconnected
+  
     if (this._status === 'connected' && newStatus === 'connecting') {
       this.addLog(`Transição inválida de connected para connecting ignorada`);
       return;
@@ -71,7 +71,7 @@ class WhatsAppService {
     this.io = io;
   }
 
-  // Carregar stats do banco de dados
+  
   async loadStats() {
     if (this._statsLoaded) return;
 
@@ -90,30 +90,28 @@ class WhatsAppService {
     }
   }
 
-  // Salvar stats no banco de dados (com debounce de 5 segundos)
+
   saveStats(includeStatus = false) {
-    // Cancelar save pendente
+ 
     if (this._statsSaveTimeout) {
       clearTimeout(this._statsSaveTimeout);
     }
 
-    // Agendar save com debounce para não sobrecarregar o banco
+ 
     this._statsSaveTimeout = setTimeout(async () => {
       try {
         const status = includeStatus ? this._status : null;
         await saveWhatsAppStats(this.stats, status);
-        console.log(`[WhatsApp] Stats salvos no banco: ${this.stats.successCount} enviadas, ${this.stats.failureCount} falhas${status ? `, status: ${status}` : ''}`);
       } catch (error) {
         console.error(`[WhatsApp] Erro ao salvar stats no banco: ${error.message}`);
       }
-    }, 5000); // 5 segundos de debounce
+    }, 5000); 
   }
 
-  // Salvar status imediatamente (sem debounce)
+
   async saveStatusNow() {
     try {
       await saveWhatsAppStats(this.stats, this._status);
-      console.log(`[WhatsApp] Status salvo no banco: ${this._status}`);
     } catch (error) {
       console.error(`[WhatsApp] Erro ao salvar status no banco: ${error.message}`);
     }
@@ -125,36 +123,35 @@ class WhatsAppService {
       message
     };
     this.logs.push(log);
-    // Manter apenas os últimos 100 logs
+
     if (this.logs.length > 100) {
       this.logs.shift();
     }
-    // Emitir log para admins conectados
+  
     this.emitToAdmins('whatsapp:log', log);
-    console.log(`[WhatsApp] ${message}`);
   }
 
   emitToAdmins(event, data) {
     if (!this.io) return;
 
-    // Para eventos de status, usar debounce para evitar atualizações rápidas demais
+
     if (event === 'whatsapp:status') {
       const now = Date.now();
 
-      // Cancelar emit pendente
+    
       if (this.pendingStatusEmit) {
         clearTimeout(this.pendingStatusEmit);
         this.pendingStatusEmit = null;
       }
 
-      // Se passou tempo suficiente, emitir imediatamente
+    
       if (now - this.lastStatusUpdate >= this.statusUpdateDebounce) {
         this.lastStatusUpdate = now;
         this.adminSockets.forEach(socketId => {
           this.io.to(socketId).emit(event, data);
         });
       } else {
-        // Agendar emit com debounce
+  
         this.pendingStatusEmit = setTimeout(() => {
           this.lastStatusUpdate = Date.now();
           this.adminSockets.forEach(socketId => {
@@ -164,27 +161,27 @@ class WhatsAppService {
         }, this.statusUpdateDebounce);
       }
     } else {
-      // Para outros eventos, emitir imediatamente
+
       this.adminSockets.forEach(socketId => {
         this.io.to(socketId).emit(event, data);
       });
     }
   }
 
-  // Helper para emitir status SEMPRE com stats incluídos
+
   emitStatusUpdate(overrideStatus = null, overrideQrCode = undefined) {
     const statusData = {
       status: overrideStatus !== null ? overrideStatus : this._status,
       qrCode: overrideQrCode !== undefined ? overrideQrCode : this.qrCode,
       stats: { ...this.stats },
-      _timestamp: Date.now() // Timestamp para sincronização
+      _timestamp: Date.now() 
     };
     this.emitToAdmins('whatsapp:status', statusData);
   }
 
   subscribeAdmin(socketId) {
     this.adminSockets.add(socketId);
-    // Apenas enviar logs - o frontend vai buscar status e stats da API
+
     if (this.io) {
       this.io.to(socketId).emit('whatsapp:logs', this.logs);
     }
@@ -194,19 +191,19 @@ class WhatsAppService {
     this.adminSockets.delete(socketId);
   }
 
-  // Calcular delay com exponential backoff
+
   getReconnectDelay() {
     const delay = Math.min(
       this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts),
       this.maxReconnectDelay
     );
-    // Adicionar jitter (variação aleatória) para evitar thundering herd
+ 
     return delay + Math.random() * 1000;
   }
 
-  // Agendar reconexão automática
+
   scheduleReconnect(reason = 'desconexão') {
-    // Limpar timeout anterior se existir
+ 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
@@ -232,7 +229,7 @@ class WhatsAppService {
     }, delay);
   }
 
-  // Cancelar reconexão agendada
+
   cancelScheduledReconnect() {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -241,26 +238,25 @@ class WhatsAppService {
     }
   }
 
-  // Resetar contador de tentativas
   resetReconnectAttempts() {
     this.reconnectAttempts = 0;
   }
 
-  // Iniciar health check periódico
+
   startHealthCheck() {
-    // Limpar intervalo anterior se existir
+
     this.stopHealthCheck();
 
-    // Contador de falhas consecutivas do health check
+ 
     this.healthCheckFailures = 0;
-    const maxHealthCheckFailures = 3; // Só marca como desconectado após 3 falhas consecutivas
+    const maxHealthCheckFailures = 3; 
 
-    // Verificar a cada 2 minutos (mais conservador)
+   
     this.healthCheckInterval = setInterval(async () => {
-      // Só verificar se realmente está conectado e não está inicializando
+    
       if (this._status === 'connected' && this.client && !this.isInitializing) {
         try {
-          // Verificar se o cliente ainda está responsivo
+     
           const state = await Promise.race([
             this.client.getState(),
             new Promise((_, reject) =>
@@ -271,7 +267,7 @@ class WhatsAppService {
           this.lastHealthCheck = new Date();
 
           if (state === 'CONNECTED') {
-            // Reset contador de falhas em caso de sucesso
+       
             this.healthCheckFailures = 0;
           } else {
             this.healthCheckFailures++;
@@ -289,7 +285,7 @@ class WhatsAppService {
           this.healthCheckFailures++;
           this.addLog(`Health check falhou: ${error.message} - falha ${this.healthCheckFailures}/${maxHealthCheckFailures}`);
 
-          // Só marcar como desconectado após múltiplas falhas
+       
           if (this.healthCheckFailures >= maxHealthCheckFailures) {
             this._status = 'disconnected';
             this.qrCode = null;
@@ -299,10 +295,10 @@ class WhatsAppService {
           }
         }
       }
-    }, 120000); // 2 minutos entre verificações
+    }, 120000); 
   }
 
-  // Parar health check
+
   stopHealthCheck() {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
@@ -310,7 +306,7 @@ class WhatsAppService {
     }
   }
 
-  // Limpar todos os timeouts e intervalos
+ 
   cleanup() {
     this.cancelScheduledReconnect();
     this.stopHealthCheck();
@@ -329,13 +325,13 @@ class WhatsAppService {
   }
 
   async initialize() {
-    // Evitar múltiplas inicializações simultâneas
+
     if (this.isInitializing) {
       this.addLog('Inicialização já em andamento, ignorando chamada duplicada');
       return;
     }
     this.isInitializing = true;
-    this.cleanup(); // Limpar timeouts anteriores
+    this.cleanup(); 
 
     if (this.client) {
       this.addLog('Cliente já existe, destruindo antes de reinicializar...');
@@ -349,12 +345,10 @@ class WhatsAppService {
 
     this.status = 'connecting';
     this.qrCode = null;
-    this._showQrCode = false; // Reset - não mostrar QR imediatamente
+    this._showQrCode = false; 
     this.emitStatusUpdate();
     this.addLog('Inicializando cliente WhatsApp...');
 
-    // Delay antes de habilitar exibição do QR code
-    // Isso permite que a sessão seja restaurada primeiro
     if (this._qrCodeDelayTimeout) {
       clearTimeout(this._qrCodeDelayTimeout);
     }
@@ -362,15 +356,15 @@ class WhatsAppService {
       if (this._status !== 'connected') {
         this._showQrCode = true;
         this.addLog('QR Code habilitado para exibição');
-        // Se já temos um QR code pendente, emitir agora
+ 
         if (this.qrCode) {
           this.emitToAdmins('whatsapp:qr', this.qrCode);
           this.emitStatusUpdate('connecting');
         }
       }
-    }, 8000); // 8 segundos de delay para permitir restauração de sessão
+    }, 8000); 
 
-    // Timeout de 5 minutos para inicialização (aumentado para VMs com recursos limitados)
+
     const INIT_TIMEOUT = 300000;
     this.initTimeout = setTimeout(() => {
       if (this.status === 'connecting') {
@@ -387,7 +381,7 @@ class WhatsAppService {
       }
     }, INIT_TIMEOUT);
 
-    // Configuração do Puppeteer
+  
     const isDocker = process.env.NODE_ENV === 'production' || process.env.PUPPETEER_EXECUTABLE_PATH;
 
     const puppeteerConfig = {
@@ -400,7 +394,7 @@ class WhatsAppService {
         '--no-first-run',
         '--no-zygote',
         '--disable-gpu',
-        // Flags adicionais para Docker/produção
+
         ...(isDocker ? [
           '--disable-extensions',
           '--disable-background-networking',
@@ -416,30 +410,30 @@ class WhatsAppService {
       ]
     };
 
-    // Usar Chromium do sistema em produção (Fly.io/Docker)
+  
     if (process.env.PUPPETEER_EXECUTABLE_PATH) {
       puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
       this.addLog(`Usando Chromium: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
     }
 
-    // Criar store para persistência da sessão no banco de dados
+   
     const store = new DatabaseSessionStore({ sessionId: 'whatsapp-main' });
 
     this.client = new Client({
       authStrategy: new RemoteAuth({
         store: store,
-        backupSyncIntervalMs: 300000, // Backup a cada 5 minutos
+        backupSyncIntervalMs: 300000, 
         dataPath: './.wwebjs_auth'
       }),
       puppeteer: puppeteerConfig
     });
 
-    // Evento: QR Code gerado
+   
     this.client.on('qr', async (qr) => {
       this.addLog('QR Code gerado');
       try {
         this.qrCode = await qrcode.toDataURL(qr);
-        // Só emitir se o delay já passou (permite restauração de sessão primeiro)
+   
         if (this._showQrCode) {
           this.addLog('Exibindo QR Code - escaneie com seu WhatsApp');
           this.emitToAdmins('whatsapp:qr', this.qrCode);
@@ -452,56 +446,56 @@ class WhatsAppService {
       }
     });
 
-    // Evento: Autenticado
+  
     this.client.on('authenticated', () => {
       this.addLog('Autenticado com sucesso!');
       this.qrCode = null;
-      this._showQrCode = false; // Não precisa mais do QR code
-      // Limpar timeout do QR code delay
+      this._showQrCode = false; 
+ 
       if (this._qrCodeDelayTimeout) {
         clearTimeout(this._qrCodeDelayTimeout);
         this._qrCodeDelayTimeout = null;
       }
     });
 
-    // Evento: Sessão salva remotamente (Supabase)
+
     this.client.on('remote_session_saved', () => {
       this.addLog('Sessão salva no Supabase com sucesso!');
     });
 
-    // Evento: Pronto para usar
+
     this.client.on('ready', () => {
       this.status = 'connected';
       this.qrCode = null;
       this.isInitializing = false;
       this._showQrCode = false;
 
-      // Limpar timeout de inicialização
+     
       if (this.initTimeout) {
         clearTimeout(this.initTimeout);
         this.initTimeout = null;
       }
 
-      // Limpar timeout do QR code delay
+
       if (this._qrCodeDelayTimeout) {
         clearTimeout(this._qrCodeDelayTimeout);
         this._qrCodeDelayTimeout = null;
       }
 
-      // Resetar tentativas de reconexão após sucesso
+    
       this.resetReconnectAttempts();
 
-      // Iniciar health check
+    
       this.startHealthCheck();
 
       this.addLog('WhatsApp conectado e pronto!');
       this.emitStatusUpdate();
 
-      // Salvar status no banco imediatamente
+      
       this.saveStatusNow();
     });
 
-    // Evento: Desconectado
+  
     this.client.on('disconnected', (reason) => {
       this.status = 'disconnected';
       this.qrCode = null;
@@ -509,28 +503,28 @@ class WhatsAppService {
       this._showQrCode = false;
       this.client = null;
 
-      // Limpar timeout do QR code delay
+   
       if (this._qrCodeDelayTimeout) {
         clearTimeout(this._qrCodeDelayTimeout);
         this._qrCodeDelayTimeout = null;
       }
 
-      // Parar health check
+     
       this.stopHealthCheck();
 
       this.addLog(`Desconectado: ${reason}`);
       this.emitStatusUpdate();
 
-      // Salvar status no banco
+     
       this.saveStatusNow();
 
-      // Agendar reconexão automática (exceto logout manual)
+ 
       if (reason !== 'LOGOUT') {
         this.scheduleReconnect(reason);
       }
     });
 
-    // Evento: Falha na autenticação
+   
     this.client.on('auth_failure', (msg) => {
       this.status = 'disconnected';
       this.qrCode = null;
@@ -538,14 +532,14 @@ class WhatsAppService {
       this.addLog(`Falha na autenticação: ${msg}`);
       this.emitStatusUpdate();
 
-      // Agendar reconexão (pode precisar escanear QR novamente)
+   
       this.scheduleReconnect('falha na autenticação');
     });
 
-    // Evento: Mensagem recebida (para respostas)
+  
     this.client.on('message', async (msg) => {
       try {
-        // Ignorar mensagens de grupo e mensagens próprias
+     
         if (msg.from.includes('@g.us') || msg.fromMe) {
           return;
         }
@@ -556,15 +550,15 @@ class WhatsAppService {
 
         this.addLog(`Recebido de: ${originalFrom}`);
 
-        // Se for um LID, tentar obter o número real de várias formas
+   
         if (originalFrom.includes('@lid')) {
           this.addLog(`LID detectado, tentando obter número real...`);
 
-          // Método 1: Via getContact()
+ 
           try {
             const contact = await msg.getContact();
             if (contact) {
-              // Tentar várias propriedades
+    
               if (contact.number) {
                 fromPhone = contact.number;
                 this.addLog(`Número via contact.number: ${fromPhone}`);
@@ -583,7 +577,7 @@ class WhatsAppService {
             this.addLog(`Erro getContact: ${e.message}`);
           }
 
-          // Método 2: Via getChat()
+    
           if (!fromPhone) {
             try {
               const chat = await msg.getChat();
@@ -601,7 +595,7 @@ class WhatsAppService {
             }
           }
 
-          // Método 3: Via quotedMsg (se for resposta a uma mensagem)
+        
           if (!fromPhone && msg.hasQuotedMsg) {
             try {
               const quotedMsg = await msg.getQuotedMessage();
@@ -614,29 +608,29 @@ class WhatsAppService {
             }
           }
 
-          // Se ainda não encontrou, usar o LID mesmo (vai tentar match pelo código de rastreamento)
+    
           if (!fromPhone) {
             fromPhone = originalFrom.replace('@lid', '');
             this.addLog(`Usando LID como fallback: ${fromPhone}`);
           }
         } else {
-          // Não é LID, usar normalmente
+        
           fromPhone = originalFrom.replace('@c.us', '').replace('@s.whatsapp.net', '');
         }
 
-        // Verificar se é um LID
+    
         const isLid = originalFrom.includes('@lid');
 
         this.addLog(`Mensagem de ${fromPhone} (isLid: ${isLid}): ${messageText.substring(0, 50)}...`);
 
-        // Salvar resposta no banco de dados (passando flag isLid para mapeamento automático)
+     
         const { saveReplyFromWebhook } = require('./database');
 
         this.addLog(`Chamando saveReplyFromWebhook com isLid=${isLid}...`);
         const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp', isLid);
 
         if (result && this.io) {
-          // Emitir notificação em tempo real APENAS para o usuário correto
+      
           const userId = result.originalMessage.user_id.toString();
           this.io.to(`user:${userId}`).emit('new-reply', {
             ...result.reply,
@@ -654,13 +648,13 @@ class WhatsAppService {
       }
     });
 
-    // Inicializar cliente
+
     this.client.initialize().catch(err => {
       this.status = 'disconnected';
       this.qrCode = null;
       this.isInitializing = false;
 
-      // Limpar timeout de inicialização
+    
       if (this.initTimeout) {
         clearTimeout(this.initTimeout);
         this.initTimeout = null;
@@ -669,18 +663,18 @@ class WhatsAppService {
       this.addLog(`Erro ao inicializar: ${err.message}`);
       this.emitStatusUpdate();
 
-      // Agendar reconexão automática
+    
       this.scheduleReconnect(`erro: ${err.message}`);
     });
   }
 
-  // Verificar se o cliente está realmente pronto para enviar
+ 
   async isClientReady() {
     if (!this.client) return false;
     if (this._status !== 'connected') return false;
 
     try {
-      // Tenta uma operação simples para verificar se o cliente está funcional
+   
       const state = await this.client.getState();
       return state === 'CONNECTED';
     } catch (error) {
@@ -688,10 +682,10 @@ class WhatsAppService {
     }
   }
 
-  // Aguardar cliente ficar pronto com timeout
+ 
   async waitForClientReady(maxWaitMs = 10000) {
     const startTime = Date.now();
-    const checkInterval = 500; // Verificar a cada 500ms
+    const checkInterval = 500; 
 
     while (Date.now() - startTime < maxWaitMs) {
       if (await this.isClientReady()) {
@@ -703,50 +697,50 @@ class WhatsAppService {
   }
 
   async sendMessage(phone, message) {
-    // Verificar se temos cliente disponível e conectado
+   
     if (!this.client) {
       throw new Error('Sistema temporariamente offline. Tente novamente em alguns minutos.');
     }
 
-    // Verificar se está conectado ou pelo menos tentando conectar
+    
     if (this._status === 'disconnected') {
       throw new Error('WhatsApp desconectado. Aguarde a reconexão automática ou entre em contato com o suporte.');
     }
 
-    // Formatar número: remover caracteres não numéricos
+    
     let cleanPhone = phone.replace(/\D/g, '');
 
-    // Garantir que tem código do país (Brasil = 55)
+    
     if (cleanPhone.length === 11 || cleanPhone.length === 10) {
       cleanPhone = '55' + cleanPhone;
     }
 
-    // Validar formato
+  
     if (cleanPhone.length < 12 || cleanPhone.length > 13) {
       throw new Error(`Número inválido: ${cleanPhone}. Use formato: 5511999999999`);
     }
 
-    // Sistema de retry para erros de WidFactory (cliente não pronto)
+ 
     const maxRetries = 3;
-    const retryDelay = 2000; // 2 segundos entre tentativas
+    const retryDelay = 2000; 
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // Na primeira tentativa ou após erro de WidFactory, aguardar cliente ficar pronto
+
         if (attempt > 1) {
           this.addLog(`Tentativa ${attempt}/${maxRetries} - aguardando cliente ficar pronto...`);
           await this.waitForClientReady(5000);
         }
 
-        // Verificar se o número está registrado no WhatsApp e obter o ID correto
+  
         const numberId = await this.client.getNumberId(cleanPhone);
 
         if (!numberId) {
           throw new Error(`O número ${cleanPhone} não está registrado no WhatsApp`);
         }
 
-        // Usar o ID retornado pelo WhatsApp (pode ser @c.us ou @s.whatsapp.net)
+     
         const chatId = numberId._serialized;
         this.addLog(`Enviando para ${chatId}`);
 
@@ -756,10 +750,10 @@ class WhatsAppService {
         this.stats._lastUpdate = Date.now();
         this.addLog(`Mensagem enviada para ${cleanPhone}${attempt > 1 ? ` (tentativa ${attempt})` : ''}`);
 
-        // Emitir stats atualizados para admins
+      
         this.emitToAdmins('whatsapp:stats', { ...this.stats });
 
-        // Salvar stats no banco (com debounce)
+       
         this.saveStats();
 
         return {
@@ -771,7 +765,7 @@ class WhatsAppService {
       } catch (error) {
         lastError = error;
 
-        // Verificar se é erro de WidFactory ou cliente não pronto
+  
         const isRetryableError =
           error.message.includes('WidFactory') ||
           error.message.includes('Evaluation failed') ||
@@ -786,27 +780,27 @@ class WhatsAppService {
           continue;
         }
 
-        // Se não é erro recuperável ou acabaram as tentativas, lançar erro
+     
         break;
       }
     }
 
-    // Se chegou aqui, todas as tentativas falharam
+  
     this.stats.failureCount++;
     this.stats._lastUpdate = Date.now();
     this.addLog(`Erro ao enviar para ${cleanPhone} após ${maxRetries} tentativas: ${lastError.message}`);
 
-    // Emitir stats atualizados para admins
+    
     this.emitToAdmins('whatsapp:stats', { ...this.stats });
 
-    // Salvar stats no banco (com debounce)
+    
     this.saveStats();
 
     throw new Error(`Falha ao enviar mensagem: ${lastError.message}`);
   }
 
   async disconnect() {
-    // Limpar todos os timeouts e intervalos
+ 
     this.cleanup();
 
     if (this.client) {
@@ -821,7 +815,7 @@ class WhatsAppService {
         this.emitStatusUpdate();
       } catch (err) {
         this.addLog(`Erro ao desconectar: ${err.message}`);
-        // Forçar reset do estado mesmo com erro
+    
         this.status = 'disconnected';
         this.qrCode = null;
         this.client = null;
@@ -834,17 +828,17 @@ class WhatsAppService {
   async reconnect() {
     this.addLog('Reconectando WhatsApp manualmente...');
 
-    // Resetar tentativas ao reconectar manualmente
+
     this.resetReconnectAttempts();
 
     await this.disconnect();
-    // Aguardar um pouco antes de reconectar
+
     await new Promise(resolve => setTimeout(resolve, 2000));
     await this.initialize();
   }
 
   async logout() {
-    // Cancelar reconexão automática pois é logout intencional
+
     this.cancelScheduledReconnect();
     this.resetReconnectAttempts();
     this.stopHealthCheck();
@@ -861,7 +855,7 @@ class WhatsAppService {
         this.emitStatusUpdate();
       } catch (err) {
         this.addLog(`Erro no logout: ${err.message}`);
-        // Forçar reset do estado mesmo com erro
+    
         this.status = 'disconnected';
         this.qrCode = null;
         this.client = null;
@@ -871,9 +865,9 @@ class WhatsAppService {
     }
   }
 
-  // Versão async que busca stats do banco
+ 
   async getStatusAsync() {
-    // Sempre buscar stats do banco para garantir consistência entre instâncias
+   
     let stats = this.stats;
     let effectiveStatus = this._status;
     let effectiveQrCode = this.qrCode;
@@ -887,29 +881,25 @@ class WhatsAppService {
           lastUsed: dbStats.lastUsed || null,
           _lastUpdate: Date.now()
         };
-        // Atualizar memória local também
+       
         this.stats = stats;
 
-        // Durante inicialização, considerar o último status conhecido do banco
-        // para evitar mostrar QR code enquanto a sessão está sendo restaurada
+
         if (this._status === 'connecting' && !this._showQrCode) {
-          // Se ainda estamos no período de delay do QR code,
-          // verificar se o último status conhecido era 'connected'
+
           if (dbStats.lastConnectedStatus === 'connected') {
-            // Verificar se o status é recente (menos de 1 hora)
+       
             const lastUpdate = dbStats.lastStatusUpdate ? new Date(dbStats.lastStatusUpdate) : null;
             const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
             if (lastUpdate && lastUpdate > oneHourAgo) {
-              // Último status era conectado e é recente - provavelmente só reiniciou
-              // Não mostrar QR code, aguardar restauração
+   
               effectiveQrCode = null;
               this.addLog('Aguardando restauração de sessão (última conexão recente)');
             }
           }
         }
 
-        // Só mostrar QR code se o delay já passou
         if (this._status === 'connecting' && !this._showQrCode) {
           effectiveQrCode = null;
         }
@@ -934,7 +924,7 @@ class WhatsAppService {
     };
   }
 
-  // Versão sync para compatibilidade (usa memória)
+
   getStatus() {
     return {
       status: this._status,
@@ -963,7 +953,6 @@ class WhatsAppService {
     }];
   }
 
-  // Método de compatibilidade com código antigo
   async testAllTokens(testPhone, testMessage) {
     try {
       const result = await this.sendMessage(testPhone, testMessage);

@@ -4,9 +4,8 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
-// Gera código de rastreamento único (ex: by7K2m)
 function generateTrackingCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'; // Sem caracteres ambíguos (0, O, 1, l, I)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
   let code = 'by';
   for (let i = 0; i < 4; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -14,9 +13,9 @@ function generateTrackingCode() {
   return code;
 }
 
-// Extrai código de rastreamento de uma mensagem (se existir)
+
 function extractTrackingCode(message) {
-  // Procura por padrão "by" seguido de 4 caracteres alfanuméricos
+
   const match = message.match(/\bby([A-HJ-NP-Za-hj-np-z2-9]{4})\b/i);
   return match ? 'by' + match[1] : null;
 }
@@ -30,37 +29,72 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
-console.log('[Database] Conexão com Supabase inicializada');
 
-// ==================== MAPEAMENTO LID -> NÚMERO ====================
-// Cache em memória para mapeamento LID -> número de telefone
 const lidToPhoneMap = new Map();
+let lidMappingsLoaded = false;
 
-// Salva mapeamento LID -> número
-function saveLidMapping(lid, phone) {
+async function loadLidMappings() {
+  if (lidMappingsLoaded) return;
+
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'lid_mappings')
+      .single();
+
+    if (data && data.value) {
+      const mappings = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      Object.entries(mappings).forEach(([lid, phone]) => {
+        lidToPhoneMap.set(lid, phone);
+      });
+    }
+    lidMappingsLoaded = true;
+  } catch (error) {
+    lidMappingsLoaded = true;
+  }
+}
+
+let saveLidTimeout = null;
+async function persistLidMappings() {
+  if (saveLidTimeout) {
+    clearTimeout(saveLidTimeout);
+  }
+
+  saveLidTimeout = setTimeout(async () => {
+    try {
+      const mappings = Object.fromEntries(lidToPhoneMap);
+      await supabase
+        .from('system_settings')
+        .upsert({
+          key: 'lid_mappings',
+          value: mappings,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+    } catch (error) {}
+  }, 5000);
+}
+
+
+async function saveLidMapping(lid, phone) {
   const cleanLid = lid.replace('@lid', '').replace(/\D/g, '');
   const cleanPhone = phone.replace(/\D/g, '');
   lidToPhoneMap.set(cleanLid, cleanPhone);
-  console.log(`[Database] Mapeamento salvo: LID ${cleanLid} -> Telefone ${cleanPhone}`);
+  persistLidMappings();
 }
 
-// Busca número pelo LID
-function getPhoneByLid(lid) {
+
+async function getPhoneByLid(lid) {
+  await loadLidMappings();
   const cleanLid = lid.replace('@lid', '').replace(/\D/g, '');
-  const phone = lidToPhoneMap.get(cleanLid);
-  if (phone) {
-    console.log(`[Database] Mapeamento encontrado: LID ${cleanLid} -> Telefone ${phone}`);
-  }
-  return phone || null;
+  return lidToPhoneMap.get(cleanLid) || null;
 }
 
-// Busca a mensagem mais recente sem resposta (para mapeamento automático)
+
 async function findRecentMessageWithoutReply(channel = 'whatsapp', maxMinutes = 30) {
   const cutoffTime = new Date();
   cutoffTime.setMinutes(cutoffTime.getMinutes() - maxMinutes);
   const cutoffISO = cutoffTime.toISOString();
-
-  console.log(`[Database] Buscando mensagem recente sem resposta (últimos ${maxMinutes} min, canal: ${channel})`);
 
   const { data, error } = await supabase
     .from('messages')
@@ -71,21 +105,10 @@ async function findRecentMessageWithoutReply(channel = 'whatsapp', maxMinutes = 
     .order('created_at', { ascending: false })
     .limit(1);
 
-  if (error) {
-    console.error(`[Database] Erro ao buscar mensagem recente: ${error.message}`);
-    return null;
-  }
-
-  if (data && data.length > 0) {
-    console.log(`[Database] Mensagem recente encontrada: ID ${data[0].id}, telefone ${data[0].phone}, usuário ${data[0].user_id}`);
-    return data[0];
-  }
-
-  console.log(`[Database] Nenhuma mensagem recente sem resposta encontrada`);
-  return null;
+  if (error) return null;
+  return data && data.length > 0 ? data[0] : null;
 }
 
-// ==================== FIM MAPEAMENTO LID ====================
 
 async function createUser(email, password) {
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -182,7 +205,7 @@ async function useCredit(userId, phone, message, channel = 'whatsapp', trackingC
     throw new Error(`Créditos de ${channel === 'whatsapp' ? 'WhatsApp' : 'SMS'} insuficientes`);
   }
 
-  // Gerar código de rastreamento se não foi fornecido
+
   const code = trackingCode || generateTrackingCode();
 
   const { data, error } = await supabase.rpc('use_credit_transaction', {
@@ -299,10 +322,8 @@ async function saveReply(userId, messageId, fromPhone, replyMessage, channel) {
   return data;
 }
 
-// Busca mensagem pelo código de rastreamento (match exato)
-async function findMessageByTrackingCode(trackingCode, channel = null) {
-  console.log(`[Database] Buscando mensagem pelo código: ${trackingCode}`);
 
+async function findMessageByTrackingCode(trackingCode, channel = null) {
   let query = supabase
     .from('messages')
     .select('*, users(id, email)')
@@ -315,38 +336,25 @@ async function findMessageByTrackingCode(trackingCode, channel = null) {
   }
 
   const { data, error } = await query;
-
-  if (error) {
-    console.error(`[Database] Erro ao buscar por código: ${error.message}`);
-    return null;
-  }
-
-  if (data && data.length > 0) {
-    console.log(`[Database] Mensagem encontrada pelo código ${trackingCode}: ID ${data[0].id}, usuário ${data[0].user_id}`);
-    return data[0];
-  }
-
-  console.log(`[Database] Nenhuma mensagem encontrada com código ${trackingCode}`);
-  return null;
+  if (error) return null;
+  return data && data.length > 0 ? data[0] : null;
 }
 
-// Busca mensagem pelo telefone (fallback quando não há código)
+
 async function findMessageByPhone(phone, channel = null) {
   const normalizedPhone = phone.replace(/\D/g, '');
   const last9Digits = normalizedPhone.slice(-9);
   const last8Digits = normalizedPhone.slice(-8);
 
-  // Limite de 7 dias para associar respostas
+
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const sevenDaysAgoISO = sevenDaysAgo.toISOString();
 
-  console.log(`[Database] Buscando mensagem para telefone: ${phone} (normalizado: ${normalizedPhone}, últimos 9: ${last9Digits}, últimos 8: ${last8Digits}, canal: ${channel || 'qualquer'}, após: ${sevenDaysAgoISO})`);
-
   let query = supabase
     .from('messages')
     .select('*, users(id, email)')
-    .gte('created_at', sevenDaysAgoISO)  // Apenas mensagens dos últimos 7 dias
+    .gte('created_at', sevenDaysAgoISO) 
     .order('created_at', { ascending: false })
     .limit(1);
 
@@ -362,64 +370,52 @@ async function findMessageByPhone(phone, channel = null) {
   }
 
   if (data && data.length > 0) {
-    console.log(`[Database] Mensagem encontrada: ID ${data[0].id}, usuário ${data[0].user_id}, telefone armazenado: ${data[0].phone}`);
     return data[0];
   } else {
-    console.log(`[Database] Nenhuma mensagem encontrada para ${normalizedPhone} nos últimos 7 dias`);
     return null;
   }
 }
 
 async function saveReplyFromWebhook(fromPhone, replyMessage, channel, isLid = false) {
-  console.log(`[Database] Salvando resposta - de: ${fromPhone}, canal: ${channel}, isLid: ${isLid}`);
-
   let originalMessage = null;
   let phoneToSearch = fromPhone;
 
-  // 1. Primeiro, tentar encontrar pelo código de rastreamento na resposta
+
   const trackingCode = extractTrackingCode(replyMessage);
   if (trackingCode) {
-    console.log(`[Database] Código de rastreamento encontrado: ${trackingCode}`);
     originalMessage = await findMessageByTrackingCode(trackingCode, channel);
     if (originalMessage) {
-      console.log(`[Database] Mensagem encontrada pelo código! Usuário: ${originalMessage.user_id}`);
-      // Salvar mapeamento LID -> número para futuras mensagens
+
       if (isLid && originalMessage.phone) {
-        saveLidMapping(fromPhone, originalMessage.phone);
+        await saveLidMapping(fromPhone, originalMessage.phone);
       }
     }
   }
 
-  // 2. Se é um LID, verificar se tem mapeamento salvo
   if (!originalMessage && isLid) {
-    const mappedPhone = getPhoneByLid(fromPhone);
+    const mappedPhone = await getPhoneByLid(fromPhone);
     if (mappedPhone) {
-      console.log(`[Database] Usando número mapeado: ${mappedPhone}`);
       phoneToSearch = mappedPhone;
       originalMessage = await findMessageByPhone(phoneToSearch, channel);
     }
   }
 
-  // 3. Se não encontrou, buscar pelo telefone (método tradicional)
+
   if (!originalMessage) {
-    console.log(`[Database] Buscando pelo telefone: ${phoneToSearch}`);
     originalMessage = await findMessageByPhone(phoneToSearch, channel);
   }
 
-  // 4. Se ainda não encontrou e é um LID, tentar buscar mensagem recente sem resposta
+
   if (!originalMessage && isLid) {
-    console.log(`[Database] LID sem match - tentando encontrar mensagem recente sem resposta...`);
-    originalMessage = await findRecentMessageWithoutReply(channel, 60); // últimos 60 minutos
+    originalMessage = await findRecentMessageWithoutReply(channel, 60); 
 
     if (originalMessage) {
-      console.log(`[Database] Mensagem recente encontrada! Criando mapeamento LID -> ${originalMessage.phone}`);
-      // Salvar mapeamento para futuras mensagens
-      saveLidMapping(fromPhone, originalMessage.phone);
+
+      await saveLidMapping(fromPhone, originalMessage.phone);
     }
   }
 
   if (!originalMessage) {
-    console.log(`[Database] Não foi possível salvar resposta - mensagem original não encontrada para ${fromPhone}`);
     return null;
   }
 
@@ -448,8 +444,6 @@ async function saveReplyFromWebhook(fromPhone, replyMessage, channel, isLid = fa
   if (updateError) {
     console.error(`[Database] Erro ao atualizar has_reply: ${updateError.message}`);
   }
-
-  console.log(`[Database] Resposta salva com sucesso - ID: ${data.id}, para usuário: ${originalMessage.user_id}`);
 
   return {
     reply: data,
@@ -568,8 +562,6 @@ async function resetPassword(token, newPassword) {
   return true;
 }
 
-// ==================== WHATSAPP STATS PERSISTENCE ====================
-
 async function getWhatsAppStats() {
   try {
     const { data, error } = await supabase
@@ -579,9 +571,8 @@ async function getWhatsAppStats() {
       .single();
 
     if (error) {
-      // Se a tabela ou registro não existe, retorna valores default
+
       if (error.code === 'PGRST116' || error.code === '42P01') {
-        console.log('[Database] WhatsApp stats não encontrado, usando valores default');
         return {
           successCount: 0,
           failureCount: 0,
@@ -620,7 +611,7 @@ async function saveWhatsAppStats(stats, status = null) {
       lastUsed: stats.lastUsed
     };
 
-    // Salvar status apenas se fornecido
+
     if (status !== null) {
       value.lastConnectedStatus = status;
       value.lastStatusUpdate = new Date().toISOString();
@@ -637,9 +628,8 @@ async function saveWhatsAppStats(stats, status = null) {
       });
 
     if (error) {
-      // Se a tabela não existe, tentar criar
+
       if (error.code === '42P01') {
-        console.log('[Database] Tabela system_settings não existe, stats não serão persistidos');
         return false;
       }
       throw error;
@@ -652,7 +642,6 @@ async function saveWhatsAppStats(stats, status = null) {
   }
 }
 
-// ==================== FIM WHATSAPP STATS ====================
 
 module.exports = {
   supabase,
@@ -681,5 +670,6 @@ module.exports = {
   generateTrackingCode,
   extractTrackingCode,
   saveLidMapping,
-  getPhoneByLid
+  getPhoneByLid,
+  loadLidMappings
 };

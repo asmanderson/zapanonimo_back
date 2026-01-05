@@ -14,19 +14,11 @@ class SMSService {
     }
 
     async sendSMS(to, message) {
-        console.log('[SMS] Iniciando envio de SMS...');
-        console.log('[SMS] Twilio configurado:', !!this.client);
-        console.log('[SMS] Account SID:', this.accountSid ? this.accountSid.substring(0, 10) + '...' : 'NÃO CONFIGURADO');
-        console.log('[SMS] Messaging Service SID:', this.messagingServiceSid ? 'Configurado' : 'Não configurado');
-        console.log('[SMS] Twilio Number:', this.twilioNumber || 'Não configurado');
-
         if (!this.client) {
-            console.error('[SMS] ERRO: Cliente Twilio não inicializado');
             throw new Error('Twilio não está configurado. Adicione as credenciais no arquivo .env');
         }
 
         const phoneNumber = this.formatPhoneNumber(to);
-        console.log('[SMS] Número formatado:', phoneNumber);
 
         const messageConfig = {
             body: message,
@@ -35,19 +27,14 @@ class SMSService {
 
         if (this.messagingServiceSid) {
             messageConfig.messagingServiceSid = this.messagingServiceSid;
-            console.log('[SMS] Usando Messaging Service SID');
         } else if (this.twilioNumber) {
             messageConfig.from = this.twilioNumber;
-            console.log('[SMS] Usando Twilio Number:', this.twilioNumber);
         } else {
-            console.error('[SMS] ERRO: Nem Messaging Service SID nem Twilio Number configurados');
             throw new Error('Configure TWILIO_MESSAGING_SERVICE_SID ou TWILIO_PHONE_NUMBER no .env');
         }
 
         try {
-            console.log('[SMS] Enviando para Twilio API...');
             const result = await this.client.messages.create(messageConfig);
-            console.log('[SMS] Sucesso! SID:', result.sid, 'Status:', result.status);
 
             return {
                 success: true,
@@ -59,9 +46,6 @@ class SMSService {
             };
         } catch (twilioError) {
             console.error('[SMS] ERRO TWILIO:', twilioError.message);
-            console.error('[SMS] Código:', twilioError.code);
-            console.error('[SMS] Status:', twilioError.status);
-            console.error('[SMS] Detalhes:', JSON.stringify(twilioError, null, 2));
             throw twilioError;
         }
     }

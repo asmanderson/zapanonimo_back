@@ -362,7 +362,7 @@
         let adminToken = localStorage.getItem('adminToken');
         let refreshInterval = null;
 
-        // Elements
+   
         const loginContainer = document.getElementById('loginContainer');
         const dashboard = document.getElementById('dashboard');
         const loginForm = document.getElementById('loginForm');
@@ -376,11 +376,11 @@
         const failureCountEl = document.getElementById('failureCount');
         const lastUsedEl = document.getElementById('lastUsed');
 
-        // Estado atual
+   
         let currentStatus = 'disconnected';
         let currentQrCode = null;
 
-        // Helper para requisicoes autenticadas
+
         function authFetch(url, options = {}) {
             if (!options.headers) options.headers = {};
             if (adminToken) {
@@ -389,9 +389,9 @@
             return fetch(url, options);
         }
 
-        // Atualizar UI de status
+  
         function updateUI(status, qrCode, stats) {
-            // Status badge
+   
             statusBadge.className = 'status-badge ' + status;
             const statusTexts = {
                 'connected': 'Conectado',
@@ -400,7 +400,7 @@
             };
             statusBadge.textContent = statusTexts[status] || status;
 
-            // QR Code / Connected message
+   
             if (status === 'connected') {
                 qrContainer.style.display = 'none';
                 connectedMessage.style.display = 'block';
@@ -413,7 +413,7 @@
                 connectedMessage.style.display = 'none';
             }
 
-            // Stats
+  
             if (stats) {
                 successCountEl.textContent = stats.successCount || 0;
                 failureCountEl.textContent = stats.failureCount || 0;
@@ -426,7 +426,7 @@
             currentQrCode = qrCode;
         }
 
-        // Carregar status da API (fonte de verdade)
+      
         async function loadStatus() {
             try {
                 const response = await authFetch(`${API_URL}/api/admin/whatsapp/status`);
@@ -444,7 +444,7 @@
             }
         }
 
-        // Conectar WebSocket (apenas para atualizações em tempo real)
+
         function connectSocket() {
             if (socket) {
                 socket.disconnect();
@@ -460,14 +460,12 @@
             });
 
             socket.on('connect', () => {
-                console.log('Socket connected');
                 socket.emit('admin:subscribe');
             });
 
-            // Quando receber status via socket, recarregar da API para garantir consistência
+     
             socket.on('whatsapp:status', (data) => {
-                console.log('[Socket] Status recebido:', data.status);
-                // Atualizar status visual imediatamente
+    
                 if (data.status === 'connected') {
                     statusBadge.className = 'status-badge connected';
                     statusBadge.textContent = 'Conectado';
@@ -480,13 +478,12 @@
                     qrContainer.style.display = 'block';
                     connectedMessage.style.display = 'none';
                 }
-                // Recarregar stats da API após 1 segundo
+        
                 setTimeout(loadStatus, 1000);
             });
 
-            // QR Code atualizado
+   
             socket.on('whatsapp:qr', (qrCodeData) => {
-                console.log('[Socket] QR Code recebido');
                 qrCodeImg.src = qrCodeData;
                 qrContainer.style.display = 'block';
                 connectedMessage.style.display = 'none';
@@ -494,9 +491,8 @@
                 statusBadge.textContent = 'Conectando...';
             });
 
-            // Stats atualizados (quando mensagem é enviada)
+  
             socket.on('whatsapp:stats', (stats) => {
-                console.log('[Socket] Stats recebidos:', stats);
                 if (stats) {
                     successCountEl.textContent = stats.successCount || 0;
                     failureCountEl.textContent = stats.failureCount || 0;
@@ -506,7 +502,7 @@
                 }
             });
 
-            // Logs
+    
             socket.on('whatsapp:log', (log) => {
                 addLog(log);
             });
@@ -517,11 +513,10 @@
             });
 
             socket.on('disconnect', (reason) => {
-                console.log('Socket disconnected:', reason);
             });
         }
 
-        // Adicionar log
+
         function addLog(log) {
             const entry = document.createElement('div');
             entry.className = 'log-entry';
@@ -534,7 +529,7 @@
             }
         }
 
-        // Verificar autenticação
+   
         async function checkAuth() {
             if (!adminToken) return;
 
@@ -553,23 +548,23 @@
             }
         }
 
-        // Mostrar dashboard
+      
         async function showDashboard() {
             loginContainer.style.display = 'none';
             dashboard.classList.add('active');
 
-            // Carregar status inicial
+         
             await loadStatus();
 
-            // Conectar socket para atualizações em tempo real
+      
             connectSocket();
 
-            // Atualizar status a cada 30 segundos como backup
+        
             if (refreshInterval) clearInterval(refreshInterval);
             refreshInterval = setInterval(loadStatus, 30000);
         }
 
-        // Login
+   
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -600,7 +595,7 @@
             }
         });
 
-        // Logout
+     
         document.getElementById('logoutBtn').addEventListener('click', () => {
             localStorage.removeItem('adminToken');
             adminToken = null;
@@ -610,7 +605,7 @@
             dashboard.classList.remove('active');
         });
 
-        // Botões de ação
+  
         document.getElementById('reconnectBtn').addEventListener('click', async () => {
             try {
                 const response = await authFetch(`${API_URL}/api/admin/whatsapp/reconnect`, { method: 'POST' });
@@ -644,7 +639,7 @@
             }
         });
 
-        // Iniciar
+    
         checkAuth();
     </script>
 </body>

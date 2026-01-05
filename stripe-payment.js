@@ -9,7 +9,7 @@ if (!stripeKey) {
 const stripe = require('stripe')(stripeKey);
 
 function calculatePrice(quantity, creditType = 'whatsapp') {
-  const pricePerCredit = creditType === 'sms' ? 1.00 : 2.00;
+  const pricePerCredit = 1.00;
   const basePrice = quantity * pricePerCredit;
 
   if (quantity >= 100) {

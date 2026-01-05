@@ -48,30 +48,25 @@ const io = new Server(server, {
 const userSockets = new Map();
 
 io.on('connection', (socket) => {
-  console.log(`[Socket.IO] Nova conexão: ${socket.id}`);
-
   socket.on('authenticate', (userId) => {
     if (userId) {
       const userIdStr = userId.toString();
       userSockets.set(userIdStr, socket.id);
       socket.userId = userIdStr;
-      // Entrar na sala do usuário para receber notificações direcionadas
+
       socket.join(`user:${userIdStr}`);
-      console.log(`[Socket.IO] Usuário ${userIdStr} autenticado e entrou na sala user:${userIdStr}`);
     }
   });
 
-  // Admin subscribe para receber atualizações do WhatsApp
+
   socket.on('admin:subscribe', () => {
     whatsappService.subscribeAdmin(socket.id);
     socket.isAdmin = true;
-    console.log(`[Socket.IO] Admin inscrito: ${socket.id}`);
   });
 
   socket.on('disconnect', () => {
     if (socket.userId) {
       userSockets.delete(socket.userId);
-      console.log(`[Socket.IO] Usuário ${socket.userId} desconectado`);
     }
     if (socket.isAdmin) {
       whatsappService.unsubscribeAdmin(socket.id);
@@ -81,9 +76,8 @@ io.on('connection', (socket) => {
 
 function emitNewReply(userId, reply) {
   const userIdStr = userId.toString();
-  // Usar a sala do usuário para garantir entrega
+ 
   io.to(`user:${userIdStr}`).emit('new-reply', reply);
-  console.log(`[Socket.IO] Notificação enviada para sala user:${userIdStr}`);
 }
 
 const { authMiddleware, generateToken } = require('./auth');
@@ -134,30 +128,29 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 24 horas
+    maxAge: 24 * 60 * 60 * 1000 
   }
 }));
 
 const whatsappService = getWhatsAppService();
 const moderationService = getModerationService();
 
-// Passar Socket.IO para o WhatsApp Service
+
 whatsappService.setSocketIO(io);
 
-// Carregar stats do banco antes de inicializar
+
 whatsappService.loadStats().then(() => {
-  // Inicializar WhatsApp automaticamente ao iniciar servidor
+
   whatsappService.initialize();
 }).catch(err => {
   console.error('[Server] Erro ao carregar stats:', err);
   whatsappService.initialize();
 });
 
-// ==================== SERVIR ARQUIVOS ESTÁTICOS ====================
-// Frontend sempre fica em ./frontend (tanto em produção quanto em desenvolvimento)
+
 const frontendPath = path.join(__dirname, './frontend');
 
-// Rotas limpas (sem .html) - devem vir ANTES do express.static
+
 const cleanRoutes = ['admin', 'index', 'verify-email', 'reset-password', 'payment-success', 'payment-failure', 'payment-pending', 'payment-instructions'];
 
 cleanRoutes.forEach(route => {
@@ -166,16 +159,13 @@ cleanRoutes.forEach(route => {
   });
 });
 
-// Rota raiz serve index.html
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
-// Servir arquivos estáticos (CSS, JS, imagens, etc.)
+
 app.use(express.static(frontendPath));
-
-// ==================== FIM ARQUIVOS ESTÁTICOS ====================
-
 app.post('/api/register', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -457,7 +447,7 @@ app.post('/api/stripe/webhook', async (req, res) => {
   }
 });
 
-// Cache para evitar processamento duplicado de pagamentos
+
 const processedPayments = new Set();
 
 app.get('/api/verify-payment/:sessionId', authMiddleware, async (req, res) => {
@@ -465,7 +455,7 @@ app.get('/api/verify-payment/:sessionId', authMiddleware, async (req, res) => {
     const sessionId = req.params.sessionId;
     const session = await verifySession(sessionId);
 
-    // Verificar se já foi processado (evita duplicação de créditos)
+
     if (session.payment_status === 'paid' && session.metadata.userId) {
       if (!processedPayments.has(sessionId)) {
         const userId = parseInt(session.metadata.userId);
@@ -476,7 +466,7 @@ app.get('/api/verify-payment/:sessionId', authMiddleware, async (req, res) => {
         await addCredits(userId, quantity, price, creditType);
         processedPayments.add(sessionId);
 
-        // Limpar cache após 1 hora para não consumir memória
+ 
         setTimeout(() => processedPayments.delete(sessionId), 60 * 60 * 1000);
       }
     }
@@ -527,10 +517,7 @@ app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), asy
       MessageSid: messageSid
     } = req.body;
 
-    console.log(`[Webhook Twilio] Recebido de ${fromPhone}: ${message?.substring(0, 50)}...`);
-
     if (!fromPhone || !message) {
-      console.log('[Webhook Twilio] Dados incompletos - ignorando');
       return res.status(200).send('<Response></Response>');
     }
 
@@ -541,9 +528,6 @@ app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), asy
         ...result.reply,
         original_message: result.originalMessage.message
       });
-      console.log(`[Webhook Twilio] Resposta salva e notificada para usuário ${result.originalMessage.user_id}`);
-    } else {
-      console.log(`[Webhook Twilio] Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
 
     res.set('Content-Type', 'text/xml');
@@ -567,7 +551,7 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
                           req.body.secret ||
                           req.query.secret;
 
-    // Só valida se o webhook secret estiver configurado
+
     if (webhookSecret && receivedSecret && receivedSecret !== webhookSecret) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
@@ -623,8 +607,6 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
       return res.status(200).json({ success: true, message: 'Tipo ignorado' });
     }
 
-    console.log(`[Webhook WASender] Processando mensagem de ${fromPhone}: ${messageText?.substring(0, 50)}...`);
-
     const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
 
     if (result) {
@@ -632,9 +614,6 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
         ...result.reply,
         original_message: result.originalMessage.message
       });
-      console.log(`[Webhook WASender] Resposta salva e notificada para usuário ${result.originalMessage.user_id}`);
-    } else {
-      console.log(`[Webhook WASender] Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
 
     res.status(200).json({ success: true, message: 'Resposta processada' });
@@ -674,13 +653,10 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
     }
 
     if (!fromPhone || !messageText) {
-      console.log('[Webhook WhatsApp] Dados incompletos - ignorando');
       return res.status(200).json({ success: true });
     }
 
     fromPhone = fromPhone.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '');
-
-    console.log(`[Webhook WhatsApp] Processando mensagem de ${fromPhone}: ${messageText?.substring(0, 50)}...`);
 
     const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
 
@@ -689,9 +665,6 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
         ...result.reply,
         original_message: result.originalMessage.message
       });
-      console.log(`[Webhook WhatsApp] Resposta salva e notificada para usuário ${result.originalMessage.user_id}`);
-    } else {
-      console.log(`[Webhook WhatsApp] Nenhuma mensagem original encontrada para ${fromPhone}`);
     }
 
     res.status(200).json({ success: true });
@@ -724,7 +697,7 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
   }
 
   try {
-    // Verificar conteúdo da mensagem com moderação
+ 
     const moderation = await moderationService.validateMessage(message);
     if (!moderation.allowed) {
       return res.status(400).json({
@@ -735,16 +708,16 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
       });
     }
 
-    // Gerar código de rastreamento único
+  
     const trackingCode = generateTrackingCode();
 
-    // Adicionar código no final da mensagem
+
     const messageWithCode = `${message}\n\n[Cód: ${trackingCode}]`;
 
-    // Salvar no banco com o código de rastreamento
+   
     const creditResult = await useCredit(req.userId, phone, message, 'whatsapp', trackingCode);
 
-    // Enviar mensagem COM o código
+  
     const result = await whatsappService.sendMessage(phone, messageWithCode);
 
     const user = await getUserById(req.userId);
@@ -794,18 +767,15 @@ app.post('/api/test-whatsapp', authMiddleware, async (req, res) => {
   }
 });
 
-// Endpoint público para verificar disponibilidade do WhatsApp (usado pelo frontend)
+
 app.get('/api/whatsapp/available', authMiddleware, async (req, res) => {
   try {
-    // Verificar se o cliente existe e está funcional
+    
     const hasClient = whatsappService.client !== null;
     const statusConnected = whatsappService.status === 'connected';
 
-    // Considerar disponível se: status é connected OU se temos cliente ativo
-    const isAvailable = statusConnected || hasClient;
 
-    // Log para debug
-    console.log(`[WhatsApp Check] status=${whatsappService.status}, hasClient=${hasClient}, available=${isAvailable}`);
+    const isAvailable = statusConnected || hasClient;
 
     res.json({
       success: true,
@@ -850,7 +820,7 @@ app.post('/api/send-sms', authMiddleware, async (req, res) => {
   }
 
   try {
-    // Verificar conteúdo da mensagem com moderação
+  
     const moderation = await moderationService.validateMessage(message);
     if (!moderation.allowed) {
       return res.status(400).json({
@@ -861,16 +831,16 @@ app.post('/api/send-sms', authMiddleware, async (req, res) => {
       });
     }
 
-    // Gerar código de rastreamento único
+  
     const trackingCode = generateTrackingCode();
 
-    // Adicionar código no final da mensagem
+
     const messageWithCode = `${message}\n\n[Cód: ${trackingCode}]`;
 
-    // Salvar no banco com o código de rastreamento
+ 
     await useCredit(req.userId, phone, message, 'sms', trackingCode);
 
-    // Enviar SMS COM o código
+ 
     const result = await smsService.sendSMS(phone, messageWithCode);
 
     const user = await getUserById(req.userId);
@@ -908,7 +878,7 @@ app.post('/api/send-bulk-sms', authMiddleware, async (req, res) => {
   }
 
   try {
-    // Verificar conteúdo da mensagem com moderação
+
     const moderation = await moderationService.validateMessage(message);
     if (!moderation.allowed) {
       return res.status(400).json({
@@ -977,9 +947,7 @@ app.get('/api/sms/balance', authMiddleware, async (req, res) => {
   }
 });
 
-// ==================== ROTAS ADMIN ====================
 
-// Credenciais admin do .env
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS = process.env.ADMIN_PASS;
 if (!ADMIN_PASS) {
@@ -988,7 +956,7 @@ if (!ADMIN_PASS) {
 const jwt = require('jsonwebtoken');
 const ADMIN_JWT_SECRET = process.env.JWT_SECRET || 'admin-secret-key';
 
-// Middleware para verificar token admin
+
 const adminAuthMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -1008,7 +976,7 @@ const adminAuthMiddleware = (req, res, next) => {
   }
 };
 
-// Login admin
+
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -1020,12 +988,12 @@ app.post('/api/admin/login', (req, res) => {
   }
 });
 
-// Logout admin (client-side apenas)
+
 app.post('/api/admin/logout', (req, res) => {
   res.json({ success: true, message: 'Logout realizado' });
 });
 
-// Verificar se está logado como admin
+
 app.get('/api/admin/check', (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -1041,7 +1009,7 @@ app.get('/api/admin/check', (req, res) => {
   }
 });
 
-// Status do WhatsApp (busca stats do banco para consistência)
+
 app.get('/api/admin/whatsapp/status', adminAuthMiddleware, async (req, res) => {
   try {
     const status = await whatsappService.getStatusAsync();
@@ -1051,7 +1019,7 @@ app.get('/api/admin/whatsapp/status', adminAuthMiddleware, async (req, res) => {
   }
 });
 
-// Reconectar WhatsApp
+
 app.post('/api/admin/whatsapp/reconnect', adminAuthMiddleware, async (req, res) => {
   try {
     await whatsappService.reconnect();
@@ -1061,7 +1029,7 @@ app.post('/api/admin/whatsapp/reconnect', adminAuthMiddleware, async (req, res) 
   }
 });
 
-// Desconectar WhatsApp
+
 app.post('/api/admin/whatsapp/disconnect', adminAuthMiddleware, async (req, res) => {
   try {
     await whatsappService.disconnect();
@@ -1071,7 +1039,7 @@ app.post('/api/admin/whatsapp/disconnect', adminAuthMiddleware, async (req, res)
   }
 });
 
-// Logout do WhatsApp (remove sessão salva)
+
 app.post('/api/admin/whatsapp/logout', adminAuthMiddleware, async (req, res) => {
   try {
     await whatsappService.logout();
@@ -1081,7 +1049,6 @@ app.post('/api/admin/whatsapp/logout', adminAuthMiddleware, async (req, res) => 
   }
 });
 
-// ==================== FIM ROTAS ADMIN ====================
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';

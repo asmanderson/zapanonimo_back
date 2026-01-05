@@ -1,6 +1,5 @@
 require('dotenv').config();
 
-// === CONFIGURAÇÃO DAS IAs (credenciais via Fly.io secrets) ===
 const AI_CONFIG = {
   claude: {
     apiKey: process.env.CLAUDE_API_KEY || '',
@@ -16,11 +15,11 @@ const AI_CONFIG = {
 
 class ModerationService {
   constructor() {
-    this.cache = new Map(); // Cache simples para evitar chamadas repetidas
-    this.cacheTimeout = 5 * 60 * 1000; // 5 minutos
+    this.cache = new Map(); 
+    this.cacheTimeout = 5 * 60 * 1000; 
   }
 
-  // === CLAUDE CONFIG ===
+
   get claudeApiKey() {
     return AI_CONFIG.claude.apiKey;
   }
@@ -33,7 +32,7 @@ class ModerationService {
     return AI_CONFIG.claude.enabled && !!this.claudeApiKey;
   }
 
-  // === GEMINI CONFIG ===
+
   get geminiApiKey() {
     return AI_CONFIG.gemini.apiKey;
   }
@@ -46,12 +45,12 @@ class ModerationService {
     return AI_CONFIG.gemini.enabled && !!this.geminiApiKey;
   }
 
-  // Getter para verificar se alguma IA está habilitada
+
   get isEnabled() {
     return this.claudeEnabled || this.geminiEnabled;
   }
 
-  // Compatibilidade com código antigo
+
   get apiKey() {
     return this.claudeApiKey || this.geminiApiKey;
   }
@@ -60,7 +59,7 @@ class ModerationService {
     return this.claudeModel;
   }
 
-  // Gerar hash simples para cache
+  
   hashMessage(message) {
     let hash = 0;
     for (let i = 0; i < message.length; i++) {
@@ -71,7 +70,7 @@ class ModerationService {
     return hash.toString();
   }
 
-  // Verificar cache
+
   checkCache(message) {
     const hash = this.hashMessage(message);
     const cached = this.cache.get(hash);
@@ -83,7 +82,7 @@ class ModerationService {
     return null;
   }
 
-  // Salvar no cache
+ 
   saveCache(message, result) {
     const hash = this.hashMessage(message);
     this.cache.set(hash, {
@@ -91,14 +90,14 @@ class ModerationService {
       timestamp: Date.now()
     });
 
-    // Limpar cache antigo (manter no máximo 1000 entradas)
+  
     if (this.cache.size > 1000) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
     }
   }
 
-  // Prompt de moderação compartilhado
+
   getModerationPrompt(message) {
     return `Você é um moderador de conteúdo. Analise a mensagem abaixo e determine se ela deve ser BLOQUEADA ou PERMITIDA.
 
@@ -130,7 +129,7 @@ Responda APENAS com um JSON no formato:
 Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem ser permitidas.`;
   }
 
-  // Analisar com Claude
+
   async analyzeWithClaude(message) {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -155,7 +154,7 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
     return data.content[0].text;
   }
 
-  // Analisar com Gemini
+ 
   async analyzeWithGemini(message) {
     const url = `https://generativelanguage.googleapis.com/v1/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`;
 
@@ -177,7 +176,7 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
     return data.candidates[0].content.parts[0].text;
   }
 
-  // Parsear resultado JSON da IA
+
   parseAIResponse(content) {
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -191,26 +190,23 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
   }
 
   async analyzeMessage(message) {
-    // Verificar se alguma IA está configurada
+
     if (!this.claudeEnabled && !this.geminiEnabled) {
-      console.log('[Moderation] Nenhuma IA configurada, permitindo mensagem');
       return { allowed: true, reason: null };
     }
 
-    // Verificar cache primeiro
+
     const cached = this.checkCache(message);
     if (cached !== null) {
-      console.log('[Moderation] Resultado do cache:', cached.allowed ? 'permitido' : 'bloqueado');
       return cached;
     }
 
     let result = null;
     let usedProvider = null;
 
-    // Tentar Claude primeiro
+  
     if (this.claudeEnabled) {
       try {
-        console.log('[Moderation] Tentando Claude...');
         const content = await this.analyzeWithClaude(message);
         result = this.parseAIResponse(content);
         usedProvider = 'Claude';
@@ -219,10 +215,9 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
       }
     }
 
-    // Se Claude falhou, tentar Gemini como fallback
+ 
     if (!result && this.geminiEnabled) {
       try {
-        console.log('[Moderation] Tentando Gemini (fallback)...');
         const content = await this.analyzeWithGemini(message);
         result = this.parseAIResponse(content);
         usedProvider = 'Gemini';
@@ -231,45 +226,42 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
       }
     }
 
-    // Se ambos falharam, permitir (fail-open)
+
     if (!result) {
-      console.log('[Moderation] Todas as IAs falharam, permitindo mensagem');
       return { allowed: true, reason: null };
     }
 
-    // Salvar no cache
+
     this.saveCache(message, result);
 
-    console.log(`[Moderation] Resultado via ${usedProvider}:`, result.allowed ? 'permitido' : `bloqueado (${result.reason})`);
     return result;
   }
 
-  // Método principal para validar mensagem antes do envio
+
   async validateMessage(message) {
-    // Se a moderação estiver desabilitada, permitir todas as mensagens
+
     if (!this.isEnabled) {
-      console.log('[Moderation] Moderação desabilitada via CLAUDE_ENABLED');
       return { allowed: true, reason: null };
     }
 
-    // Verificações básicas primeiro (mais rápidas)
+  
     const basicCheck = this.basicValidation(message);
     if (!basicCheck.allowed) {
       return basicCheck;
     }
 
-    // Análise com IA
+
     return await this.analyzeMessage(message);
   }
 
-  // Validação básica local (sem API)
+
   basicValidation(message) {
     const lowerMessage = message.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove acentos
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); 
 
-    // Lista de palavrões e ofensas em português
+
     const badWords = [
-      // Palavrões comuns
+  
       'porra', 'caralho', 'cacete', 'merda', 'bosta', 'coco',
       'puta', 'putaria', 'putinha', 'vagabunda', 'vadia', 'piranha',
       'fdp', 'filho da puta', 'filha da puta', 'fudido', 'foder', 'foda-se', 'fodase',
@@ -285,26 +277,26 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
       'vagabundo', 'vagal', 'safado', 'safada', 'canalha',
       'puto', 'puta que pariu', 'vsf', 'vai se fuder', 'tnc', 'tomar no cu',
       'vtnc', 'vai tomar no cu', 'pqp',
-      // Ofensas com animais
+
       'vaca', 'vaca velha', 'vacona', 'galinha', 'cachorra', 'cadela',
       'egua', 'jumenta', 'bezerra', 'piranhuda',
-      // Ofensas de idade/aparência
+  
       'velha', 'velho', 'coroa', 'acabada', 'acabado', 'feia', 'feio',
       'gorda', 'gordo', 'baleia', 'elefante', 'baranga', 'mocreia',
-      // Ameaças e violência
+ 
       'matar', 'assassinar', 'estuprar', 'sequestrar', 'bater',
       'socar', 'espancar', 'surrar', 'arrebentar', 'acabar com voce',
       'bomba', 'terrorismo', 'pedofilia', 'pedofilo',
       'vou te pegar', 'vai morrer', 'te mato', 'vou matar',
-      // Discriminação
+     
       'macaco', 'crioulo', 'negao', 'preto fedido', 'branquelo',
       'nazista', 'hitler',
-      // Golpes
+    
       'pix agora', 'me passa', 'senha do banco', 'cartao de credito'
     ];
 
     for (const word of badWords) {
-      // Verificar palavra exata ou como parte de palavra
+    
       const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
       if (regex.test(lowerMessage) || lowerMessage.includes(word)) {
         return {
@@ -319,7 +311,7 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
   }
 }
 
-// Singleton
+
 let instance = null;
 
 function getModerationService() {
