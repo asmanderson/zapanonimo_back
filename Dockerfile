@@ -1,9 +1,10 @@
 # Usar imagem com suporte a Puppeteer/Chrome
 FROM node:20-slim
 
-# Instalar dependências do Chromium
+# Instalar dependências do Chromium e FFmpeg para conversão de áudio
 RUN apt-get update && apt-get install -y \
     chromium \
+    ffmpeg \
     fonts-ipafont-gothic \
     fonts-wqy-zenhei \
     fonts-thai-tlwg \
