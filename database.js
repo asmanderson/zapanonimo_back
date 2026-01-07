@@ -299,16 +299,23 @@ async function getUserReplies(userId, limit = 20) {
   return formattedReplies;
 }
 
-async function saveReply(userId, messageId, fromPhone, replyMessage, channel) {
+async function saveReply(userId, messageId, fromPhone, replyMessage, channel, audioUrl = null) {
+  const insertData = {
+    user_id: userId,
+    message_id: messageId,
+    from_phone: fromPhone,
+    message: replyMessage,
+    channel: channel
+  };
+
+  // Adicionar audio_url se fornecido
+  if (audioUrl) {
+    insertData.audio_url = audioUrl;
+  }
+
   const { data, error } = await supabase
     .from('replies')
-    .insert([{
-      user_id: userId,
-      message_id: messageId,
-      from_phone: fromPhone,
-      message: replyMessage,
-      channel: channel
-    }])
+    .insert([insertData])
     .select()
     .single();
 
@@ -376,7 +383,7 @@ async function findMessageByPhone(phone, channel = null) {
   }
 }
 
-async function saveReplyFromWebhook(fromPhone, replyMessage, channel, isLid = false) {
+async function saveReplyFromWebhook(fromPhone, replyMessage, channel, isLid = false, audioUrl = null) {
   let originalMessage = null;
   let phoneToSearch = fromPhone;
 
@@ -419,15 +426,22 @@ async function saveReplyFromWebhook(fromPhone, replyMessage, channel, isLid = fa
     return null;
   }
 
+  const insertData = {
+    user_id: originalMessage.user_id,
+    message_id: originalMessage.id,
+    from_phone: fromPhone,
+    message: replyMessage,
+    channel: channel
+  };
+
+  // Adicionar audio_url se fornecido
+  if (audioUrl) {
+    insertData.audio_url = audioUrl;
+  }
+
   const { data, error } = await supabase
     .from('replies')
-    .insert([{
-      user_id: originalMessage.user_id,
-      message_id: originalMessage.id,
-      from_phone: fromPhone,
-      message: replyMessage,
-      channel: channel
-    }])
+    .insert([insertData])
     .select()
     .single();
 

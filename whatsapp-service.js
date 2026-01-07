@@ -1,9 +1,10 @@
 require('dotenv').config();
 
-const { Client, RemoteAuth } = require('whatsapp-web.js');
+const { Client, RemoteAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const { DatabaseSessionStore } = require('./session-store');
 const { getWhatsAppStats, saveWhatsAppStats } = require('./database');
+const { uploadAudio } = require('./supabase-store');
 
 class WhatsAppService {
   constructor() {
@@ -539,16 +540,43 @@ class WhatsAppService {
   
     this.client.on('message', async (msg) => {
       try {
-     
+
         if (msg.from.includes('@g.us') || msg.fromMe) {
           return;
         }
 
-        const messageText = msg.body;
+        let messageText = msg.body || '';
+        let audioUrl = null;
         let fromPhone = null;
         const originalFrom = msg.from;
 
         this.addLog(`Recebido de: ${originalFrom}`);
+
+        // Verificar se é mensagem de áudio
+        if (msg.hasMedia) {
+          try {
+            const media = await msg.downloadMedia();
+            if (media && (media.mimetype.startsWith('audio/') || media.mimetype === 'audio/ogg; codecs=opus')) {
+              this.addLog(`Áudio recebido: ${media.mimetype}`);
+
+              // Upload para Supabase Storage
+              const uploadResult = await uploadAudio(media.data, media.mimetype, 'replies');
+              if (uploadResult.success) {
+                audioUrl = uploadResult.url;
+                this.addLog(`Áudio salvo: ${audioUrl}`);
+
+                // Se não tem texto, usar placeholder
+                if (!messageText) {
+                  messageText = '[Mensagem de áudio]';
+                }
+              } else {
+                this.addLog(`Erro ao salvar áudio: ${uploadResult.error}`);
+              }
+            }
+          } catch (mediaError) {
+            this.addLog(`Erro ao processar mídia: ${mediaError.message}`);
+          }
+        }
 
    
         if (originalFrom.includes('@lid')) {
@@ -626,17 +654,18 @@ class WhatsAppService {
      
         const { saveReplyFromWebhook } = require('./database');
 
-        this.addLog(`Chamando saveReplyFromWebhook com isLid=${isLid}...`);
-        const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp', isLid);
+        this.addLog(`Chamando saveReplyFromWebhook com isLid=${isLid}, audioUrl=${audioUrl ? 'sim' : 'não'}...`);
+        const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp', isLid, audioUrl);
 
         if (result && this.io) {
-      
+
           const userId = result.originalMessage.user_id.toString();
           this.io.to(`user:${userId}`).emit('new-reply', {
             ...result.reply,
-            original_message: result.originalMessage.message
+            original_message: result.originalMessage.message,
+            audio_url: audioUrl
           });
-          this.addLog(`✅ Resposta salva e notificada para usuário ${userId}`);
+          this.addLog(`✅ Resposta salva e notificada para usuário ${userId}${audioUrl ? ' (com áudio)' : ''}`);
         } else if (result) {
           this.addLog(`✅ Resposta salva para usuário ${result.originalMessage.user_id}, mas Socket.IO não disponível`);
         } else {
@@ -797,6 +826,108 @@ class WhatsAppService {
     this.saveStats();
 
     throw new Error(`Falha ao enviar mensagem: ${lastError.message}`);
+  }
+
+  /**
+   * Envia um áudio via WhatsApp
+   * @param {string} phone - Número de telefone
+   * @param {string} audioBase64 - Dados do áudio em base64
+   * @param {string} mimetype - Tipo MIME do áudio
+   * @param {string} caption - Legenda opcional
+   * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+   */
+  async sendAudio(phone, audioBase64, mimetype, caption = '') {
+    if (!this.client) {
+      throw new Error('Sistema temporariamente offline. Tente novamente em alguns minutos.');
+    }
+
+    if (this._status === 'disconnected') {
+      throw new Error('WhatsApp desconectado. Aguarde a reconexão automática ou entre em contato com o suporte.');
+    }
+
+    // Limpar número de telefone
+    let cleanPhone = phone.replace(/\D/g, '');
+
+    if (cleanPhone.length === 11 || cleanPhone.length === 10) {
+      cleanPhone = '55' + cleanPhone;
+    }
+
+    if (cleanPhone.length < 12 || cleanPhone.length > 13) {
+      throw new Error(`Número inválido: ${cleanPhone}. Use formato: 5511999999999`);
+    }
+
+    const maxRetries = 3;
+    const retryDelay = 2000;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          this.addLog(`Tentativa ${attempt}/${maxRetries} (áudio) - aguardando cliente ficar pronto...`);
+          await this.waitForClientReady(5000);
+        }
+
+        const numberId = await this.client.getNumberId(cleanPhone);
+
+        if (!numberId) {
+          throw new Error(`O número ${cleanPhone} não está registrado no WhatsApp`);
+        }
+
+        const chatId = numberId._serialized;
+        this.addLog(`Enviando áudio para ${chatId}`);
+
+        // Criar objeto de mídia
+        const media = new MessageMedia(mimetype, audioBase64, 'audio.ogg');
+
+        // Enviar como mensagem de voz (PTT - Push To Talk)
+        const result = await this.client.sendMessage(chatId, media, {
+          sendAudioAsVoice: true,
+          caption: caption || undefined
+        });
+
+        this.stats.successCount++;
+        this.stats.lastUsed = new Date();
+        this.stats._lastUpdate = Date.now();
+        this.addLog(`Áudio enviado para ${cleanPhone}${attempt > 1 ? ` (tentativa ${attempt})` : ''}`);
+
+        this.emitToAdmins('whatsapp:stats', { ...this.stats });
+        this.saveStats();
+
+        return {
+          success: true,
+          data: { messageId: result.id._serialized },
+          tokenUsed: 1,
+          attempts: attempt
+        };
+      } catch (error) {
+        lastError = error;
+
+        const isRetryableError =
+          error.message.includes('WidFactory') ||
+          error.message.includes('Evaluation failed') ||
+          error.message.includes('not ready') ||
+          error.message.includes('Protocol error') ||
+          error.message.includes('Target closed') ||
+          error.message.includes('Session closed');
+
+        if (isRetryableError && attempt < maxRetries) {
+          this.addLog(`Erro recuperável na tentativa ${attempt} (áudio): ${error.message}. Aguardando ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        }
+
+        break;
+      }
+    }
+
+    this.stats.failureCount++;
+    this.stats._lastUpdate = Date.now();
+    this.addLog(`Erro ao enviar áudio para ${cleanPhone} após ${maxRetries} tentativas: ${lastError.message}`);
+
+    this.emitToAdmins('whatsapp:stats', { ...this.stats });
+    this.saveStats();
+
+    throw new Error(`Falha ao enviar áudio: ${lastError.message}`);
   }
 
   async disconnect() {

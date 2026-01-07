@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 const unzipper = require('unzipper');
+const { v4: uuidv4 } = require('uuid');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
@@ -279,4 +280,146 @@ class SupabaseStore {
   }
 }
 
-module.exports = { SupabaseStore };
+// ============================================
+// FUNÇÕES DE UPLOAD DE ÁUDIO
+// ============================================
+
+const AUDIO_BUCKET_NAME = 'audios';
+
+async function ensureAudioBucket() {
+  if (!supabase) {
+    console.error('[AudioStorage] Cliente Supabase não inicializado');
+    return false;
+  }
+
+  try {
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(b => b.name === AUDIO_BUCKET_NAME);
+
+    if (!bucketExists) {
+      const { error } = await supabase.storage.createBucket(AUDIO_BUCKET_NAME, {
+        public: true // Público para permitir reprodução direta
+      });
+      if (error && !error.message.includes('already exists')) {
+        console.error('[AudioStorage] Erro ao criar bucket:', error);
+        return false;
+      }
+      console.log('[AudioStorage] Bucket "audios" criado com sucesso');
+    }
+    return true;
+  } catch (error) {
+    console.error('[AudioStorage] Erro ao verificar/criar bucket:', error);
+    return false;
+  }
+}
+
+/**
+ * Upload de áudio para o Supabase Storage
+ * @param {string} base64Data - Dados do áudio em base64
+ * @param {string} mimetype - Tipo MIME do áudio (audio/ogg, audio/mpeg, etc)
+ * @param {string} folder - Pasta de destino (replies, sent)
+ * @returns {Promise<{success: boolean, url?: string, filename?: string, error?: string}>}
+ */
+async function uploadAudio(base64Data, mimetype, folder = 'replies') {
+  try {
+    await ensureAudioBucket();
+
+    // Determinar extensão baseado no mimetype
+    const extensions = {
+      'audio/ogg': 'ogg',
+      'audio/ogg; codecs=opus': 'ogg',
+      'audio/mpeg': 'mp3',
+      'audio/mp3': 'mp3',
+      'audio/mp4': 'm4a',
+      'audio/wav': 'wav',
+      'audio/webm': 'webm',
+      'audio/webm; codecs=opus': 'webm'
+    };
+    const ext = extensions[mimetype] || 'ogg';
+
+    // Gerar nome único
+    const filename = `${folder}/${uuidv4()}.${ext}`;
+
+    // Converter base64 para Buffer
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Verificar tamanho (máximo 16MB - limite WhatsApp)
+    if (buffer.length > 16 * 1024 * 1024) {
+      return { success: false, error: 'Arquivo muito grande. Máximo: 16MB' };
+    }
+
+    // Upload para Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(AUDIO_BUCKET_NAME)
+      .upload(filename, buffer, {
+        contentType: mimetype,
+        upsert: false
+      });
+
+    if (error) {
+      console.error('[AudioStorage] Erro no upload:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Obter URL pública
+    const { data: urlData } = supabase.storage
+      .from(AUDIO_BUCKET_NAME)
+      .getPublicUrl(filename);
+
+    console.log(`[AudioStorage] Áudio salvo: ${filename}`);
+
+    return {
+      success: true,
+      url: urlData.publicUrl,
+      filename: filename
+    };
+  } catch (error) {
+    console.error('[AudioStorage] Erro ao fazer upload:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Obter URL pública de um áudio
+ * @param {string} filename - Nome do arquivo no storage
+ * @returns {string} URL pública
+ */
+function getAudioUrl(filename) {
+  if (!supabase) return null;
+
+  const { data } = supabase.storage
+    .from(AUDIO_BUCKET_NAME)
+    .getPublicUrl(filename);
+
+  return data.publicUrl;
+}
+
+/**
+ * Deletar um áudio do storage
+ * @param {string} filename - Nome do arquivo no storage
+ * @returns {Promise<boolean>}
+ */
+async function deleteAudio(filename) {
+  try {
+    const { error } = await supabase.storage
+      .from(AUDIO_BUCKET_NAME)
+      .remove([filename]);
+
+    if (error) {
+      console.error('[AudioStorage] Erro ao deletar:', error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('[AudioStorage] Erro ao deletar:', error);
+    return false;
+  }
+}
+
+module.exports = {
+  SupabaseStore,
+  uploadAudio,
+  getAudioUrl,
+  deleteAudio,
+  ensureAudioBucket
+};

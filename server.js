@@ -767,6 +767,72 @@ app.post('/api/test-whatsapp', authMiddleware, async (req, res) => {
   }
 });
 
+// Endpoint para enviar áudio via WhatsApp
+app.post('/api/send-whatsapp-audio', authMiddleware, async (req, res) => {
+  const { phone, audioBase64, mimetype, caption } = req.body;
+
+  if (!phone || !audioBase64) {
+    return res.status(400).json({ success: false, error: 'Telefone e áudio são obrigatórios' });
+  }
+
+  // Validar mimetype
+  const allowedMimetypes = [
+    'audio/ogg',
+    'audio/ogg; codecs=opus',
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/mp4',
+    'audio/wav',
+    'audio/webm',
+    'audio/webm; codecs=opus'
+  ];
+
+  const audioMimetype = mimetype || 'audio/ogg';
+  if (!allowedMimetypes.some(m => audioMimetype.startsWith(m.split(';')[0]))) {
+    return res.status(400).json({ success: false, error: 'Tipo de áudio não suportado' });
+  }
+
+  // Validar tamanho (base64 é ~33% maior que o arquivo original)
+  const estimatedSize = (audioBase64.length * 3) / 4;
+  if (estimatedSize > 16 * 1024 * 1024) {
+    return res.status(400).json({ success: false, error: 'Arquivo muito grande. Máximo: 16MB' });
+  }
+
+  try {
+    // Gerar tracking code
+    const trackingCode = generateTrackingCode();
+
+    // Debitar crédito (mesmo custo que mensagem de texto)
+    const captionWithCode = caption ? `${caption}\n\n[Cód: ${trackingCode}]` : `[Cód: ${trackingCode}]`;
+    const creditResult = await useCredit(req.userId, phone, '[Mensagem de áudio]', 'whatsapp', trackingCode);
+
+    // Enviar áudio
+    const result = await whatsappService.sendAudio(phone, audioBase64, audioMimetype, captionWithCode);
+
+    const user = await getUserById(req.userId);
+
+    res.json({
+      success: true,
+      data: result.data,
+      whatsapp_credits: user.whatsapp_credits,
+      sms_credits: user.sms_credits,
+      tokenUsed: result.tokenUsed,
+      attempts: result.attempts,
+      trackingCode: trackingCode
+    });
+
+  } catch (error) {
+    if (error.message.includes('Créditos') && error.message.includes('insuficientes')) {
+      res.status(402).json({
+        success: false,
+        error: error.message,
+        needsPayment: true
+      });
+    } else {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+});
 
 app.get('/api/whatsapp/available', authMiddleware, async (req, res) => {
   try {
