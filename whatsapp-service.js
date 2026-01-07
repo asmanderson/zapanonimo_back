@@ -880,10 +880,15 @@ class WhatsAppService {
         const media = new MessageMedia(mimetype, audioBase64, 'audio.ogg');
 
         // Enviar como mensagem de voz (PTT - Push To Talk)
+        // Nota: mensagens de voz não suportam caption, então enviamos separado
         const result = await this.client.sendMessage(chatId, media, {
-          sendAudioAsVoice: true,
-          caption: caption || undefined
+          sendAudioAsVoice: true
         });
+
+        // Se tem caption/código de rastreamento, envia como mensagem separada
+        if (caption) {
+          await this.client.sendMessage(chatId, caption);
+        }
 
         this.stats.successCount++;
         this.stats.lastUsed = new Date();
