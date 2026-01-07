@@ -119,7 +119,9 @@ const { getModerationService } = require('./moderation-service');
 
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
-app.use(express.json());
+// Aumentar limite para suportar áudios em base64 (até 20MB)
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'sua-chave-secreta-de-sessao',
   resave: false,
