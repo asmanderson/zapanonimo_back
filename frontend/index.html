@@ -648,6 +648,73 @@
             font-size: 12px;
             font-weight: 500;
         }
+
+        /* Estilos para emoji picker */
+        .message-input-container {
+            position: relative;
+        }
+
+        .message-input-container textarea {
+            width: 100%;
+            padding-right: 50px;
+        }
+
+        .btn-emoji-toggle {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-emoji-toggle:hover {
+            background: #f1f5f9;
+            transform: scale(1.1);
+        }
+
+        .emoji-picker {
+            margin-top: 10px;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+        }
+
+        .emoji-grid span {
+            font-size: 24px;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .emoji-grid span:hover {
+            background: #f1f5f9;
+            transform: scale(1.2);
+        }
+
+        @media (max-width: 768px) {
+            .emoji-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+            .emoji-grid span {
+                font-size: 20px;
+                padding: 6px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -786,11 +853,48 @@
 
                 <div class="form-group">
                     <label for="message">Mensagem</label>
-                    <textarea
-                        id="message"
-                        placeholder="Digite sua mensagem aqui..."
-                        maxlength="65536"
-                    ></textarea>
+                    <div class="message-input-container">
+                        <textarea
+                            id="message"
+                            placeholder="Digite sua mensagem aqui..."
+                            maxlength="65536"
+                        ></textarea>
+                        <button type="button" class="btn-emoji-toggle" onclick="toggleEmojiPicker()">😊</button>
+                    </div>
+                    <div id="emoji-picker" class="emoji-picker" style="display: none;">
+                        <div class="emoji-grid">
+                            <span onclick="addEmoji('😀')">😀</span>
+                            <span onclick="addEmoji('😂')">😂</span>
+                            <span onclick="addEmoji('😍')">😍</span>
+                            <span onclick="addEmoji('🥰')">🥰</span>
+                            <span onclick="addEmoji('😘')">😘</span>
+                            <span onclick="addEmoji('😎')">😎</span>
+                            <span onclick="addEmoji('🤔')">🤔</span>
+                            <span onclick="addEmoji('😢')">😢</span>
+                            <span onclick="addEmoji('😭')">😭</span>
+                            <span onclick="addEmoji('😡')">😡</span>
+                            <span onclick="addEmoji('👍')">👍</span>
+                            <span onclick="addEmoji('👎')">👎</span>
+                            <span onclick="addEmoji('👏')">👏</span>
+                            <span onclick="addEmoji('🙏')">🙏</span>
+                            <span onclick="addEmoji('💪')">💪</span>
+                            <span onclick="addEmoji('❤️')">❤️</span>
+                            <span onclick="addEmoji('💔')">💔</span>
+                            <span onclick="addEmoji('🔥')">🔥</span>
+                            <span onclick="addEmoji('✨')">✨</span>
+                            <span onclick="addEmoji('🎉')">🎉</span>
+                            <span onclick="addEmoji('💯')">💯</span>
+                            <span onclick="addEmoji('🤣')">🤣</span>
+                            <span onclick="addEmoji('😅')">😅</span>
+                            <span onclick="addEmoji('😊')">😊</span>
+                            <span onclick="addEmoji('🙄')">🙄</span>
+                            <span onclick="addEmoji('😏')">😏</span>
+                            <span onclick="addEmoji('😴')">😴</span>
+                            <span onclick="addEmoji('🤗')">🤗</span>
+                            <span onclick="addEmoji('🤫')">🤫</span>
+                            <span onclick="addEmoji('🤭')">🤭</span>
+                        </div>
+                    </div>
                     <small style="color: #64748b; font-size: 12px;">Máximo: 65.536 caracteres</small>
                 </div>
 
@@ -1160,11 +1264,26 @@
 
             const previewContainer = document.getElementById('audio-preview-container');
             const audioPreview = document.getElementById('audio-preview');
-            const audioUpload = document.getElementById('audio-upload');
 
             previewContainer.style.display = 'none';
             audioPreview.src = '';
-            audioUpload.value = '';
+        }
+
+        // Funções do emoji picker
+        function toggleEmojiPicker() {
+            const picker = document.getElementById('emoji-picker');
+            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addEmoji(emoji) {
+            const textarea = document.getElementById('message');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+
+            textarea.value = text.substring(0, start) + emoji + text.substring(end);
+            textarea.focus();
+            textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
         }
 
         function togglePassword(inputId) {
