@@ -699,7 +699,17 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
   }
 
   try {
- 
+    // Verificar se tem créditos antes de tentar enviar
+    const userBefore = await getUserById(req.userId);
+    if (userBefore.whatsapp_credits < 1) {
+      return res.status(402).json({
+        success: false,
+        error: 'Créditos de WhatsApp insuficientes',
+        needsPayment: true
+      });
+    }
+
+    // Moderação de conteúdo
     const moderation = await moderationService.validateMessage(message);
     if (!moderation.allowed) {
       return res.status(400).json({
@@ -710,17 +720,15 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
       });
     }
 
-  
+    // Gerar tracking code
     const trackingCode = generateTrackingCode();
-
-
     const messageWithCode = `${message}\n\n[Cód: ${trackingCode}]`;
 
-   
-    const creditResult = await useCredit(req.userId, phone, message, 'whatsapp', trackingCode);
-
-  
+    // PRIMEIRO: Tentar enviar a mensagem
     const result = await whatsappService.sendMessage(phone, messageWithCode);
+
+    // SÓ DEBITA SE ENVIOU COM SUCESSO
+    await useCredit(req.userId, phone, message, 'whatsapp', trackingCode);
 
     const user = await getUserById(req.userId);
 
@@ -742,6 +750,7 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
         needsPayment: true
       });
     } else {
+      // Erro no envio - NÃO debita crédito
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -801,15 +810,25 @@ app.post('/api/send-whatsapp-audio', authMiddleware, async (req, res) => {
   }
 
   try {
+    // Verificar se tem créditos antes de tentar enviar
+    const userBefore = await getUserById(req.userId);
+    if (userBefore.whatsapp_credits < 1) {
+      return res.status(402).json({
+        success: false,
+        error: 'Créditos de WhatsApp insuficientes',
+        needsPayment: true
+      });
+    }
+
     // Gerar tracking code
     const trackingCode = generateTrackingCode();
-
-    // Debitar crédito (mesmo custo que mensagem de texto)
     const captionWithCode = caption ? `${caption}\n\n[Cód: ${trackingCode}]` : `[Cód: ${trackingCode}]`;
-    const creditResult = await useCredit(req.userId, phone, '[Mensagem de áudio]', 'whatsapp', trackingCode);
 
-    // Enviar áudio
+    // PRIMEIRO: Tentar enviar o áudio
     const result = await whatsappService.sendAudio(phone, audioBase64, audioMimetype, captionWithCode);
+
+    // SÓ DEBITA SE ENVIOU COM SUCESSO
+    await useCredit(req.userId, phone, '[Mensagem de áudio]', 'whatsapp', trackingCode);
 
     const user = await getUserById(req.userId);
 
@@ -831,6 +850,7 @@ app.post('/api/send-whatsapp-audio', authMiddleware, async (req, res) => {
         needsPayment: true
       });
     } else {
+      // Erro no envio - NÃO debita crédito
       res.status(500).json({ success: false, error: error.message });
     }
   }
