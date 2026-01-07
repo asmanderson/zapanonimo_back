@@ -876,31 +876,13 @@ class WhatsAppService {
         const chatId = numberId._serialized;
         this.addLog(`Enviando áudio para ${chatId}`);
 
-        // Converter mimetype webm para ogg (WhatsApp aceita melhor)
-        let audioMimetype = mimetype;
-        if (mimetype.includes('webm')) {
-          audioMimetype = 'audio/ogg; codecs=opus';
-        }
+        this.addLog(`Enviando mídia: mimetype=${mimetype}, tamanho=${audioBase64.length} chars`);
 
-        // Criar objeto de mídia
-        const media = new MessageMedia(audioMimetype, audioBase64, 'audio.ogg');
+        // Criar objeto de mídia com o mimetype original
+        const media = new MessageMedia(mimetype, audioBase64, 'audio.ogg');
 
-        this.addLog(`Enviando mídia: ${audioMimetype}, tamanho: ${audioBase64.length} chars`);
-
-        // Tentar enviar como mensagem de voz (PTT)
-        // Se falhar, tenta como arquivo de áudio normal
-        let result;
-        try {
-          result = await this.client.sendMessage(chatId, media, {
-            sendAudioAsVoice: true
-          });
-          this.addLog('Áudio enviado como mensagem de voz (PTT)');
-        } catch (pttError) {
-          this.addLog(`Falha como PTT: ${pttError.message}. Tentando como arquivo...`);
-          // Tentar como arquivo de áudio normal
-          result = await this.client.sendMessage(chatId, media);
-          this.addLog('Áudio enviado como arquivo');
-        }
+        // Enviar áudio
+        const result = await this.client.sendMessage(chatId, media);
 
         // Se tem caption/código de rastreamento, envia como mensagem separada
         if (caption) {
