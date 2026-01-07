@@ -878,11 +878,13 @@ class WhatsAppService {
 
         this.addLog(`Enviando mídia: mimetype=${mimetype}, tamanho=${audioBase64.length} chars`);
 
-        // Criar objeto de mídia com o mimetype original
-        const media = new MessageMedia(mimetype, audioBase64, 'audio.ogg');
+        // Formato nativo do WhatsApp para mensagens de voz
+        const media = new MessageMedia('audio/ogg; codecs=opus', audioBase64, 'ptt.ogg');
 
-        // Enviar áudio
-        const result = await this.client.sendMessage(chatId, media);
+        // Enviar como mensagem de voz (PTT)
+        const result = await this.client.sendMessage(chatId, media, {
+          sendAudioAsVoice: true
+        });
 
         // Se tem caption/código de rastreamento, envia como mensagem separada
         if (caption) {

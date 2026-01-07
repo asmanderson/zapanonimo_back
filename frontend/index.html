@@ -796,17 +796,13 @@
 
                 <!-- Controles de Áudio -->
                 <div class="form-group">
-                    <label>Ou envie um áudio</label>
+                    <label>Ou grave um áudio</label>
                     <div class="audio-controls">
                         <div class="audio-buttons">
                             <button type="button" class="btn-audio" id="record-btn" onclick="toggleRecording()">
                                 <span class="record-icon">🎤</span>
                                 <span id="record-btn-text">Gravar</span>
                             </button>
-                            <label class="btn-audio btn-upload">
-                                <span>📁 Enviar arquivo</span>
-                                <input type="file" id="audio-upload" accept="audio/*" onchange="handleAudioUpload(event)" hidden>
-                            </label>
                         </div>
 
                         <!-- Preview do áudio -->
@@ -821,7 +817,7 @@
                             <span id="recording-time">00:00</span>
                         </div>
                     </div>
-                    <small style="color: #64748b; font-size: 12px;">Formatos: MP3, OGG, WAV, M4A (máx. 16MB)</small>
+                    <small style="color: #64748b; font-size: 12px;">Clique em gravar, fale e clique novamente para parar</small>
                 </div>
 
                 <button type="submit" class="btn" id="send-btn">Enviar Mensagem</button>
