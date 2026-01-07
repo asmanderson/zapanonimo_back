@@ -935,6 +935,17 @@ class WhatsAppService {
       } catch (error) {
         lastError = error;
 
+        // Log detalhado do erro para debug
+        this.addLog(`[ERRO ÁUDIO] Tentativa ${attempt}: ${error.message}`);
+        this.addLog(`[ERRO ÁUDIO] Stack: ${error.stack ? error.stack.substring(0, 500) : 'N/A'}`);
+        console.error('[AUDIO ERROR]', {
+          attempt,
+          message: error.message,
+          mimetype: mimetype,
+          audioLength: audioBase64 ? audioBase64.length : 0,
+          stack: error.stack
+        });
+
         const isRetryableError =
           error.message.includes('WidFactory') ||
           error.message.includes('Evaluation failed') ||
