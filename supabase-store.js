@@ -280,9 +280,6 @@ class SupabaseStore {
   }
 }
 
-// ============================================
-// FUNÇÕES DE UPLOAD DE ÁUDIO
-// ============================================
 
 const AUDIO_BUCKET_NAME = 'audios';
 
@@ -298,7 +295,7 @@ async function ensureAudioBucket() {
 
     if (!bucketExists) {
       const { error } = await supabase.storage.createBucket(AUDIO_BUCKET_NAME, {
-        public: true // Público para permitir reprodução direta
+        public: true 
       });
       if (error && !error.message.includes('already exists')) {
         console.error('[AudioStorage] Erro ao criar bucket:', error);
@@ -313,18 +310,12 @@ async function ensureAudioBucket() {
   }
 }
 
-/**
- * Upload de áudio para o Supabase Storage
- * @param {string} base64Data - Dados do áudio em base64
- * @param {string} mimetype - Tipo MIME do áudio (audio/ogg, audio/mpeg, etc)
- * @param {string} folder - Pasta de destino (replies, sent)
- * @returns {Promise<{success: boolean, url?: string, filename?: string, error?: string}>}
- */
+
 async function uploadAudio(base64Data, mimetype, folder = 'replies') {
   try {
     await ensureAudioBucket();
 
-    // Determinar extensão baseado no mimetype
+   
     const extensions = {
       'audio/ogg': 'ogg',
       'audio/ogg; codecs=opus': 'ogg',
@@ -337,18 +328,18 @@ async function uploadAudio(base64Data, mimetype, folder = 'replies') {
     };
     const ext = extensions[mimetype] || 'ogg';
 
-    // Gerar nome único
+
     const filename = `${folder}/${uuidv4()}.${ext}`;
 
-    // Converter base64 para Buffer
+  
     const buffer = Buffer.from(base64Data, 'base64');
 
-    // Verificar tamanho (máximo 16MB - limite WhatsApp)
+    
     if (buffer.length > 16 * 1024 * 1024) {
       return { success: false, error: 'Arquivo muito grande. Máximo: 16MB' };
     }
 
-    // Upload para Supabase Storage
+    
     const { data, error } = await supabase.storage
       .from(AUDIO_BUCKET_NAME)
       .upload(filename, buffer, {
@@ -361,7 +352,7 @@ async function uploadAudio(base64Data, mimetype, folder = 'replies') {
       return { success: false, error: error.message };
     }
 
-    // Obter URL pública
+   
     const { data: urlData } = supabase.storage
       .from(AUDIO_BUCKET_NAME)
       .getPublicUrl(filename);

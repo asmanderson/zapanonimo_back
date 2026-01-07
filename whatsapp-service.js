@@ -10,14 +10,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-/**
- * Converte áudio WebM para OGG Opus usando FFmpeg
- * @param {string} base64Data - Áudio em base64
- * @param {string} inputMimetype - Mimetype do áudio de entrada
- * @returns {Promise<{base64: string, mimetype: string}>}
- */
+
 async function convertAudioToOgg(base64Data, inputMimetype) {
-  // Se já for OGG, retorna como está
+
   if (inputMimetype && inputMimetype.includes('audio/ogg')) {
     return { base64: base64Data, mimetype: 'audio/ogg; codecs=opus' };
   }
@@ -27,11 +22,11 @@ async function convertAudioToOgg(base64Data, inputMimetype) {
   const outputFile = path.join(tempDir, `output_${Date.now()}.ogg`);
 
   try {
-    // Escrever o arquivo de entrada
+ 
     const inputBuffer = Buffer.from(base64Data, 'base64');
     fs.writeFileSync(inputFile, inputBuffer);
 
-    // Converter usando FFmpeg
+    
     await new Promise((resolve, reject) => {
       const ffmpeg = spawn('ffmpeg', [
         '-i', inputFile,
@@ -62,13 +57,13 @@ async function convertAudioToOgg(base64Data, inputMimetype) {
       });
     });
 
-    // Ler o arquivo convertido
+   
     const outputBuffer = fs.readFileSync(outputFile);
     const outputBase64 = outputBuffer.toString('base64');
 
     return { base64: outputBase64, mimetype: 'audio/ogg; codecs=opus' };
   } finally {
-    // Limpar arquivos temporários
+   
     try { fs.unlinkSync(inputFile); } catch (e) { /* ignore */ }
     try { fs.unlinkSync(outputFile); } catch (e) { /* ignore */ }
   }
@@ -620,20 +615,20 @@ class WhatsAppService {
 
         this.addLog(`Recebido de: ${originalFrom}`);
 
-        // Verificar se é mensagem de áudio
+       
         if (msg.hasMedia) {
           try {
             const media = await msg.downloadMedia();
             if (media && (media.mimetype.startsWith('audio/') || media.mimetype === 'audio/ogg; codecs=opus')) {
               this.addLog(`Áudio recebido: ${media.mimetype}`);
 
-              // Upload para Supabase Storage
+           
               const uploadResult = await uploadAudio(media.data, media.mimetype, 'replies');
               if (uploadResult.success) {
                 audioUrl = uploadResult.url;
                 this.addLog(`Áudio salvo: ${audioUrl}`);
 
-                // Se não tem texto, usar placeholder
+               
                 if (!messageText) {
                   messageText = '[Mensagem de áudio]';
                 }
@@ -913,7 +908,7 @@ class WhatsAppService {
       throw new Error('WhatsApp desconectado. Aguarde a reconexão automática ou entre em contato com o suporte.');
     }
 
-    // Limpar número de telefone
+   
     let cleanPhone = phone.replace(/\D/g, '');
 
     if (cleanPhone.length === 11 || cleanPhone.length === 10) {
@@ -946,11 +941,11 @@ class WhatsAppService {
 
         this.addLog(`Enviando mídia: mimetype=${mimetype}, tamanho=${audioBase64.length} chars`);
 
-        // Converter áudio para OGG Opus (formato nativo do WhatsApp para PTT)
+       
         let finalBase64 = audioBase64;
         let finalMimetype = mimetype;
 
-        // Se não for OGG, converter usando FFmpeg
+      
         if (!mimetype || !mimetype.includes('audio/ogg')) {
           this.addLog(`Convertendo áudio de ${mimetype} para OGG Opus...`);
           try {
@@ -960,18 +955,18 @@ class WhatsAppService {
             this.addLog(`Áudio convertido com sucesso! Novo tamanho: ${finalBase64.length} chars`);
           } catch (convError) {
             this.addLog(`Erro na conversão: ${convError.message}. Tentando enviar no formato original...`);
-            // Se a conversão falhar, tenta enviar no formato original
+           
           }
         }
 
         const media = new MessageMedia(finalMimetype, finalBase64, 'ptt.ogg');
 
-        // Enviar como mensagem de voz (PTT)
+       
         const result = await this.client.sendMessage(chatId, media, {
           sendAudioAsVoice: true
         });
 
-        // Se tem caption/código de rastreamento, envia como mensagem separada
+       
         if (caption) {
           await this.client.sendMessage(chatId, caption);
         }
@@ -993,7 +988,7 @@ class WhatsAppService {
       } catch (error) {
         lastError = error;
 
-        // Log detalhado do erro para debug
+       
         this.addLog(`[ERRO ÁUDIO] Tentativa ${attempt}: ${error.message}`);
         this.addLog(`[ERRO ÁUDIO] Stack: ${error.stack ? error.stack.substring(0, 500) : 'N/A'}`);
         console.error('[AUDIO ERROR]', {

@@ -357,6 +357,12 @@
     </div>
 
     <script>
+     
+        function formatTimeBR(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        }
+
         const API_URL = window.API_CONFIG.baseURL;
         let socket = null;
         let adminToken = localStorage.getItem('adminToken');
@@ -418,7 +424,7 @@
                 successCountEl.textContent = stats.successCount || 0;
                 failureCountEl.textContent = stats.failureCount || 0;
                 lastUsedEl.textContent = stats.lastUsed
-                    ? new Date(stats.lastUsed).toLocaleTimeString('pt-BR')
+                    ? formatTimeBR(stats.lastUsed)
                     : '-';
             }
 
@@ -497,7 +503,7 @@
                     successCountEl.textContent = stats.successCount || 0;
                     failureCountEl.textContent = stats.failureCount || 0;
                     lastUsedEl.textContent = stats.lastUsed
-                        ? new Date(stats.lastUsed).toLocaleTimeString('pt-BR')
+                        ? formatTimeBR(stats.lastUsed)
                         : '-';
                 }
             });
@@ -520,7 +526,7 @@
         function addLog(log) {
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-            const time = new Date(log.timestamp).toLocaleTimeString('pt-BR');
+            const time = formatTimeBR(log.timestamp);
             entry.innerHTML = `<span class="timestamp">${time}</span><span class="message">${log.message}</span>`;
             logsArea.insertBefore(entry, logsArea.firstChild);
 

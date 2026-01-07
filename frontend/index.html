@@ -1111,6 +1111,12 @@
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 
     <script>
+    
+        function formatDateBR(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        }
+
         let token = localStorage.getItem('token');
         let user = JSON.parse(localStorage.getItem('user') || 'null');
         let selectedQuantity = 0;
@@ -1119,7 +1125,7 @@
         let repliesPollingInterval = null;
         let socket = null;
 
-        // Variáveis para gravação de áudio
+      
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
@@ -1129,7 +1135,7 @@
         let currentAudioBase64 = null;
         let currentAudioMimetype = null;
 
-        // Funções de áudio
+    
         async function toggleRecording() {
             if (isRecording) {
                 stopRecording();
@@ -1142,7 +1148,7 @@
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-                // Preferir formato OGG para melhor compatibilidade com WhatsApp
+              
                 const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
                     ? 'audio/webm;codecs=opus'
                     : 'audio/webm';
@@ -1160,7 +1166,7 @@
                     const audioBlob = new Blob(audioChunks, { type: mimeType });
                     processAudioBlob(audioBlob, mimeType);
 
-                    // Parar todas as tracks do stream
+                   
                     stream.getTracks().forEach(track => track.stop());
                 };
 
@@ -1168,7 +1174,7 @@
                 isRecording = true;
                 recordingStartTime = Date.now();
 
-                // Atualizar UI
+                
                 const recordBtn = document.getElementById('record-btn');
                 const recordBtnText = document.getElementById('record-btn-text');
                 const recordingIndicator = document.getElementById('recording-indicator');
@@ -1177,7 +1183,7 @@
                 recordBtnText.textContent = 'Parar';
                 recordingIndicator.style.display = 'flex';
 
-                // Iniciar timer
+             
                 updateRecordingTime();
                 recordingTimer = setInterval(updateRecordingTime, 1000);
 
@@ -1192,13 +1198,13 @@
                 mediaRecorder.stop();
                 isRecording = false;
 
-                // Limpar timer
+               
                 if (recordingTimer) {
                     clearInterval(recordingTimer);
                     recordingTimer = null;
                 }
 
-                // Atualizar UI
+               
                 const recordBtn = document.getElementById('record-btn');
                 const recordBtnText = document.getElementById('record-btn-text');
                 const recordingIndicator = document.getElementById('recording-indicator');
@@ -1220,14 +1226,14 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            // Validar tamanho (16MB)
+            
             if (file.size > 16 * 1024 * 1024) {
                 showMessage('send-message', 'Arquivo muito grande. Máximo: 16MB', 'error');
                 event.target.value = '';
                 return;
             }
 
-            // Validar tipo
+           
             if (!file.type.startsWith('audio/')) {
                 showMessage('send-message', 'Por favor, selecione um arquivo de áudio válido.', 'error');
                 event.target.value = '';
@@ -1241,13 +1247,13 @@
             currentAudioBlob = blob;
             currentAudioMimetype = mimetype;
 
-            // Converter para base64
+          
             const reader = new FileReader();
             reader.onloadend = () => {
-                // Remover o prefixo data:audio/...;base64,
+               
                 currentAudioBase64 = reader.result.split(',')[1];
 
-                // Mostrar preview
+              
                 const previewContainer = document.getElementById('audio-preview-container');
                 const audioPreview = document.getElementById('audio-preview');
 
@@ -1269,7 +1275,7 @@
             audioPreview.src = '';
         }
 
-        // Funções do emoji picker
+       
         function toggleEmojiPicker() {
             const picker = document.getElementById('emoji-picker');
             picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
@@ -1391,7 +1397,7 @@
                         const hasReply = msg.has_reply ? '<span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px;">Respondida</span>' : '';
                         return `
                             <div class="history-item">
-                                <div class="date">${new Date(msg.created_at).toLocaleString('pt-BR')}${hasReply}</div>
+                                <div class="date">${formatDateBR(msg.created_at)}${hasReply}</div>
                                 <div class="details">
                                     <strong>Para:</strong> ${msg.phone}<br>
                                     <strong>Mensagem:</strong> ${msg.message}
@@ -1419,7 +1425,7 @@
 
                 if (data.success && data.replies && data.replies.length > 0) {
                     repliesList.innerHTML = data.replies.map(reply => {
-                        // Verificar se tem áudio
+                      
                         const hasAudio = reply.audio_url && reply.audio_url.length > 0;
                         const audioPlayer = hasAudio ? `
                             <div class="reply-audio-player">
@@ -1433,7 +1439,7 @@
                                 <div class="date">
                                     <span style="background: #4f46e5; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-right: 8px;">Nova</span>
                                     ${hasAudio ? '<span class="audio-badge" style="margin-right: 8px;">🎤 Áudio</span>' : ''}
-                                    ${new Date(reply.created_at).toLocaleString('pt-BR')}
+                                    ${formatDateBR(reply.created_at)}
                                 </div>
                                 <div class="details">
                                     <strong>De:</strong> ${reply.from_phone}<br>
@@ -1636,7 +1642,7 @@
             const message = document.getElementById('message').value;
             const btn = document.getElementById('send-btn');
 
-            // Verificar se tem áudio ou mensagem
+           
             const hasAudio = currentAudioBase64 !== null;
             const hasMessage = message && message.trim().length > 0;
 
@@ -1653,22 +1659,15 @@
                 let data;
 
                 if (hasAudio) {
-                    // Enviar áudio
-                    console.log('[DEBUG] Enviando áudio...');
-                    console.log('[DEBUG] Mimetype:', currentAudioMimetype);
-                    console.log('[DEBUG] Base64 length:', currentAudioBase64 ? currentAudioBase64.length : 0);
-                    console.log('[DEBUG] Phone:', fullPhone);
-
+                   
                     response = await API.post('/api/send-whatsapp-audio', {
                         phone: fullPhone,
                         audioBase64: currentAudioBase64,
                         mimetype: currentAudioMimetype,
                         caption: message || ''
                     }, token);
-
-                    console.log('[DEBUG] Response status:', response.status);
                 } else {
-                    // Enviar texto
+                  
                     response = await API.post('/api/send-whatsapp', {
                         phone: fullPhone,
                         message: message
@@ -1676,7 +1675,6 @@
                 }
 
                 data = await response.json();
-                console.log('[DEBUG] Response data:', data);
 
                 if (data.success) {
                     const successMsg = hasAudio ? 'Áudio enviado com sucesso! ✓' : 'Mensagem enviada com sucesso! ✓';

@@ -308,7 +308,7 @@ async function saveReply(userId, messageId, fromPhone, replyMessage, channel, au
     channel: channel
   };
 
-  // Adicionar audio_url se fornecido
+
   if (audioUrl) {
     insertData.audio_url = audioUrl;
   }
@@ -434,7 +434,7 @@ async function saveReplyFromWebhook(fromPhone, replyMessage, channel, isLid = fa
     channel: channel
   };
 
-  // Adicionar audio_url se fornecido
+  
   if (audioUrl) {
     insertData.audio_url = audioUrl;
   }
