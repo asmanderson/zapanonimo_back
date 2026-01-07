@@ -878,12 +878,39 @@ class WhatsAppService {
 
         this.addLog(`Enviando mídia: mimetype=${mimetype}, tamanho=${audioBase64.length} chars`);
 
-        // Formato nativo do WhatsApp para mensagens de voz
-        const media = new MessageMedia('audio/ogg; codecs=opus', audioBase64, 'ptt.ogg');
+        // Determinar o mimetype e extensão corretos
+        // Para PTT (mensagem de voz) funcionar, precisa ser OGG Opus
+        // WebM Opus funciona como áudio normal, não como PTT
+        const isOggOpus = mimetype && (mimetype.includes('audio/ogg') || mimetype === 'audio/ogg; codecs=opus');
 
-        // Enviar como mensagem de voz (PTT)
+        let actualMimetype;
+        let filename;
+        let sendAsVoice;
+
+        if (isOggOpus) {
+          // OGG Opus - pode ser enviado como PTT
+          actualMimetype = 'audio/ogg; codecs=opus';
+          filename = 'ptt.ogg';
+          sendAsVoice = true;
+        } else if (mimetype && mimetype.includes('audio/webm')) {
+          // WebM - enviar como áudio (não PTT, pois WhatsApp não suporta WebM como PTT)
+          actualMimetype = mimetype;
+          filename = 'audio.webm';
+          sendAsVoice = false;
+        } else {
+          // Outros formatos - usar como está
+          actualMimetype = mimetype || 'audio/mpeg';
+          filename = 'audio.mp3';
+          sendAsVoice = false;
+        }
+
+        this.addLog(`Formato detectado: ${actualMimetype}, PTT: ${sendAsVoice}`);
+
+        const media = new MessageMedia(actualMimetype, audioBase64, filename);
+
+        // Enviar áudio (como PTT apenas se for OGG Opus)
         const result = await this.client.sendMessage(chatId, media, {
-          sendAudioAsVoice: true
+          sendAudioAsVoice: sendAsVoice
         });
 
         // Se tem caption/código de rastreamento, envia como mensagem separada
