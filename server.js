@@ -133,16 +133,16 @@ const {
   sendPasswordResetEmail
 } = require('./email-service');
 const {
-  createPixPayment,
-  createCardPreference,
-  getPaymentStatus,
-  parseWebhookData,
+  createCheckoutSession,
+  verifySession,
   isPaymentApproved,
-  isPaymentPending
-} = require('./mercadopago-payment');
+  constructWebhookEvent
+} = require('./stripe-payment');
 const { getWhatsAppService } = require('./whatsapp-service');
 const smsService = require('./sms-service');
 const { getModerationService } = require('./moderation-service');
+
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
 
 app.use(express.json({ limit: '20mb' }));
@@ -638,62 +638,30 @@ app.get('/api/favorites/check/:phone', authMiddleware, async (req, res) => {
   }
 });
 
-// ========== MERCADO PAGO - PAGAMENTOS ==========
-
-// Criar pagamento PIX
-app.post('/api/create-pix', authMiddleware, async (req, res) => {
+app.post('/api/create-payment', authMiddleware, async (req, res) => {
   try {
-    const { quantity } = req.body;
+    const { quantity, creditType } = req.body;
 
     if (!quantity || quantity < 1) {
       return res.status(400).json({ success: false, error: 'Quantidade inválida' });
     }
 
+    if (!creditType || (creditType !== 'whatsapp' && creditType !== 'sms')) {
+      return res.status(400).json({ success: false, error: 'Tipo de crédito inválido' });
+    }
+
     const user = await getUserById(req.userId);
+
     if (!user) {
       return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
     }
 
-    const userEmail = user.email || `user${user.id}@zapanonimo.com`;
-    const result = await createPixPayment(req.userId, quantity, userEmail);
+    const session = await createCheckoutSession(req.userId, quantity, user.email, creditType);
 
     res.json({
       success: true,
-      paymentId: result.paymentId,
-      qrCode: result.qrCode,
-      qrCodeBase64: result.qrCodeBase64,
-      ticketUrl: result.ticketUrl,
-      expirationDate: result.expirationDate
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao gerar PIX: ' + error.message
-    });
-  }
-});
-
-// Criar pagamento com cartao (redireciona para Mercado Pago)
-app.post('/api/create-card-payment', authMiddleware, async (req, res) => {
-  try {
-    const { quantity } = req.body;
-
-    if (!quantity || quantity < 1) {
-      return res.status(400).json({ success: false, error: 'Quantidade inválida' });
-    }
-
-    const user = await getUserById(req.userId);
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
-    }
-
-    const userEmail = user.email || null;
-    const result = await createCardPreference(req.userId, quantity, userEmail);
-
-    res.json({
-      success: true,
-      preferenceId: result.preferenceId,
-      checkoutUrl: result.initPoint
+      sessionId: session.id,
+      checkoutUrl: session.url
     });
   } catch (error) {
     res.status(500).json({
@@ -703,104 +671,68 @@ app.post('/api/create-card-payment', authMiddleware, async (req, res) => {
   }
 });
 
-// Webhook do Mercado Pago
-const processedPayments = new Set();
+app.post('/api/stripe/webhook', async (req, res) => {
+  const signature = req.headers['stripe-signature'];
 
-app.post('/api/mercadopago/webhook', async (req, res) => {
   try {
-    console.log('[MercadoPago Webhook] Recebido:', JSON.stringify(req.body));
+    const event = constructWebhookEvent(req.body, signature);
 
-    const webhookData = parseWebhookData(req.body);
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
 
-    if (webhookData && webhookData.type === 'payment') {
-      const paymentId = webhookData.paymentId;
+      if (isPaymentApproved(session)) {
+        const userId = parseInt(session.metadata.userId);
+        const quantity = parseInt(session.metadata.quantity);
+        const price = session.amount_total / 100;
+        const creditType = session.metadata.creditType || 'whatsapp';
 
-      if (processedPayments.has(paymentId)) {
-        console.log('[MercadoPago Webhook] Pagamento ja processado:', paymentId);
-        return res.json({ received: true });
-      }
-
-      const paymentInfo = await getPaymentStatus(paymentId);
-
-      if (isPaymentApproved(paymentInfo.status)) {
-        const metadata = paymentInfo.metadata || {};
-        let userId, quantity, creditType;
-
-        // Tentar pegar do metadata (PIX)
-        if (metadata.user_id) {
-          userId = parseInt(metadata.user_id);
-          quantity = parseInt(metadata.quantity);
-          creditType = metadata.credit_type || 'whatsapp';
-        }
-        // Tentar pegar do external_reference (Cartao)
-        else if (paymentInfo.externalReference) {
-          try {
-            const extRef = JSON.parse(paymentInfo.externalReference);
-            userId = parseInt(extRef.userId);
-            quantity = parseInt(extRef.quantity);
-            creditType = extRef.creditType || 'whatsapp';
-          } catch (e) {
-            console.error('[MercadoPago Webhook] Erro ao parsear external_reference:', e);
-          }
-        }
-
-        if (userId && quantity) {
-          // Promocao: ganhe em dobro!
-          const bonusQuantity = quantity * 2;
-          const price = quantity; // R$ 1,00 por unidade
-          await addCredits(userId, bonusQuantity, price, creditType);
-
-          processedPayments.add(paymentId);
-          setTimeout(() => processedPayments.delete(paymentId), 60 * 60 * 1000);
-
-          console.log(`[MercadoPago Webhook] Creditos adicionados: ${bonusQuantity} para usuario ${userId}`);
-        }
+   
+        const bonusQuantity = quantity * 2;
+        await addCredits(userId, bonusQuantity, price, creditType);
       }
     }
 
     res.json({ received: true });
   } catch (error) {
-    console.error('[MercadoPago Webhook] Erro:', error);
-    res.status(200).json({ received: true, error: error.message });
+    res.status(400).send(`Webhook Error: ${error.message}`);
   }
 });
 
-// Verificar status do pagamento PIX
-app.get('/api/verify-payment/:paymentId', authMiddleware, async (req, res) => {
+
+const processedPayments = new Set();
+
+app.get('/api/verify-payment/:sessionId', authMiddleware, async (req, res) => {
   try {
-    const paymentId = req.params.paymentId;
-    const paymentInfo = await getPaymentStatus(paymentId);
+    const sessionId = req.params.sessionId;
+    const session = await verifySession(sessionId);
 
-    // Se pagamento aprovado e ainda nao processado, adicionar creditos
-    if (isPaymentApproved(paymentInfo.status) && !processedPayments.has(paymentId)) {
-      const metadata = paymentInfo.metadata || {};
 
-      if (metadata.user_id && parseInt(metadata.user_id) === req.userId) {
-        const quantity = parseInt(metadata.quantity);
-        const creditType = metadata.credit_type || 'whatsapp';
+    if (session.payment_status === 'paid' && session.metadata.userId) {
+      if (!processedPayments.has(sessionId)) {
+        const userId = parseInt(session.metadata.userId);
+        const quantity = parseInt(session.metadata.quantity);
+        const price = session.amount_total / 100;
+        const creditType = session.metadata.creditType || 'whatsapp';
 
-        // Promocao: ganhe em dobro!
+      
         const bonusQuantity = quantity * 2;
-        const price = quantity;
-        await addCredits(req.userId, bonusQuantity, price, creditType);
+        await addCredits(userId, bonusQuantity, price, creditType);
+        processedPayments.add(sessionId);
 
-        processedPayments.add(paymentId);
-        setTimeout(() => processedPayments.delete(paymentId), 60 * 60 * 1000);
+ 
+        setTimeout(() => processedPayments.delete(sessionId), 60 * 60 * 1000);
       }
     }
 
     res.json({
       success: true,
-      status: paymentInfo.status,
-      paid: isPaymentApproved(paymentInfo.status),
-      pending: isPaymentPending(paymentInfo.status)
+      paid: session.payment_status === 'paid',
+      status: session.payment_status
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
-// ========== FIM MERCADO PAGO ==========
 
 app.get('/api/transactions', authMiddleware, async (req, res) => {
   try {
