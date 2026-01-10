@@ -74,9 +74,6 @@ async function createCardPreference(userId, quantity, userEmail) {
         unit_price: price
       }
     ],
-    payer: {
-      email: userEmail || undefined
-    },
     back_urls: {
       success: `${baseUrl}/payment-success.html`,
       failure: `${baseUrl}/`,
