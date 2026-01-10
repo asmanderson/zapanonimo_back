@@ -9,20 +9,9 @@ if (!stripeKey) {
 const stripe = require('stripe')(stripeKey);
 
 function calculatePrice(quantity, creditType = 'whatsapp') {
+  
   const pricePerCredit = 1.00;
-  const basePrice = quantity * pricePerCredit;
-
-  if (quantity >= 100) {
-    return basePrice * 0.70;
-  } else if (quantity >= 50) {
-    return basePrice * 0.80;
-  } else if (quantity >= 25) {
-    return basePrice * 0.90;
-  } else if (quantity >= 5) {
-    return basePrice * 0.95;
-  }
-
-  return basePrice;
+  return quantity * pricePerCredit;
 }
 
 async function createCheckoutSession(userId, quantity, userEmail, creditType = 'whatsapp') {
@@ -55,13 +44,17 @@ async function createCheckoutSession(userId, quantity, userEmail, creditType = '
     mode: 'payment',
     success_url: `${baseUrl}/payment-success.html?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/`,
-    customer_email: userEmail,
     metadata: {
       userId: userId.toString(),
       quantity: quantity.toString(),
       creditType: creditType,
     },
   };
+
+  
+  if (userEmail) {
+    sessionData.customer_email = userEmail;
+  }
 
   const session = await stripe.checkout.sessions.create(sessionData);
   return session;

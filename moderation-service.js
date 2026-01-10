@@ -15,8 +15,11 @@ const AI_CONFIG = {
 
 class ModerationService {
   constructor() {
-    this.cache = new Map(); 
-    this.cacheTimeout = 5 * 60 * 1000; 
+    this.cache = new Map();
+    this.cacheTimeout = 5 * 60 * 1000;
+    this.userMessageCount = new Map(); 
+    this.rateLimitWindow = 60 * 60 * 1000; 
+    this.maxMessagesPerHour = 20; 
   }
 
 
@@ -90,11 +93,180 @@ class ModerationService {
       timestamp: Date.now()
     });
 
-  
+
     if (this.cache.size > 1000) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
     }
+  }
+
+
+  checkRateLimit(userId, targetPhone) {
+    const key = `${userId}:${targetPhone}`;
+    const now = Date.now();
+
+    if (!this.userMessageCount.has(key)) {
+      this.userMessageCount.set(key, []);
+    }
+
+    const timestamps = this.userMessageCount.get(key);
+  
+    const validTimestamps = timestamps.filter(t => now - t < this.rateLimitWindow);
+    this.userMessageCount.set(key, validTimestamps);
+
+    if (validTimestamps.length >= this.maxMessagesPerHour) {
+      return {
+        allowed: false,
+        reason: 'Limite de mensagens para este número atingido. Aguarde antes de enviar novamente.',
+        category: 'rate_limit_exceeded',
+        riskScore: 70
+      };
+    }
+
+    return { allowed: true };
+  }
+
+  recordMessage(userId, targetPhone) {
+    const key = `${userId}:${targetPhone}`;
+    if (!this.userMessageCount.has(key)) {
+      this.userMessageCount.set(key, []);
+    }
+    this.userMessageCount.get(key).push(Date.now());
+  }
+
+
+  detectSensitiveData(message) {
+    const detections = [];
+
+    const cpfRegex = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g;
+    if (cpfRegex.test(message)) {
+      detections.push({ type: 'CPF', category: 'sensitive_data_cpf' });
+    }
+
+   
+    const rgRegex = /\b\d{1,2}\.?\d{3}\.?\d{3}-?[0-9xX]\b/g;
+    if (rgRegex.test(message)) {
+      detections.push({ type: 'RG', category: 'sensitive_data_rg' });
+    }
+
+   
+    const phoneRegex = /\(?\d{2}\)?[\s.-]?\d{4,5}[\s.-]?\d{4}\b/g;
+    if (phoneRegex.test(message)) {
+      detections.push({ type: 'Telefone', category: 'sensitive_data_phone' });
+    }
+
+   
+    const plateRegex = /\b[A-Z]{3}[\s-]?\d[A-Z0-9]\d{2}\b/gi;
+    if (plateRegex.test(message)) {
+      detections.push({ type: 'Placa', category: 'sensitive_data_plate' });
+    }
+
+   
+    const cardRegex = /\b\d{4}[\s.-]?\d{4}[\s.-]?\d{4}[\s.-]?\d{4}\b/g;
+    if (cardRegex.test(message)) {
+      detections.push({ type: 'Cartão', category: 'sensitive_data_card' });
+    }
+
+   
+    const addressPatterns = [
+      /\brua\s+[\w\s]+,?\s*n?\.?\s*\d+/gi,
+      /\bav\.?\s*(enida)?\s+[\w\s]+,?\s*n?\.?\s*\d+/gi,
+      /\bcep[\s:]*\d{5}-?\d{3}\b/gi,
+      /\b\d{5}-?\d{3}\b/g 
+    ];
+    for (const regex of addressPatterns) {
+      if (regex.test(message)) {
+        detections.push({ type: 'Endereço/CEP', category: 'sensitive_data_address' });
+        break;
+      }
+    }
+
+
+    const medicalTerms = [
+      'hiv', 'aids', 'câncer', 'cancer', 'diabetes', 'depressão', 'depressao',
+      'esquizofrenia', 'bipolar', 'ansiedade', 'psiquiátrico', 'psiquiatrico',
+      'diagnóstico', 'diagnostico', 'exame de sangue', 'resultado do exame',
+      'receita médica', 'receita medica', 'medicamento controlado'
+    ];
+    const lowerMessage = message.toLowerCase();
+    for (const term of medicalTerms) {
+      if (lowerMessage.includes(term)) {
+        detections.push({ type: 'Dado Médico', category: 'sensitive_data_medical' });
+        break;
+      }
+    }
+
+    if (detections.length > 0) {
+      return {
+        allowed: false,
+        reason: `Mensagem contém dados sensíveis (${detections.map(d => d.type).join(', ')}). Por segurança e conformidade com a LGPD, não é permitido enviar esses dados.`,
+        category: detections[0].category,
+        riskScore: 80,
+        detectedTypes: detections.map(d => d.type)
+      };
+    }
+
+    return { allowed: true };
+  }
+
+
+  detectBlackmail(message) {
+    const lowerMessage = message.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+
+    const blackmailPatterns = [
+     
+      /se\s+(voce|vc|tu)\s+nao\s+.{1,50}(vou|irei|farei)\s+(divulgar|contar|mostrar|postar|publicar|mandar|enviar|espalhar)/gi,
+    
+      /pag(ue|a)\s+(ou|senao|se\s*nao)/gi,
+    
+      /tenho\s+(fotos?|videos?|prints?|provas?)\s+(seus?|tuas?|de\s+voce)/gi,
+    
+      /vou\s+(divulgar|expor|mostrar|postar|publicar|mandar\s+para|enviar\s+para|espalhar)/gi,
+   
+      /se\s+(contar|falar|abrir\s+a\s+boca).{0,30}(vai\s+ver|vai\s+se\s+arrepender|voce\s+vai)/gi,
+    
+      /(conto|falo|mostro)\s+(pra|para)\s+(todo\s+mundo|todos|sua\s+(familia|mae|pai|namorad|marid|espos))/gi,
+     
+      /(nudes?|intim[oa]s?|pelad[oa]s?).{0,30}(divulgar|postar|mostrar|mandar)/gi,
+     
+      /(quer|quer\s+que\s+eu\s+nao|pra\s+eu\s+nao).{0,30}(dinheiro|pix|transf|pag)/gi,
+    
+      /sei\s+(onde|aonde)\s+(voce|vc|tu)\s+(mora|trabalha|estuda|fica)/gi
+    ];
+
+    for (const pattern of blackmailPatterns) {
+      if (pattern.test(lowerMessage)) {
+        return {
+          allowed: false,
+          reason: 'Mensagem identificada como possível chantagem ou extorsão. Este tipo de conteúdo é crime.',
+          category: 'blackmail_extortion',
+          riskScore: 100
+        };
+      }
+    }
+
+    
+    const threatPatterns = [
+      /voce\s+vai\s+(pagar|se\s+arrepender|ver\s+so)/gi,
+      /vai\s+acontecer\s+(algo|alguma\s+coisa)\s+(ruim|com\s+voce)/gi,
+      /eu\s+sei\s+(quem|onde|o\s+que)\s+voce/gi,
+      /sua\s+(familia|mae|pai|filh[oa]).{0,20}(vai\s+sofrer|vai\s+pagar|vai\s+ver)/gi
+    ];
+
+    for (const pattern of threatPatterns) {
+      if (pattern.test(lowerMessage)) {
+        return {
+          allowed: false,
+          reason: 'Mensagem contém ameaça. Este tipo de conteúdo é crime.',
+          category: 'threat',
+          riskScore: 95
+        };
+      }
+    }
+
+    return { allowed: true };
   }
 
 
@@ -238,76 +410,175 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
   }
 
 
-  async validateMessage(message) {
+  async validateMessage(message, options = {}) {
+    const { userId = null, targetPhone = null } = options;
+
+    
+    const defaultResult = { allowed: true, reason: null, riskScore: 0, category: null };
 
     if (!this.isEnabled) {
-      return { allowed: true, reason: null };
+      return defaultResult;
     }
 
-  
+    
+    const blackmailCheck = this.detectBlackmail(message);
+    if (!blackmailCheck.allowed) {
+      return blackmailCheck;
+    }
+
+    
     const basicCheck = this.basicValidation(message);
     if (!basicCheck.allowed) {
       return basicCheck;
     }
 
+    
+    if (userId && targetPhone) {
+      const rateLimitCheck = this.checkRateLimit(userId, targetPhone);
+      if (!rateLimitCheck.allowed) {
+        return rateLimitCheck;
+      }
+    }
 
-    return await this.analyzeMessage(message);
+ 
+    const sensitiveDataCheck = this.detectSensitiveData(message);
+    if (!sensitiveDataCheck.allowed) {
+      return sensitiveDataCheck;
+    }
+
+   
+    const aiResult = await this.analyzeMessage(message);
+
+    
+    if (!aiResult.riskScore) {
+      aiResult.riskScore = aiResult.allowed ? 0 : 60;
+    }
+
+    return aiResult;
+  }
+
+  
+  async validateAndRecord(message, userId, targetPhone) {
+    const result = await this.validateMessage(message, { userId, targetPhone });
+
+   
+    if (result.allowed && userId && targetPhone) {
+      this.recordMessage(userId, targetPhone);
+    }
+
+    return result;
   }
 
 
   basicValidation(message) {
     const lowerMessage = message.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); 
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-
-    const badWords = [
   
-      'porra', 'caralho', 'cacete', 'merda', 'bosta', 'coco',
-      'puta', 'putaria', 'putinha', 'vagabunda', 'vadia', 'piranha',
-      'fdp', 'filho da puta', 'filha da puta', 'fudido', 'foder', 'foda-se', 'fodase',
-      'cu', 'cuzao', 'cuzinho', 'arrombado', 'arrombada',
-      'viado', 'viadinho', 'viadao', 'veado', 'veadinho', 'bicha', 'bichinha', 'bichona', 'sapatao', 'sapatona', 'traveco',
-      'baitola', 'baitolao', 'baitolinha', 'boiola', 'boiolao', 'boiolinha',
-      'buceta', 'xoxota', 'xereca', 'ppk', 'rola', 'pica', 'pau', 'piroca',
-      'punheta', 'punheteiro', 'broxa', 'corno', 'cornudo', 'chifrudo',
-      'otario', 'otaria', 'idiota', 'imbecil', 'retardado', 'retardada',
-      'babaca', 'besta', 'burro', 'burra', 'animal', 'jumento',
-      'desgraca', 'desgraçado', 'desgraçada', 'maldito', 'maldita',
-      'nojento', 'nojenta', 'lixo', 'escoria', 'verme',
-      'vagabundo', 'vagal', 'safado', 'safada', 'canalha',
-      'puto', 'puta que pariu', 'vsf', 'vai se fuder', 'tnc', 'tomar no cu',
-      'vtnc', 'vai tomar no cu', 'pqp',
-
-      'vaca', 'vaca velha', 'vacona', 'galinha', 'cachorra', 'cadela',
-      'egua', 'jumenta', 'bezerra', 'piranhuda',
-  
-      'velha', 'velho', 'coroa', 'acabada', 'acabado', 'feia', 'feio',
-      'gorda', 'gordo', 'baleia', 'elefante', 'baranga', 'mocreia',
- 
-      'matar', 'assassinar', 'estuprar', 'sequestrar', 'bater',
-      'socar', 'espancar', 'surrar', 'arrebentar', 'acabar com voce',
-      'bomba', 'terrorismo', 'pedofilia', 'pedofilo',
-      'vou te pegar', 'vai morrer', 'te mato', 'vou matar',
+    const categories = {
      
-      'macaco', 'crioulo', 'negao', 'preto fedido', 'branquelo',
-      'nazista', 'hitler',
+      criminal: {
+        words: [
+          'matar', 'assassinar', 'estuprar', 'sequestrar',
+          'bomba', 'terrorismo', 'pedofilia', 'pedofilo',
+          'vou te pegar', 'vai morrer', 'te mato', 'vou matar',
+          'trafico', 'cocaina', 'crack', 'heroina'
+        ],
+        category: 'criminal_threat',
+        riskScore: 100,
+        reason: 'Mensagem contém conteúdo criminoso ou ameaça grave'
+      },
+     
+      violence: {
+        words: [
+          'bater', 'socar', 'espancar', 'surrar', 'arrebentar',
+          'acabar com voce', 'quebrar a cara', 'dar um tiro'
+        ],
+        category: 'violence',
+        riskScore: 85,
+        reason: 'Mensagem contém incitação à violência'
+      },
+   
+      hate_speech: {
+        words: [
+          'macaco', 'crioulo', 'negao', 'preto fedido', 'branquelo',
+          'nazista', 'hitler', 'judeu imundo', 'volta pra senzala'
+        ],
+        category: 'hate_speech',
+        riskScore: 80,
+        reason: 'Mensagem contém discurso de ódio ou racismo'
+      },
+   
+      homophobia: {
+        words: [
+          'viado', 'viadinho', 'viadao', 'veado', 'veadinho',
+          'bicha', 'bichinha', 'bichona', 'sapatao', 'sapatona', 'traveco',
+          'baitola', 'baitolao', 'baitolinha', 'boiola', 'boiolao', 'boiolinha'
+        ],
+        category: 'homophobia',
+        riskScore: 75,
+        reason: 'Mensagem contém conteúdo homofóbico'
+      },
+     
+      severe_insult: {
+        words: [
+          'porra', 'caralho', 'cacete', 'merda', 'bosta',
+          'puta', 'putaria', 'putinha', 'vagabunda', 'vadia', 'piranha',
+          'fdp', 'filho da puta', 'filha da puta', 'fudido', 'foder', 'foda-se', 'fodase',
+          'cu', 'cuzao', 'cuzinho', 'arrombado', 'arrombada',
+          'buceta', 'xoxota', 'xereca', 'ppk', 'rola', 'pica', 'piroca',
+          'punheta', 'punheteiro', 'puto', 'puta que pariu',
+          'vsf', 'vai se fuder', 'tnc', 'tomar no cu', 'vtnc', 'vai tomar no cu', 'pqp'
+        ],
+        category: 'severe_insult',
+        riskScore: 65,
+        reason: 'Mensagem contém linguagem extremamente ofensiva'
+      },
     
-      'pix agora', 'me passa', 'senha do banco', 'cartao de credito'
-    ];
+      personal_insult: {
+        words: [
+          'otario', 'otaria', 'idiota', 'imbecil', 'retardado', 'retardada',
+          'babaca', 'besta', 'burro', 'burra', 'animal', 'jumento',
+          'desgraca', 'desgraçado', 'desgraçada', 'maldito', 'maldita',
+          'nojento', 'nojenta', 'lixo', 'escoria', 'verme',
+          'vagabundo', 'safado', 'safada', 'canalha',
+          'vaca', 'vaca velha', 'vacona', 'galinha', 'cachorra', 'cadela',
+          'egua', 'jumenta', 'piranhuda', 'broxa', 'corno', 'cornudo', 'chifrudo',
+          'baranga', 'mocreia', 'baleia'
+        ],
+        category: 'personal_insult',
+        riskScore: 50,
+        reason: 'Mensagem contém ofensa pessoal'
+      },
+    
+      fraud: {
+        words: [
+          'pix agora', 'me passa', 'senha do banco', 'cartao de credito',
+          'dados bancarios', 'numero do cartao', 'codigo de seguranca',
+          'deposita', 'transfere urgente'
+        ],
+        category: 'fraud_attempt',
+        riskScore: 70,
+        reason: 'Mensagem contém possível tentativa de golpe ou fraude'
+      }
+    };
 
-    for (const word of badWords) {
-    
-      const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
-      if (regex.test(lowerMessage) || lowerMessage.includes(word)) {
-        return {
-          allowed: false,
-          reason: 'Mensagem contém conteúdo inadequado ou ofensivo',
-          category: 'inappropriate_content'
-        };
+    for (const [catName, catData] of Object.entries(categories)) {
+      for (const word of catData.words) {
+        const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+        if (regex.test(lowerMessage) || lowerMessage.includes(word)) {
+          return {
+            allowed: false,
+            reason: catData.reason,
+            category: catData.category,
+            riskScore: catData.riskScore,
+            matchedWord: word
+          };
+        }
       }
     }
 
-    return { allowed: true, reason: null };
+    return { allowed: true, reason: null, riskScore: 0, category: null };
   }
 }
 

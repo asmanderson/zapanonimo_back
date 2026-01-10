@@ -37,6 +37,16 @@ const API = {
             options.headers = { 'Authorization': `Bearer ${token}` };
         }
         return this.fetch(endpoint, options);
+    },
+
+    async delete(endpoint, token = null) {
+        const options = {
+            method: 'DELETE'
+        };
+        if (token) {
+            options.headers = { 'Authorization': `Bearer ${token}` };
+        }
+        return this.fetch(endpoint, options);
     }
 };
 

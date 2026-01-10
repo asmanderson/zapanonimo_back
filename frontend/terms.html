@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termos de Uso - Zap Anônimo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom, #f0f4f8 0%, #ffffff 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a1a1a;
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            margin-bottom: 30px;
+        }
+
+        .navbar h1 {
+            color: #1a1a1a;
+            font-size: 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .whatsapp-icon {
+            width: 32px;
+            height: 32px;
+            background: #25D366;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .whatsapp-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .btn-nav {
+            padding: 10px 24px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-nav:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+
+        .content {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .page-title svg {
+            width: 36px;
+            height: 36px;
+            fill: #4f46e5;
+        }
+
+        .last-update {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 30px 0 15px;
+            padding-left: 15px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #334155;
+            margin: 20px 0 10px;
+        }
+
+        p {
+            color: #475569;
+            margin-bottom: 15px;
+        }
+
+        ul, ol {
+            color: #475569;
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .highlight-box {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .highlight-box.danger {
+            background: #fee2e2;
+            border-color: #fca5a5;
+        }
+
+        .highlight-box.info {
+            background: #f0f9ff;
+            border-color: #bae6fd;
+        }
+
+        .highlight-box h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .highlight-box p, .highlight-box li {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .prohibited-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .prohibited-item {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .prohibited-item::before {
+            content: "✕";
+            font-weight: bold;
+        }
+
+        .contact-box {
+            background: #4f46e5;
+            color: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .contact-box h3 {
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .contact-box p {
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 15px;
+        }
+
+        .contact-box a {
+            color: white;
+            font-weight: 600;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                margin: 0;
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px;
+                border-radius: 10px;
+            }
+
+            .navbar h1 {
+                font-size: 18px;
+            }
+
+            .content {
+                padding: 20px 15px;
+                border-radius: 10px;
+            }
+
+            .page-title {
+                font-size: 22px;
+            }
+
+            h2 {
+                font-size: 16px;
+                margin-top: 25px;
+            }
+
+            p, li {
+                font-size: 14px;
+                line-height: 1.7;
+            }
+
+            ul, ol {
+                padding-left: 20px;
+            }
+
+            .contact-box {
+                padding: 15px;
+            }
+
+            .footer {
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 8px;
+            }
+
+            .navbar {
+                padding: 12px;
+            }
+
+            .navbar h1 {
+                font-size: 16px;
+            }
+
+            .content {
+                padding: 16px 12px;
+            }
+
+            .page-title {
+                font-size: 20px;
+            }
+
+            h2 {
+                font-size: 15px;
+            }
+
+            p, li {
+                font-size: 13px;
+            }
+
+            .btn-back {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <h1>
+                <span class="whatsapp-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                </span>
+                Zap Anonimo
+            </h1>
+            <a href="/" class="btn-nav">Voltar ao Inicio</a>
+        </nav>
+
+        <main class="content">
+            <h1 class="page-title">
+                <svg viewBox="0 0 24 24">
+                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                </svg>
+                Termos de Uso
+            </h1>
+            <p class="last-update">Ultima atualizacao: Janeiro de 2026</p>
+
+            <div class="highlight-box info">
+                <h4>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#0369a1">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                    </svg>
+                    Leia com Atencao
+                </h4>
+                <p>Ao utilizar o Zap Anonimo, voce concorda com estes Termos de Uso. Se nao concordar, nao utilize nossos servicos.</p>
+            </div>
+
+            <h2>1. Aceitacao dos Termos</h2>
+            <p>Ao acessar e utilizar o Zap Anonimo ("Plataforma"), voce aceita e concorda em cumprir estes Termos de Uso e nossa Politica de Privacidade. Estes termos constituem um acordo legal entre voce e o Zap Anonimo.</p>
+
+            <h2>2. Descricao do Servico</h2>
+            <p>O Zap Anonimo e uma plataforma que permite o envio de mensagens anonimas via WhatsApp e SMS. O servico funciona da seguinte forma:</p>
+            <ul>
+                <li>O <strong>destinatario NAO ve</strong> quem enviou a mensagem</li>
+                <li>A plataforma <strong>mantém registros tecnicos</strong> para fins legais</li>
+                <li>Mensagens sao analisadas por IA antes do envio para prevenir abusos</li>
+                <li>O servico e pago, com creditos adquiridos previamente</li>
+            </ul>
+
+            <h2>3. Uso Permitido</h2>
+            <p>Voce pode usar o Zap Anonimo para:</p>
+            <ul>
+                <li>Enviar mensagens anonimas legitimas</li>
+                <li>Declaracoes de sentimentos</li>
+                <li>Feedbacks anonimos construtivos</li>
+                <li>Brincadeiras inofensivas entre amigos</li>
+                <li>Comunicacoes que requerem privacidade</li>
+            </ul>
+
+            <h2>4. Uso Proibido</h2>
+            <p>E <strong>expressamente proibido</strong> utilizar o Zap Anonimo para:</p>
+
+            <div class="prohibited-list">
+                <div class="prohibited-item">Ameacas ou intimidacoes</div>
+                <div class="prohibited-item">Chantagem ou extorsao</div>
+                <div class="prohibited-item">Assedio ou stalking</div>
+                <div class="prohibited-item">Discurso de odio</div>
+                <div class="prohibited-item">Conteudo sexual nao consensual</div>
+                <div class="prohibited-item">Golpes ou fraudes</div>
+                <div class="prohibited-item">Difamacao ou calunia</div>
+                <div class="prohibited-item">Incitacao a violencia</div>
+                <div class="prohibited-item">Divulgar dados sensiveis</div>
+                <div class="prohibited-item">Qualquer atividade ilegal</div>
+            </div>
+
+            <div class="highlight-box danger">
+                <h4>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#991b1b">
+                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                    </svg>
+                    Aviso Legal Importante
+                </h4>
+                <p><strong>O anonimato e APENAS entre usuarios.</strong> A plataforma mantém registros tecnicos (IP, data/hora, hash da mensagem) que podem ser fornecidos as autoridades mediante ordem judicial.</p>
+                <p>Crimes cometidos atraves da plataforma serao investigados e os responsaveis identificados.</p>
+            </div>
+
+            <h2>5. Sistema de Moderacao</h2>
+            <p>Todas as mensagens passam por:</p>
+            <ol>
+                <li><strong>Filtro automatico de palavras</strong> - Bloqueia termos ofensivos</li>
+                <li><strong>Analise por Inteligencia Artificial</strong> - Detecta contextos abusivos</li>
+                <li><strong>Deteccao de dados sensiveis</strong> - Protege informacoes pessoais (LGPD)</li>
+                <li><strong>Rate limiting</strong> - Previne envios em massa (anti-spam/stalking)</li>
+            </ol>
+            <p>Mensagens bloqueadas <strong>nao serao enviadas</strong> e nenhum credito sera cobrado.</p>
+
+            <h2>6. Creditos e Pagamentos</h2>
+            <h3>6.1 Aquisicao</h3>
+            <ul>
+                <li>Creditos sao adquiridos antecipadamente</li>
+                <li>O preco por mensagem e R$ 1,00</li>
+                <li>Pacotes maiores tem descontos progressivos</li>
+                <li>Pagamentos sao processados pelo Stripe de forma segura</li>
+            </ul>
+
+            <h3>6.2 Uso</h3>
+            <ul>
+                <li>1 credito = 1 mensagem enviada com sucesso</li>
+                <li>Creditos so sao debitados apos envio bem-sucedido</li>
+                <li>Mensagens bloqueadas por moderacao nao consomem creditos</li>
+            </ul>
+
+            <h3>6.3 Reembolso</h3>
+            <ul>
+                <li>Creditos nao utilizados podem ser reembolsados em ate 7 dias apos a compra</li>
+                <li>Creditos ja utilizados nao sao reembolsaveis</li>
+                <li>Bonus de boas-vindas nao sao reembolsaveis</li>
+            </ul>
+
+            <h2>7. Conta do Usuario</h2>
+            <ul>
+                <li>Voce e responsavel por manter a seguranca de sua conta</li>
+                <li>Use uma senha forte e nao a compartilhe</li>
+                <li>Notifique-nos imediatamente em caso de acesso nao autorizado</li>
+                <li>A conta e pessoal e intransferivel</li>
+            </ul>
+
+            <h2>8. Limitacao de Responsabilidade</h2>
+            <p>O Zap Anonimo:</p>
+            <ul>
+                <li><strong>Nao se responsabiliza</strong> pelo conteudo das mensagens enviadas pelos usuarios</li>
+                <li><strong>Nao garante</strong> a entrega de mensagens (depende do destinatario ter WhatsApp)</li>
+                <li><strong>Reserva-se o direito</strong> de bloquear contas que violem estes termos</li>
+                <li><strong>Pode modificar ou encerrar</strong> o servico a qualquer momento</li>
+            </ul>
+
+            <h2>9. Propriedade Intelectual</h2>
+            <p>Todo o conteudo da plataforma (design, codigo, marca) e propriedade do Zap Anonimo. E proibido copiar, modificar ou distribuir sem autorizacao.</p>
+
+            <h2>10. Cooperacao com Autoridades</h2>
+            <p>O Zap Anonimo cooperara plenamente com:</p>
+            <ul>
+                <li>Policias e delegacias mediante oficio ou ordem judicial</li>
+                <li>Ministerio Publico</li>
+                <li>Poder Judiciario</li>
+            </ul>
+            <p>Dados que podem ser fornecidos: IP de origem, data/hora, hash das mensagens, dados de cadastro.</p>
+
+            <h2>11. Alteracoes nos Termos</h2>
+            <p>Podemos modificar estes termos a qualquer momento. Alteracoes significativas serao comunicadas por email. O uso continuado apos alteracoes implica aceitacao dos novos termos.</p>
+
+            <h2>12. Legislacao Aplicavel</h2>
+            <p>Estes termos sao regidos pela legislacao brasileira, incluindo:</p>
+            <ul>
+                <li>Marco Civil da Internet (Lei 12.965/2014)</li>
+                <li>Lei Geral de Protecao de Dados - LGPD (Lei 13.709/2018)</li>
+                <li>Codigo de Defesa do Consumidor (Lei 8.078/1990)</li>
+                <li>Codigo Penal Brasileiro</li>
+            </ul>
+
+            <h2>13. Foro</h2>
+            <p>Fica eleito o foro da comarca de Fortaleza, Ceara, para dirimir quaisquer controversias decorrentes destes Termos de Uso.</p>
+
+            <div class="contact-box">
+                <h3>Duvidas?</h3>
+                <p>Se voce tiver perguntas sobre estes Termos de Uso, entre em contato:</p>
+                <p><a href="mailto:zapanonimo2025@gmail.com">zapanonimo2025@gmail.com</a></p>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2026 Zap Anonimo. Todos os direitos reservados.</p>
+            <p style="margin-top: 10px;">
+                <a href="/" style="color: #4f46e5; text-decoration: none;">Inicio</a> |
+                <a href="/privacy" style="color: #4f46e5; text-decoration: none;">Politica de Privacidade</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

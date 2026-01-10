@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidade - Zap Anônimo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom, #f0f4f8 0%, #ffffff 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a1a1a;
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            margin-bottom: 30px;
+        }
+
+        .navbar h1 {
+            color: #1a1a1a;
+            font-size: 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .whatsapp-icon {
+            width: 32px;
+            height: 32px;
+            background: #25D366;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .whatsapp-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .btn-nav {
+            padding: 10px 24px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-nav:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+
+        .content {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .page-title svg {
+            width: 36px;
+            height: 36px;
+            fill: #4f46e5;
+        }
+
+        .last-update {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 30px 0 15px;
+            padding-left: 15px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #334155;
+            margin: 20px 0 10px;
+        }
+
+        p {
+            color: #475569;
+            margin-bottom: 15px;
+        }
+
+        ul {
+            color: #475569;
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .highlight-box {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .highlight-box.warning {
+            background: #fef3c7;
+            border-color: #fcd34d;
+        }
+
+        .highlight-box.success {
+            background: #ecfdf5;
+            border-color: #6ee7b7;
+        }
+
+        .highlight-box h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .highlight-box.warning h4 {
+            color: #92400e;
+        }
+
+        .highlight-box.success h4 {
+            color: #065f46;
+        }
+
+        .highlight-box p, .highlight-box li {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .retention-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        .retention-table th,
+        .retention-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .retention-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .retention-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-green {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-blue {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-yellow {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .rights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .right-card {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .right-card svg {
+            width: 40px;
+            height: 40px;
+            fill: #4f46e5;
+            margin-bottom: 10px;
+        }
+
+        .right-card h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 5px;
+        }
+
+        .right-card p {
+            font-size: 12px;
+            color: #64748b;
+            margin: 0;
+        }
+
+        .contact-box {
+            background: #4f46e5;
+            color: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .contact-box h3 {
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .contact-box p {
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 15px;
+        }
+
+        .contact-box a {
+            color: white;
+            font-weight: 600;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                margin: 0;
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px;
+                border-radius: 10px;
+            }
+
+            .navbar h1 {
+                font-size: 18px;
+            }
+
+            .content {
+                padding: 20px 15px;
+                border-radius: 10px;
+            }
+
+            .page-title {
+                font-size: 22px;
+            }
+
+            h2 {
+                font-size: 16px;
+                margin-top: 25px;
+            }
+
+            p, li {
+                font-size: 14px;
+                line-height: 1.7;
+            }
+
+            ul, ol {
+                padding-left: 20px;
+            }
+
+            .retention-table {
+                font-size: 11px;
+                display: block;
+                overflow-x: auto;
+            }
+
+            .retention-table th,
+            .retention-table td {
+                padding: 8px 6px;
+            }
+
+            .contact-box {
+                padding: 15px;
+            }
+
+            .footer {
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 8px;
+            }
+
+            .navbar {
+                padding: 12px;
+            }
+
+            .navbar h1 {
+                font-size: 16px;
+            }
+
+            .content {
+                padding: 16px 12px;
+            }
+
+            .page-title {
+                font-size: 20px;
+            }
+
+            h2 {
+                font-size: 15px;
+            }
+
+            p, li {
+                font-size: 13px;
+            }
+
+            .retention-table {
+                font-size: 10px;
+            }
+
+            .retention-table th,
+            .retention-table td {
+                padding: 6px 4px;
+            }
+
+            .btn-back {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <h1>
+                <span class="whatsapp-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                </span>
+                Zap Anonimo
+            </h1>
+            <a href="/" class="btn-nav">Voltar ao Inicio</a>
+        </nav>
+
+        <main class="content">
+            <h1 class="page-title">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                </svg>
+                Politica de Privacidade
+            </h1>
+            <p class="last-update">Ultima atualizacao: Janeiro de 2026</p>
+
+            <div class="highlight-box success">
+                <h4>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#065f46">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+                    </svg>
+                    Compromisso com sua Privacidade
+                </h4>
+                <p>O Zap Anonimo foi desenvolvido com foco na privacidade e seguranca. <strong>As mensagens nao exibem a identidade do remetente ao destinatario.</strong> A plataforma mantém registros tecnicos conforme a lei e pode fornece-los mediante ordem judicial.</p>
+            </div>
+
+            <h2>1. Informacoes que Coletamos</h2>
+
+            <h3>1.1 Dados de Cadastro</h3>
+            <ul>
+                <li><strong>Email:</strong> Para autenticacao e comunicacoes importantes</li>
+                <li><strong>Senha:</strong> Armazenada de forma criptografada (hash bcrypt)</li>
+            </ul>
+
+            <h3>1.2 Dados de Uso</h3>
+            <ul>
+                <li><strong>Mensagens enviadas:</strong> Armazenadas temporariamente para possibilitar respostas</li>
+                <li><strong>Numero de telefone do destinatario:</strong> Para envio das mensagens</li>
+                <li><strong>Historico de transacoes:</strong> Compras de creditos</li>
+            </ul>
+
+            <h3>1.3 Dados Tecnicos (Logs)</h3>
+            <ul>
+                <li><strong>Endereco IP:</strong> Para seguranca e prevencao de fraudes</li>
+                <li><strong>User-Agent:</strong> Informacoes do navegador/dispositivo</li>
+                <li><strong>Hash das mensagens:</strong> Codigo criptografico (nao o texto)</li>
+                <li><strong>Score de risco:</strong> Analise automatica de conteudo</li>
+            </ul>
+
+            <div class="highlight-box warning">
+                <h4>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#92400e">
+                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                    </svg>
+                    Importante sobre Anonimato
+                </h4>
+                <p>Embora o <strong>destinatario nao veja quem enviou</strong> a mensagem, a plataforma mantém registros tecnicos que podem ser fornecidos as autoridades mediante ordem judicial. O anonimato e entre usuarios, nao perante a lei.</p>
+            </div>
+
+            <h2>2. Como Usamos suas Informacoes</h2>
+            <ul>
+                <li>Processar e entregar mensagens aos destinatarios</li>
+                <li>Gerenciar sua conta e creditos</li>
+                <li>Prevenir fraudes, abusos e conteudo ilegal</li>
+                <li>Cumprir obrigacoes legais</li>
+                <li>Melhorar nossos servicos</li>
+            </ul>
+
+            <h2>3. Moderacao de Conteudo</h2>
+            <p>Utilizamos inteligência artificial e filtros automaticos para analisar mensagens antes do envio. Sao bloqueados automaticamente:</p>
+
+            <ul>
+                <li><strong>Ameacas e violencia</strong> - Qualquer incitacao a danos fisicos</li>
+                <li><strong>Chantagem e extorsao</strong> - Tentativas de coacao</li>
+                <li><strong>Discurso de odio</strong> - Racismo, homofobia e discriminacao</li>
+                <li><strong>Conteudo sexual ilegal</strong> - Envolvendo menores ou nao consensual</li>
+                <li><strong>Dados sensiveis</strong> - CPF, RG, cartoes de credito (protecao LGPD)</li>
+                <li><strong>Golpes e fraudes</strong> - Tentativas de estelionato</li>
+            </ul>
+
+            <div class="highlight-box">
+                <h4>Sistema Anti-Stalking</h4>
+                <p>Para prevenir assedio, limitamos o numero de mensagens que podem ser enviadas para o mesmo numero em um periodo de tempo.</p>
+            </div>
+
+            <h2>4. Retencao de Dados</h2>
+            <p>Mantemos seus dados pelo menor tempo necessario:</p>
+
+            <table class="retention-table">
+                <thead>
+                    <tr>
+                        <th>Tipo de Dado</th>
+                        <th>Periodo de Retencao</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Mensagens enviadas</td>
+                        <td><span class="badge badge-green">90 dias</span></td>
+                        <td>Permitir respostas e rastreamento</td>
+                    </tr>
+                    <tr>
+                        <td>Respostas recebidas</td>
+                        <td><span class="badge badge-green">90 dias</span></td>
+                        <td>Historico de conversas</td>
+                    </tr>
+                    <tr>
+                        <td>Transacoes financeiras</td>
+                        <td><span class="badge badge-blue">1 ano</span></td>
+                        <td>Obrigacao fiscal e contabil</td>
+                    </tr>
+                    <tr>
+                        <td>Logs tecnicos</td>
+                        <td><span class="badge badge-blue">6 meses</span></td>
+                        <td>Seguranca e auditoria</td>
+                    </tr>
+                    <tr>
+                        <td>Logs de abuso/crimes</td>
+                        <td><span class="badge badge-yellow">2 anos</span></td>
+                        <td>Cooperacao com autoridades</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>Apos esses periodos, os dados sao automaticamente excluidos de nossos sistemas.</p>
+
+            <h2>5. Seus Direitos (LGPD)</h2>
+            <p>Conforme a Lei Geral de Protecao de Dados (Lei 13.709/2018), voce tem direito a:</p>
+
+            <div class="rights-grid">
+                <div class="right-card">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    <h4>Exportar Dados</h4>
+                    <p>Baixar todos os seus dados em formato JSON</p>
+                </div>
+                <div class="right-card">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                    <h4>Excluir Conta</h4>
+                    <p>Remover permanentemente seus dados</p>
+                </div>
+                <div class="right-card">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                    <h4>Acessar Dados</h4>
+                    <p>Ver quais informacoes temos sobre voce</p>
+                </div>
+                <div class="right-card">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                    <h4>Corrigir Dados</h4>
+                    <p>Atualizar informacoes incorretas</p>
+                </div>
+            </div>
+
+            <p>Para exercer esses direitos, acesse sua conta ou entre em contato conosco.</p>
+
+            <h2>6. Seguranca</h2>
+            <p>Implementamos medidas tecnicas e organizacionais para proteger seus dados:</p>
+            <ul>
+                <li>Criptografia de senhas com bcrypt</li>
+                <li>Conexoes seguras via HTTPS/TLS</li>
+                <li>Tokens de autenticacao com expiracao</li>
+                <li>Hash de dados sensiveis nos logs (nao armazenamos texto claro)</li>
+                <li>Cookies seguros com HttpOnly e SameSite</li>
+                <li>Monitoramento de atividades suspeitas</li>
+            </ul>
+
+            <h2>7. Compartilhamento de Dados</h2>
+            <p><strong>Nao vendemos seus dados.</strong> Podemos compartilhar informacoes apenas:</p>
+            <ul>
+                <li>Com processadores de pagamento (Stripe) para transacoes</li>
+                <li>Com provedores de servico (Twilio, WhatsApp) para envio de mensagens</li>
+                <li>Com autoridades, mediante ordem judicial valida</li>
+            </ul>
+
+            <h2>8. Cookies e Tecnologias Similares</h2>
+            <p>Utilizamos cookies essenciais para:</p>
+            <ul>
+                <li>Manter sua sessao ativa</li>
+                <li>Lembrar suas preferencias</li>
+                <li>Garantir seguranca da conta</li>
+            </ul>
+            <p>Nao utilizamos cookies de rastreamento publicitario.</p>
+
+            <h2>9. Menores de Idade</h2>
+            <p>Este servico e destinado a maiores de 18 anos. Nao coletamos intencionalmente dados de menores. Se tomarmos conhecimento de dados de menores, eles serao excluidos.</p>
+
+            <h2>10. Alteracoes nesta Politica</h2>
+            <p>Podemos atualizar esta politica periodicamente. Alteracoes significativas serao comunicadas por email ou aviso no site. Recomendamos revisar esta pagina regularmente.</p>
+
+            <div class="contact-box">
+                <h3>Duvidas sobre Privacidade?</h3>
+                <p>Se voce tiver perguntas sobre como tratamos seus dados ou quiser exercer seus direitos, entre em contato:</p>
+                <p><a href="mailto:privacidade@zapanonimo.com">privacidade@zapanonimo.com</a></p>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2026 Zap Anonimo. Todos os direitos reservados.</p>
+            <p style="margin-top: 10px;">
+                <a href="/" style="color: #4f46e5; text-decoration: none;">Inicio</a> |
+                <a href="/terms" style="color: #4f46e5; text-decoration: none;">Termos de Uso</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

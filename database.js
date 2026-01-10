@@ -4,6 +4,19 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
+
+const ENCRYPTION_KEY = process.env.MESSAGE_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
+
+
+const RETENTION_POLICY = {
+  messages: 90,           
+  transactions: 365,      
+  logs_technical: 180,    
+  logs_abuse: 730,        
+  replies: 90             
+};
+
 function generateTrackingCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
   let code = 'by';
@@ -18,6 +31,65 @@ function extractTrackingCode(message) {
 
   const match = message.match(/\bby([A-HJ-NP-Za-hj-np-z2-9]{4})\b/i);
   return match ? 'by' + match[1] : null;
+}
+
+
+function hashMessage(message) {
+  return crypto.createHash('sha256').update(message).digest('hex');
+}
+
+function encryptMessage(message) {
+  try {
+    const key = Buffer.from(ENCRYPTION_KEY, 'hex');
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
+
+    let encrypted = cipher.update(message, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
+
+    return {
+      encrypted: encrypted,
+      iv: iv.toString('hex'),
+      authTag: authTag
+    };
+  } catch (error) {
+    console.error('[Database] Erro ao criptografar mensagem:', error.message);
+    return null;
+  }
+}
+
+function decryptMessage(encryptedData) {
+  try {
+    const key = Buffer.from(ENCRYPTION_KEY, 'hex');
+    const iv = Buffer.from(encryptedData.iv, 'hex');
+    const authTag = Buffer.from(encryptedData.authTag, 'hex');
+    const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
+    decipher.setAuthTag(authTag);
+
+    let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (error) {
+    console.error('[Database] Erro ao descriptografar mensagem:', error.message);
+    return null;
+  }
+}
+
+function maskSensitiveData(data) {
+  if (!data) return data;
+
+
+  data = data.replace(/\b(\d{3})\.?(\d{3})\.?(\d{3})-?(\d{2})\b/g, '$1.***.***-**');
+
+ 
+  data = data.replace(/\(?\d{2}\)?[\s.-]?\d{4,5}[\s.-]?\d{4}/g, '(**) *****-****');
+
+ 
+  data = data.replace(/([a-zA-Z0-9._-]+)@([a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/g,
+    (match, local, domain) => `${local.substring(0, 2)}***@${domain}`);
+
+  return data;
 }
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -110,25 +182,149 @@ async function findRecentMessageWithoutReply(channel = 'whatsapp', maxMinutes = 
 }
 
 
-async function createUser(email, password) {
+async function createUser(email, password, phone = null) {
   const hashedPassword = await bcrypt.hash(password, 10);
+
+  const userData = {
+    password: hashedPassword,
+    whatsapp_credits: 5,
+    sms_credits: 5,
+    email_verified: false,
+    phone_verified: false
+  };
+
+
+  if (email) {
+    userData.email = email;
+  }
+  if (phone) {
+    userData.phone = phone;
+  }
 
   const { data, error } = await supabase
     .from('users')
-    .insert([
-      {
-        email,
-        password: hashedPassword,
-        whatsapp_credits: 5,
-        sms_credits: 5,
-        email_verified: false
-      }
-    ])
+    .insert([userData])
     .select()
     .single();
 
   if (error) throw error;
   return { id: data.id };
+}
+
+async function getUserByPhone(phone) {
+  const normalizedPhone = phone.replace(/\D/g, '');
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('phone', normalizedPhone)
+    .single();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+}
+
+async function getUserByEmailOrPhone(identifier) {
+  // Verificar se é telefone (só números) ou email
+  const isPhone = /^\+?\d{10,15}$/.test(identifier.replace(/\D/g, ''));
+
+  if (isPhone) {
+    return await getUserByPhone(identifier);
+  } else {
+    return await getUserByEmail(identifier);
+  }
+}
+
+// ==========================================
+// VERIFICAÇÃO POR SMS
+// ==========================================
+
+function generateVerificationCode() {
+  // Gerar código de 6 dígitos
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function createPhoneVerificationCode(userId, phone) {
+  const code = generateVerificationCode();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+
+  // Invalidar códigos anteriores para este telefone
+  await supabase
+    .from('phone_verifications')
+    .update({ verified: true })
+    .eq('phone', phone)
+    .eq('verified', false);
+
+  const { data, error } = await supabase
+    .from('phone_verifications')
+    .insert([{
+      user_id: userId,
+      phone: phone,
+      code: code,
+      expires_at: expiresAt.toISOString()
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return code;
+}
+
+async function verifyPhoneCode(phone, code) {
+  const { data, error } = await supabase
+    .from('phone_verifications')
+    .select('*')
+    .eq('phone', phone)
+    .eq('code', code)
+    .eq('verified', false)
+    .single();
+
+  if (error || !data) {
+    throw new Error('Código inválido ou já utilizado');
+  }
+
+  // Verificar se não expirou
+  if (new Date(data.expires_at) < new Date()) {
+    throw new Error('Código expirado. Solicite um novo código.');
+  }
+
+  // Verificar tentativas (máximo 5)
+  if (data.attempts >= 5) {
+    throw new Error('Muitas tentativas. Solicite um novo código.');
+  }
+
+  // Incrementar tentativas
+  await supabase
+    .from('phone_verifications')
+    .update({ attempts: data.attempts + 1 })
+    .eq('id', data.id);
+
+  // Marcar como verificado
+  await supabase
+    .from('phone_verifications')
+    .update({ verified: true, verified_at: new Date().toISOString() })
+    .eq('id', data.id);
+
+  // Marcar telefone do usuário como verificado
+  await supabase
+    .from('users')
+    .update({ phone_verified: true })
+    .eq('id', data.user_id);
+
+  return data.user_id;
+}
+
+async function isPhoneVerified(userId) {
+  const user = await getUserById(userId);
+  return user.phone_verified === true;
+}
+
+async function incrementPhoneVerificationAttempts(phone, code) {
+  await supabase
+    .from('phone_verifications')
+    .update({ attempts: supabase.raw('attempts + 1') })
+    .eq('phone', phone)
+    .eq('code', code);
 }
 
 async function getUserByEmail(email) {
@@ -656,11 +852,422 @@ async function saveWhatsAppStats(stats, status = null) {
   }
 }
 
+// ==========================================
+// LOGGING DE MODERAÇÃO (CONFORMIDADE JURÍDICA)
+// ==========================================
+
+async function logModerationEvent(data) {
+  try {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      user_id: data.userId || null,
+      message_hash: data.message ? hashMessage(data.message) : null,
+      action: data.action, // 'blocked' | 'allowed'
+      category: data.category || null,
+      risk_score: data.riskScore || 0,
+      ip_address: data.ipAddress || null,
+      user_agent: data.userAgent || null,
+      target_phone_hash: data.targetPhone ? hashMessage(data.targetPhone) : null,
+      channel: data.channel || 'whatsapp',
+      // NÃO guardar o conteúdo da mensagem, apenas o hash
+      metadata: {
+        detected_types: data.detectedTypes || [],
+        matched_rule: data.matchedWord || null
+      }
+    };
+
+    const { error } = await supabase
+      .from('moderation_logs')
+      .insert([logEntry]);
+
+    if (error && error.code !== '42P01') {
+      console.error('[Database] Erro ao salvar log de moderação:', error.message);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[Database] Erro ao criar log de moderação:', error.message);
+    return false;
+  }
+}
+
+// ==========================================
+// FUNÇÕES LGPD - DIREITOS DO TITULAR
+// ==========================================
+
+// LGPD Art. 18 - Direito à exclusão de dados
+async function deleteUserData(userId, options = {}) {
+  const { keepTransactionsForTax = true } = options;
+  const results = {
+    deleted: [],
+    errors: [],
+    anonymized: []
+  };
+
+  try {
+    // 1. Deletar respostas
+    const { error: repliesError } = await supabase
+      .from('replies')
+      .delete()
+      .eq('user_id', userId);
+
+    if (repliesError && repliesError.code !== 'PGRST116') {
+      results.errors.push({ table: 'replies', error: repliesError.message });
+    } else {
+      results.deleted.push('replies');
+    }
+
+    // 2. Deletar mensagens
+    const { error: messagesError } = await supabase
+      .from('messages')
+      .delete()
+      .eq('user_id', userId);
+
+    if (messagesError && messagesError.code !== 'PGRST116') {
+      results.errors.push({ table: 'messages', error: messagesError.message });
+    } else {
+      results.deleted.push('messages');
+    }
+
+    // 3. Anonimizar transações (manter para fins fiscais/legais)
+    if (keepTransactionsForTax) {
+      const { error: transactionsError } = await supabase
+        .from('transactions')
+        .update({ user_id: null, anonymized_at: new Date().toISOString() })
+        .eq('user_id', userId);
+
+      if (transactionsError && transactionsError.code !== 'PGRST116') {
+        results.errors.push({ table: 'transactions', error: transactionsError.message });
+      } else {
+        results.anonymized.push('transactions');
+      }
+    } else {
+      const { error: transactionsError } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('user_id', userId);
+
+      if (!transactionsError) results.deleted.push('transactions');
+    }
+
+    // 4. Deletar verificações de email
+    const { error: emailVerifError } = await supabase
+      .from('email_verifications')
+      .delete()
+      .eq('user_id', userId);
+
+    if (!emailVerifError) results.deleted.push('email_verifications');
+
+    // 5. Deletar tokens de reset de senha
+    const { error: passwordResetError } = await supabase
+      .from('password_resets')
+      .delete()
+      .eq('user_id', userId);
+
+    if (!passwordResetError) results.deleted.push('password_resets');
+
+    // 6. Deletar logs de moderação
+    const { error: modLogsError } = await supabase
+      .from('moderation_logs')
+      .delete()
+      .eq('user_id', userId);
+
+    if (!modLogsError) results.deleted.push('moderation_logs');
+
+    // 7. Por último, deletar o usuário
+    const { error: userError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (userError) {
+      results.errors.push({ table: 'users', error: userError.message });
+    } else {
+      results.deleted.push('users');
+    }
+
+    return {
+      success: results.errors.length === 0,
+      ...results
+    };
+  } catch (error) {
+    console.error('[Database] Erro ao deletar dados do usuário:', error.message);
+    return {
+      success: false,
+      deleted: results.deleted,
+      errors: [...results.errors, { general: error.message }],
+      anonymized: results.anonymized
+    };
+  }
+}
+
+// LGPD Art. 18 - Direito à portabilidade (exportação de dados)
+async function exportUserData(userId) {
+  try {
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      format: 'LGPD_COMPLIANT_EXPORT',
+      version: '1.0'
+    };
+
+    // 1. Dados do usuário (sem senha)
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, email, whatsapp_credits, sms_credits, email_verified, created_at')
+      .eq('id', userId)
+      .single();
+
+    if (userError) throw userError;
+    exportData.user = userData;
+
+    // 2. Mensagens enviadas (com dados mascarados)
+    const { data: messagesData } = await supabase
+      .from('messages')
+      .select('id, phone, message, channel, tracking_code, created_at, has_reply')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    exportData.messages = (messagesData || []).map(msg => ({
+      ...msg,
+      phone: maskSensitiveData(msg.phone),
+      message: maskSensitiveData(msg.message)
+    }));
+
+    // 3. Respostas recebidas
+    const { data: repliesData } = await supabase
+      .from('replies')
+      .select('id, message, channel, created_at, audio_url')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    exportData.replies = (repliesData || []).map(reply => ({
+      ...reply,
+      message: maskSensitiveData(reply.message)
+    }));
+
+    // 4. Histórico de transações
+    const { data: transactionsData } = await supabase
+      .from('transactions')
+      .select('id, type, credit_type, amount, credits_added, price, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    exportData.transactions = transactionsData || [];
+
+    // 5. Metadados
+    exportData.metadata = {
+      totalMessages: exportData.messages.length,
+      totalReplies: exportData.replies.length,
+      totalTransactions: exportData.transactions.length,
+      dataRetentionPolicy: RETENTION_POLICY
+    };
+
+    return {
+      success: true,
+      data: exportData
+    };
+  } catch (error) {
+    console.error('[Database] Erro ao exportar dados do usuário:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// ==========================================
+// POLÍTICA DE RETENÇÃO - LIMPEZA AUTOMÁTICA
+// ==========================================
+
+async function cleanupExpiredData() {
+  const results = {
+    cleaned: [],
+    errors: []
+  };
+
+  try {
+    const now = new Date();
+
+    // 1. Limpar mensagens antigas
+    const messagesExpiry = new Date(now);
+    messagesExpiry.setDate(messagesExpiry.getDate() - RETENTION_POLICY.messages);
+
+    const { error: messagesError, count: messagesCount } = await supabase
+      .from('messages')
+      .delete()
+      .lt('created_at', messagesExpiry.toISOString())
+      .select('count');
+
+    if (!messagesError) {
+      results.cleaned.push({ table: 'messages', count: messagesCount });
+    } else {
+      results.errors.push({ table: 'messages', error: messagesError.message });
+    }
+
+    // 2. Limpar respostas antigas
+    const repliesExpiry = new Date(now);
+    repliesExpiry.setDate(repliesExpiry.getDate() - RETENTION_POLICY.replies);
+
+    const { error: repliesError, count: repliesCount } = await supabase
+      .from('replies')
+      .delete()
+      .lt('created_at', repliesExpiry.toISOString())
+      .select('count');
+
+    if (!repliesError) {
+      results.cleaned.push({ table: 'replies', count: repliesCount });
+    } else {
+      results.errors.push({ table: 'replies', error: repliesError.message });
+    }
+
+    // 3. Limpar logs de moderação antigos (não-abuso)
+    const logsExpiry = new Date(now);
+    logsExpiry.setDate(logsExpiry.getDate() - RETENTION_POLICY.logs_technical);
+
+    const { error: logsError } = await supabase
+      .from('moderation_logs')
+      .delete()
+      .lt('timestamp', logsExpiry.toISOString())
+      .not('category', 'in', '(criminal_threat,blackmail_extortion,threat,hate_speech)');
+
+    if (!logsError) {
+      results.cleaned.push({ table: 'moderation_logs (technical)' });
+    }
+
+    // 4. Limpar tokens de verificação de email expirados
+    const { error: tokenError } = await supabase
+      .from('email_verifications')
+      .delete()
+      .lt('expires_at', now.toISOString());
+
+    if (!tokenError) {
+      results.cleaned.push({ table: 'email_verifications (expired)' });
+    }
+
+    // 5. Limpar tokens de reset de senha expirados
+    const { error: resetError } = await supabase
+      .from('password_resets')
+      .delete()
+      .lt('expires_at', now.toISOString());
+
+    if (!resetError) {
+      results.cleaned.push({ table: 'password_resets (expired)' });
+    }
+
+    return results;
+  } catch (error) {
+    console.error('[Database] Erro na limpeza de dados:', error.message);
+    return { ...results, errors: [...results.errors, { general: error.message }] };
+  }
+}
+
+// Função para uso com cron job (executar diariamente)
+function scheduleDataCleanup() {
+  // Executar limpeza diariamente às 3h da manhã
+  const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 horas
+
+  setInterval(async () => {
+
+    await cleanupExpiredData();
+  }, CLEANUP_INTERVAL);
+
+  // Executar uma vez na inicialização (após 1 minuto)
+  setTimeout(async () => {
+
+    await cleanupExpiredData();
+  }, 60 * 1000);
+}
+
+// ==========================================
+// FAVORITOS
+// ==========================================
+
+async function getFavorites(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('favorites')
+      .select('id, name, phone, created_at')
+      .eq('user_id', userId)
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('[Database] Erro ao buscar favoritos:', error.message);
+    return [];
+  }
+}
+
+async function addFavorite(userId, name, phone) {
+  try {
+    // Limpar telefone (só números)
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    const { data, error } = await supabase
+      .from('favorites')
+      .insert({
+        user_id: userId,
+        name: name.trim(),
+        phone: cleanPhone
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return { success: false, error: 'Este número já está nos favoritos' };
+      }
+      throw error;
+    }
+
+    return { success: true, favorite: data };
+  } catch (error) {
+    console.error('[Database] Erro ao adicionar favorito:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function deleteFavorite(userId, favoriteId) {
+  try {
+    const { error } = await supabase
+      .from('favorites')
+      .delete()
+      .eq('id', favoriteId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error('[Database] Erro ao deletar favorito:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function isFavorite(userId, phone) {
+  try {
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    const { data, error } = await supabase
+      .from('favorites')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('phone', cleanPhone)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return !!data;
+  } catch (error) {
+    console.error('[Database] Erro ao verificar favorito:', error.message);
+    return false;
+  }
+}
 
 module.exports = {
   supabase,
   createUser,
   getUserByEmail,
+  getUserByPhone,
+  getUserByEmailOrPhone,
   getUserById,
   verifyPassword,
   addCredits,
@@ -685,5 +1292,25 @@ module.exports = {
   extractTrackingCode,
   saveLidMapping,
   getPhoneByLid,
-  loadLidMappings
+  loadLidMappings,
+  // Funções de verificação por SMS
+  createPhoneVerificationCode,
+  verifyPhoneCode,
+  isPhoneVerified,
+  // Novas funções de segurança e LGPD
+  hashMessage,
+  encryptMessage,
+  decryptMessage,
+  maskSensitiveData,
+  logModerationEvent,
+  deleteUserData,
+  exportUserData,
+  cleanupExpiredData,
+  scheduleDataCleanup,
+  RETENTION_POLICY,
+  // Favoritos
+  getFavorites,
+  addFavorite,
+  deleteFavorite,
+  isFavorite
 };

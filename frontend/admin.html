@@ -266,17 +266,87 @@
             right: 20px;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .header {
+                padding: 20px 0;
+                margin-bottom: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .login-container {
+                padding: 25px 20px;
+                margin: 30px auto;
+            }
+
             .stats-grid {
                 grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .stat-card {
+                padding: 16px;
+            }
+
+            .stat-card h3 {
+                font-size: 1.8rem;
             }
 
             .actions {
                 flex-direction: column;
+                gap: 10px;
             }
 
             .btn-small {
                 width: 100%;
+                padding: 12px;
+            }
+
+            .logout-btn {
+                position: static;
+                width: 100%;
+                margin-bottom: 15px;
+            }
+
+            .qr-container {
+                padding: 15px;
+            }
+
+            .qr-container img {
+                max-width: 250px;
+            }
+
+            .form-group input {
+                padding: 14px;
+                font-size: 16px;
+            }
+
+            .btn {
+                padding: 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 1.3rem;
+            }
+
+            .login-container {
+                padding: 20px 15px;
+            }
+
+            .stat-card h3 {
+                font-size: 1.5rem;
             }
         }
     </style>
@@ -360,7 +430,8 @@
      
         function formatTimeBR(dateString) {
             const date = new Date(dateString);
-            return date.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+            date.setHours(date.getHours() - 3);
+            return date.toLocaleTimeString('pt-BR');
         }
 
         const API_URL = window.API_CONFIG.baseURL;

@@ -261,7 +261,7 @@
 
         textarea {
             resize: vertical;
-            min-height: 100px;
+            min-height: 180px;
             font-family: Arial, sans-serif;
         }
 
@@ -527,28 +527,37 @@
         .btn-audio {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 12px 20px;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            border: 2px solid #cbd5e1;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            color: #475569;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            padding: 0;
+            background: #25D366;
+            border: none;
+            border-radius: 50%;
             cursor: pointer;
             transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);
+        }
+
+        .btn-audio svg {
+            width: 24px;
+            height: 24px;
+            fill: #000;
         }
 
         .btn-audio:hover {
-            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-            border-color: #94a3b8;
+            background: #20bd5a;
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
         }
 
         .btn-audio.recording {
-            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-            border-color: #ef4444;
-            color: #dc2626;
+            background: #ef4444;
             animation: pulse-recording 1.5s infinite;
+        }
+
+        .btn-audio.recording svg {
+            fill: #fff;
         }
 
         @keyframes pulse-recording {
@@ -651,68 +660,597 @@
 
         /* Estilos para emoji picker */
         .message-input-container {
-            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
         .message-input-container textarea {
             width: 100%;
-            padding-right: 50px;
         }
 
-        .btn-emoji-toggle {
-            position: absolute;
-            right: 10px;
-            top: 10px;
-            background: none;
-            border: none;
-            font-size: 24px;
+        .emoji-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #64748b;
             cursor: pointer;
-            padding: 5px;
-            border-radius: 8px;
             transition: all 0.2s ease;
         }
 
-        .btn-emoji-toggle:hover {
-            background: #f1f5f9;
-            transform: scale(1.1);
+        .emoji-toggle-btn:hover {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border-color: #cbd5e1;
         }
 
-        .emoji-picker {
-            margin-top: 10px;
+        .emoji-toggle-btn .emoji-icon {
+            font-size: 18px;
+        }
+
+        .emoji-bar {
+            display: none;
+            flex-wrap: wrap;
+            gap: 4px;
             padding: 12px;
-            background: white;
-            border: 2px solid #e2e8f0;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-top: 8px;
         }
 
-        .emoji-grid {
-            display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            gap: 5px;
+        .emoji-bar.show {
+            display: flex;
         }
 
-        .emoji-grid span {
-            font-size: 24px;
-            padding: 8px;
-            text-align: center;
+        .emoji-bar span {
+            font-size: 22px;
+            padding: 6px 8px;
             cursor: pointer;
             border-radius: 8px;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
         }
 
-        .emoji-grid span:hover {
-            background: #f1f5f9;
+        .emoji-bar span:hover {
+            background: #e2e8f0;
             transform: scale(1.2);
         }
 
         @media (max-width: 768px) {
-            .emoji-grid {
-                grid-template-columns: repeat(6, 1fr);
-            }
-            .emoji-grid span {
+            .emoji-bar span {
                 font-size: 20px;
-                padding: 6px;
+                padding: 5px 6px;
+            }
+        }
+
+        /* Melhorias Mobile */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .card {
+                padding: 20px 15px;
+                border-radius: 12px;
+            }
+
+            h2 {
+                font-size: 18px;
+            }
+
+            .subtitle {
+                font-size: 13px;
+            }
+
+            label {
+                font-size: 13px;
+            }
+
+            input, textarea {
+                font-size: 16px;
+                padding: 14px 12px;
+            }
+
+            textarea {
+                min-height: 150px;
+            }
+
+            .btn {
+                padding: 14px;
+                font-size: 15px;
+            }
+
+            .btn-audio {
+                width: 48px;
+                height: 48px;
+            }
+
+            .btn-audio svg {
+                width: 22px;
+                height: 22px;
+            }
+
+            .emoji-toggle-btn {
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+
+            .form-group {
+                margin-bottom: 16px;
+            }
+
+            .hint {
+                font-size: 11px;
+            }
+
+            .audio-controls {
+                gap: 10px;
+            }
+
+            .recording-indicator {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 8px;
+            }
+
+            .navbar {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
+
+            .navbar h1 {
+                font-size: 18px;
+            }
+
+            .card {
+                padding: 16px 12px;
+            }
+
+            h2 {
+                font-size: 16px;
+            }
+
+            .quantity-selector {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+
+            .quantity-option {
+                padding: 12px 8px;
+            }
+
+            .quantity-option .quantity {
+                font-size: 18px;
+            }
+
+            .btn-small {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+        }
+
+        /* Favoritos */
+        .favorites-container {
+            margin-top: 10px;
+        }
+
+        .favorites-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-favorites {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #f59e0b;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #92400e;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-favorites:hover {
+            background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+            transform: scale(1.02);
+        }
+
+        .favorites-select {
+            flex: 1;
+            min-width: 150px;
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .favorites-select:focus {
+            outline: none;
+            border-color: #f59e0b;
+        }
+
+        /* Modal Favoritos */
+        .favorites-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .favorites-modal.show {
+            display: flex;
+        }
+
+        .favorites-modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 450px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .favorites-modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .favorites-modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #1e293b;
+        }
+
+        .favorites-modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #64748b;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .favorites-modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .favorites-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .favorite-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .favorite-item-info {
+            flex: 1;
+        }
+
+        .favorite-item-name {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 14px;
+        }
+
+        .favorite-item-phone {
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .favorite-item-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .favorite-item-btn {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .favorite-item-btn.use {
+            background: #25D366;
+            color: white;
+        }
+
+        .favorite-item-btn.delete {
+            background: #ef4444;
+            color: white;
+        }
+
+        .favorite-item-btn:hover {
+            opacity: 0.9;
+            transform: scale(1.05);
+        }
+
+        .favorites-empty {
+            text-align: center;
+            padding: 30px;
+            color: #64748b;
+        }
+
+        .favorites-add-form {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .favorites-add-form h4 {
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            color: #1e293b;
+        }
+
+        .favorites-add-form input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .favorites-add-form input:focus {
+            outline: none;
+            border-color: #f59e0b;
+        }
+
+        .favorites-add-form button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .favorites-add-form button:hover {
+            opacity: 0.9;
+        }
+
+        /* Prompt salvar favorito */
+        .save-favorite-prompt {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.2);
+            z-index: 9999;
+            max-width: 350px;
+            width: calc(100% - 40px);
+        }
+
+        .save-favorite-prompt.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { transform: translate(-50%, -50%) scale(0.9); opacity: 0; }
+            to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .save-favorite-prompt p {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #1e293b;
+        }
+
+        .save-favorite-prompt-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .save-favorite-prompt-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .save-favorite-prompt-buttons .btn-save {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .save-favorite-prompt-buttons .btn-skip {
+            background: #e2e8f0;
+            color: #64748b;
+        }
+
+        /* Modal de Confirmacao/Alerta Personalizado */
+        .custom-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .custom-modal-overlay.show {
+            display: flex;
+            animation: fadeInOverlay 0.2s ease;
+        }
+
+        @keyframes fadeInOverlay {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .custom-modal-box {
+            background: white;
+            padding: 28px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+            max-width: 380px;
+            width: calc(100% - 40px);
+            text-align: center;
+            animation: scaleIn 0.2s ease;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .custom-modal-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .custom-modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+
+        .custom-modal-message {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .custom-modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .custom-modal-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .custom-modal-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .custom-modal-btn.primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+        }
+
+        .custom-modal-btn.primary:hover {
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        .custom-modal-btn.danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .custom-modal-btn.danger:hover {
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .custom-modal-btn.secondary {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .custom-modal-btn.secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .custom-modal-btn.success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .custom-modal-btn.success:hover {
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .favorites-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .favorites-select {
+                width: 100%;
+            }
+
+            .favorites-modal-content {
+                max-height: 90vh;
+            }
+
+            .favorite-item {
+                flex-wrap: wrap;
+            }
+
+            .favorite-item-actions {
+                width: 100%;
+                margin-top: 8px;
+            }
+
+            .favorite-item-btn {
+                flex: 1;
             }
         }
     </style>
@@ -755,23 +1293,23 @@
 
 
                 <div style="background: rgba(255, 255, 255, 0.15); padding: 20px; border-radius: 12px; backdrop-filter: blur(10px);">
-                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; opacity: 0.95;">💰 Pacotes com Desconto (até 30% OFF)</div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; opacity: 0.95;">🔥 GANHE EM DOBRO! 🔥</div>
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; font-size: 14px;">
                         <div style="text-align: left;">
-                            <strong>5 mensagens</strong>
-                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 4,75 <span style="opacity: 0.8;">(5% OFF)</span></div>
+                            <strong>Pague 5</strong>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">Receba <span style="color: #4ade80; font-weight: 600;">10 msgs</span></div>
                         </div>
                         <div style="text-align: left;">
-                            <strong>25 mensagens</strong>
-                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 22,50 <span style="opacity: 0.8;">(10% OFF)</span></div>
+                            <strong>Pague 25</strong>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">Receba <span style="color: #4ade80; font-weight: 600;">50 msgs</span></div>
                         </div>
                         <div style="text-align: left;">
-                            <strong>50 mensagens</strong>
-                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 40 <span style="opacity: 0.8;">(20% OFF)</span></div>
+                            <strong>Pague 50</strong>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">Receba <span style="color: #4ade80; font-weight: 600;">100 msgs</span></div>
                         </div>
                         <div style="text-align: left;">
-                            <strong>100 mensagens</strong>
-                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">R$ 70 <span style="opacity: 0.8;">(30% OFF)</span></div>
+                            <strong>Pague 100</strong>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 3px;">Receba <span style="color: #4ade80; font-weight: 600;">200 msgs</span></div>
                         </div>
                     </div>
                 </div>
@@ -848,6 +1386,17 @@
                             style="flex: 1;"
                         >
                     </div>
+                    <div class="favorites-container">
+                        <div class="favorites-row">
+                            <select id="favorites-select" class="favorites-select" onchange="selectFavorite(this.value)">
+                                <option value="">Selecionar favorito...</option>
+                            </select>
+                            <button type="button" class="btn-favorites" onclick="openFavoritesModal()">
+                                <span>⭐</span>
+                                <span>Gerenciar</span>
+                            </button>
+                        </div>
+                    </div>
                     <p class="hint">Digite apenas DDD + número (ex: 11999999999)</p>
                 </div>
 
@@ -859,10 +1408,11 @@
                             placeholder="Digite sua mensagem aqui..."
                             maxlength="65536"
                         ></textarea>
-                        <button type="button" class="btn-emoji-toggle" onclick="toggleEmojiPicker()">😊</button>
-                    </div>
-                    <div id="emoji-picker" class="emoji-picker" style="display: none;">
-                        <div class="emoji-grid">
+                        <button type="button" class="emoji-toggle-btn" onclick="toggleEmojis()">
+                            <span class="emoji-icon">😊</span>
+                            <span>Emojis</span>
+                        </button>
+                        <div id="emoji-bar" class="emoji-bar">
                             <span onclick="addEmoji('😀')">😀</span>
                             <span onclick="addEmoji('😂')">😂</span>
                             <span onclick="addEmoji('😍')">😍</span>
@@ -895,7 +1445,7 @@
                             <span onclick="addEmoji('🤭')">🤭</span>
                         </div>
                     </div>
-                    <small style="color: #64748b; font-size: 12px;">Máximo: 65.536 caracteres</small>
+                    <small style="color: #64748b; font-size: 12px;">Maximo: 65.536 caracteres</small>
                 </div>
 
                 <!-- Controles de Áudio -->
@@ -903,9 +1453,14 @@
                     <label>Ou grave um áudio</label>
                     <div class="audio-controls">
                         <div class="audio-buttons">
-                            <button type="button" class="btn-audio" id="record-btn" onclick="toggleRecording()">
-                                <span class="record-icon">🎤</span>
-                                <span id="record-btn-text">Gravar</span>
+                            <button type="button" class="btn-audio" id="record-btn" onclick="toggleRecording()" title="Gravar audio">
+                                <svg id="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/>
+                                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                                </svg>
+                                <svg id="stop-icon" style="display:none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="6" y="6" width="12" height="12" rx="2"/>
+                                </svg>
                             </button>
                         </div>
 
@@ -936,26 +1491,26 @@
             <h2>Comprar Mensagens</h2>
             <p class="subtitle">R$ 1,00 por mensagem</p>
 
-            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: 600; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);">
-                Promoção: Até 30% de desconto em pacotes
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: 600; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);">
+                🔥 PROMOÇÃO: GANHE EM DOBRO! 🔥
             </div>
 
             <div class="quantity-selector" id="quantity-selector">
                 <div class="quantity-option" onclick="selectQuantity(5)">
-                    <div class="amount">5 mensagens</div>
-                    <div class="price">R$ 4,75 <small style="color: #333;">(5% OFF)</small></div>
+                    <div class="amount">5 + 5 grátis</div>
+                    <div class="price">R$ 5,00 <small style="color: #10b981; font-weight: 600;">= 10 msgs</small></div>
                 </div>
                 <div class="quantity-option" onclick="selectQuantity(25)">
-                    <div class="amount">25 mensagens</div>
-                    <div class="price">R$ 22,50 <small style="color: #333;">(10% OFF)</small></div>
+                    <div class="amount">25 + 25 grátis</div>
+                    <div class="price">R$ 25,00 <small style="color: #10b981; font-weight: 600;">= 50 msgs</small></div>
                 </div>
                 <div class="quantity-option" onclick="selectQuantity(50)">
-                    <div class="amount">50 mensagens</div>
-                    <div class="price">R$ 40 <small style="color: #333;">(20% OFF)</small></div>
+                    <div class="amount">50 + 50 grátis</div>
+                    <div class="price">R$ 50,00 <small style="color: #10b981; font-weight: 600;">= 100 msgs</small></div>
                 </div>
                 <div class="quantity-option" onclick="selectQuantity(100)">
-                    <div class="amount">100 mensagens</div>
-                    <div class="price">R$ 70 <small style="color: #333;">(30% OFF)</small></div>
+                    <div class="amount">100 + 100 grátis</div>
+                    <div class="price">R$ 100,00 <small style="color: #10b981; font-weight: 600;">= 200 msgs</small></div>
                 </div>
             </div>
 
@@ -966,7 +1521,9 @@
                     id="custom-quantity"
                     min="1"
                     placeholder="Quantidade de mensagens"
+                    oninput="updateBonusPreview()"
                 >
+                <small id="bonus-preview" style="color: #10b981; font-weight: 600; display: none; margin-top: 8px;"></small>
             </div>
 
             <button class="btn btn-secondary" onclick="buyCredits()" id="buy-btn">Comprar Mensagens</button>
@@ -1022,19 +1579,39 @@
         <div class="modal-content">
             <span class="close" onclick="closeLoginModal()">&times;</span>
             <h2 style="color: #1e293b; margin-bottom: 10px;">Bem-vindo</h2>
-            <p style="color: #64748b; margin-bottom: 30px;">Faça login ou crie sua conta</p>
+            <p style="color: #64748b; margin-bottom: 30px;">Faca login ou crie sua conta</p>
 
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('login')">Login</div>
                 <div class="tab" onclick="switchTab('register')">Cadastro</div>
             </div>
 
-       
+            <!-- LOGIN FORM -->
             <div id="login-form" class="form-content active">
+                <!-- Toggle Email/Telefone -->
+                <div class="auth-type-toggle" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button type="button" class="auth-toggle-btn active" id="login-email-toggle" onclick="toggleLoginType('email')" style="flex: 1; padding: 10px; border: 2px solid #4f46e5; background: #4f46e5; color: white; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                        Email
+                    </button>
+                    <button type="button" class="auth-toggle-btn" id="login-phone-toggle" onclick="toggleLoginType('phone')" style="flex: 1; padding: 10px; border: 2px solid #e2e8f0; background: white; color: #64748b; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                        Telefone
+                    </button>
+                </div>
+
                 <form onsubmit="handleLogin(event)">
-                    <div class="form-group">
+                    <!-- Campo Email -->
+                    <div class="form-group" id="login-email-group">
                         <label for="login-email">Email</label>
-                        <input type="email" id="login-email" required>
+                        <input type="email" id="login-email">
+                    </div>
+
+                    <!-- Campo Telefone -->
+                    <div class="form-group" id="login-phone-group" style="display: none;">
+                        <label for="login-phone">Telefone</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" value="+55" readonly style="width: 60px; background: #f0f0f0; color: #666;">
+                            <input type="tel" id="login-phone" placeholder="11999999999" pattern="[0-9]{10,11}" maxlength="11" style="flex: 1;">
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -1056,19 +1633,42 @@
                 </div>
             </div>
 
+            <!-- REGISTER FORM -->
             <div id="register-form" class="form-content">
                 <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 18px; margin-bottom: 20px; border-radius: 8px; color: white;">
                     <p style="font-size: 15px; margin: 0 0 8px 0; font-weight: 600;">
-                        🎁 Bônus de Boas-Vindas
+                        Bonus de Boas-Vindas
                     </p>
                     <p style="font-size: 14px; margin: 0; opacity: 0.95;">
-                        📱 <strong>5 mensagens WhatsApp grátis!</strong>
+                        <strong>5 mensagens WhatsApp gratis!</strong>
                     </p>
                 </div>
-                <form onsubmit="handleRegister(event)">
-                    <div class="form-group">
+
+                <!-- Toggle Email/Telefone -->
+                <div class="auth-type-toggle" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button type="button" class="auth-toggle-btn active" id="register-email-toggle" onclick="toggleRegisterType('email')" style="flex: 1; padding: 10px; border: 2px solid #4f46e5; background: #4f46e5; color: white; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                        Email
+                    </button>
+                    <button type="button" class="auth-toggle-btn" id="register-phone-toggle" onclick="toggleRegisterType('phone')" style="flex: 1; padding: 10px; border: 2px solid #e2e8f0; background: white; color: #64748b; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                        Telefone
+                    </button>
+                </div>
+
+                <form onsubmit="handleRegister(event)" id="register-form-element">
+                    <!-- Campo Email -->
+                    <div class="form-group" id="register-email-group">
                         <label for="register-email">Email</label>
-                        <input type="email" id="register-email" required>
+                        <input type="email" id="register-email">
+                    </div>
+
+                    <!-- Campo Telefone -->
+                    <div class="form-group" id="register-phone-group" style="display: none;">
+                        <label for="register-phone">Telefone</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" value="+55" readonly style="width: 60px; background: #f0f0f0; color: #666;">
+                            <input type="tel" id="register-phone" placeholder="11999999999" pattern="[0-9]{10,11}" maxlength="11" style="flex: 1;">
+                        </div>
+                        <p class="hint">Digite DDD + numero (ex: 11999999999)</p>
                     </div>
 
                     <div class="form-group">
@@ -1081,7 +1681,7 @@
                                 </svg>
                             </span>
                         </div>
-                        <p class="hint">Mínimo 6 caracteres</p>
+                        <p class="hint">Minimo 6 caracteres</p>
                     </div>
 
                     <div class="form-group">
@@ -1100,6 +1700,33 @@
                 </form>
             </div>
 
+            <!-- VERIFY PHONE CODE FORM -->
+            <div id="verify-phone-form" class="form-content" style="display: none;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">💬</div>
+                    <h3 style="color: #1e293b; margin-bottom: 10px;">Verificar Telefone</h3>
+                    <p style="color: #64748b; font-size: 14px;">Digite o codigo de 6 digitos enviado pelo WhatsApp para</p>
+                    <p style="color: #4f46e5; font-weight: 600;" id="verify-phone-display"></p>
+                </div>
+
+                <form onsubmit="handleVerifyPhone(event)">
+                    <div class="form-group">
+                        <label for="verify-code">Codigo de Verificacao</label>
+                        <input type="text" id="verify-code" placeholder="000000" maxlength="6" pattern="[0-9]{6}" style="text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: 600;" required>
+                    </div>
+
+                    <button type="submit" class="btn" id="verify-btn">Verificar</button>
+                </form>
+
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="#" onclick="resendPhoneCode(event)" style="color: #4f46e5; text-decoration: none; font-size: 14px;">Reenviar codigo</a>
+                </div>
+
+                <div style="text-align: center; margin-top: 10px;">
+                    <a href="#" onclick="backToRegister(event)" style="color: #64748b; text-decoration: none; font-size: 14px;">Voltar</a>
+                </div>
+            </div>
+
             <div id="modal-message" class="message"></div>
         </div>
     </div>
@@ -1114,7 +1741,8 @@
     
         function formatDateBR(dateString) {
             const date = new Date(dateString);
-            return date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+            date.setHours(date.getHours() - 3);
+            return date.toLocaleString('pt-BR');
         }
 
         let token = localStorage.getItem('token');
@@ -1134,6 +1762,11 @@
         let currentAudioBlob = null;
         let currentAudioBase64 = null;
         let currentAudioMimetype = null;
+
+  
+        let currentLoginType = 'email';
+        let currentRegisterType = 'email';
+        let pendingPhoneVerification = null;
 
     
         async function toggleRecording() {
@@ -1176,11 +1809,13 @@
 
                 
                 const recordBtn = document.getElementById('record-btn');
-                const recordBtnText = document.getElementById('record-btn-text');
+                const micIcon = document.getElementById('mic-icon');
+                const stopIcon = document.getElementById('stop-icon');
                 const recordingIndicator = document.getElementById('recording-indicator');
 
                 recordBtn.classList.add('recording');
-                recordBtnText.textContent = 'Parar';
+                micIcon.style.display = 'none';
+                stopIcon.style.display = 'block';
                 recordingIndicator.style.display = 'flex';
 
              
@@ -1206,11 +1841,13 @@
 
                
                 const recordBtn = document.getElementById('record-btn');
-                const recordBtnText = document.getElementById('record-btn-text');
+                const micIcon = document.getElementById('mic-icon');
+                const stopIcon = document.getElementById('stop-icon');
                 const recordingIndicator = document.getElementById('recording-indicator');
 
                 recordBtn.classList.remove('recording');
-                recordBtnText.textContent = 'Gravar';
+                micIcon.style.display = 'block';
+                stopIcon.style.display = 'none';
                 recordingIndicator.style.display = 'none';
             }
         }
@@ -1276,9 +1913,9 @@
         }
 
        
-        function toggleEmojiPicker() {
-            const picker = document.getElementById('emoji-picker');
-            picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        function toggleEmojis() {
+            const emojiBar = document.getElementById('emoji-bar');
+            emojiBar.classList.toggle('show');
         }
 
         function addEmoji(emoji) {
@@ -1291,6 +1928,293 @@
             textarea.focus();
             textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
         }
+
+     
+        let lastSentPhone = null;
+        let favoritesCache = [];
+
+        async function loadFavorites() {
+            if (!token) return [];
+
+            try {
+                const response = await API.get('/api/favorites', token);
+                const data = await response.json();
+
+                if (data.success) {
+                    favoritesCache = data.favorites;
+                    return data.favorites;
+                }
+                return [];
+            } catch (error) {
+                console.error('Erro ao carregar favoritos:', error);
+                return [];
+            }
+        }
+
+        async function updateFavoritesSelect() {
+            const select = document.getElementById('favorites-select');
+            if (!select) return;
+
+            const favorites = await loadFavorites();
+            select.innerHTML = '<option value="">Selecionar favorito...</option>';
+
+            favorites.forEach((fav) => {
+                const option = document.createElement('option');
+                option.value = fav.id;
+                option.textContent = `${fav.name} (${fav.phone})`;
+                select.appendChild(option);
+            });
+        }
+
+        function selectFavorite(id) {
+            if (id === '') return;
+
+            const fav = favoritesCache.find(f => f.id == id);
+
+            if (fav) {
+                document.getElementById('phone').value = fav.phone;
+                document.getElementById('favorites-select').value = '';
+            }
+        }
+
+        async function openFavoritesModal() {
+            await renderFavoritesList();
+            document.getElementById('favorites-modal').classList.add('show');
+        }
+
+        function closeFavoritesModal() {
+            document.getElementById('favorites-modal').classList.remove('show');
+            document.getElementById('new-favorite-name').value = '';
+            document.getElementById('new-favorite-phone').value = '';
+        }
+
+        function closeFavoritesModalOnBackdrop(event) {
+            if (event.target.id === 'favorites-modal') {
+                closeFavoritesModal();
+            }
+        }
+
+        async function renderFavoritesList() {
+            const container = document.getElementById('favorites-list');
+            const favorites = await loadFavorites();
+
+            if (favorites.length === 0) {
+                container.innerHTML = '<div class="favorites-empty">Nenhum favorito salvo ainda.</div>';
+                return;
+            }
+
+            container.innerHTML = favorites.map((fav) => `
+                <div class="favorite-item">
+                    <div class="favorite-item-info">
+                        <div class="favorite-item-name">${fav.name}</div>
+                        <div class="favorite-item-phone">+55 ${fav.phone}</div>
+                    </div>
+                    <div class="favorite-item-actions">
+                        <button class="favorite-item-btn use" onclick="useFavorite(${fav.id})">Usar</button>
+                        <button class="favorite-item-btn delete" onclick="deleteFavoriteById(${fav.id})">Excluir</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function addFavorite() {
+            const nameInput = document.getElementById('new-favorite-name');
+            const phoneInput = document.getElementById('new-favorite-phone');
+
+            const name = nameInput.value.trim();
+            const phone = phoneInput.value.replace(/\D/g, '');
+
+            if (!name) {
+                showAlert('Digite um nome para o favorito', 'warning');
+                return;
+            }
+
+            if (phone.length < 10 || phone.length > 11) {
+                showAlert('Digite um telefone válido (10 ou 11 dígitos)', 'warning');
+                return;
+            }
+
+            try {
+                const response = await API.post('/api/favorites', { name, phone }, token);
+                const data = await response.json();
+
+                if (data.success) {
+                    nameInput.value = '';
+                    phoneInput.value = '';
+                    await renderFavoritesList();
+                    await updateFavoritesSelect();
+                    showAlert('Favorito adicionado com sucesso!', 'success');
+                } else {
+                    showAlert(data.error || 'Erro ao adicionar favorito', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao adicionar favorito: ' + error.message, 'error');
+            }
+        }
+
+        function useFavorite(id) {
+            const fav = favoritesCache.find(f => f.id == id);
+
+            if (fav) {
+                document.getElementById('phone').value = fav.phone;
+                closeFavoritesModal();
+            }
+        }
+
+        async function deleteFavoriteById(id) {
+            const confirmed = await showConfirm('Tem certeza que deseja excluir este favorito?', 'Excluir Favorito');
+            if (!confirmed) return;
+
+            try {
+                const response = await API.delete('/api/favorites/' + id, token);
+                const data = await response.json();
+
+                if (data.success) {
+                    await renderFavoritesList();
+                    await updateFavoritesSelect();
+                    showAlert('Favorito excluído com sucesso!', 'success');
+                } else {
+                    showAlert(data.error || 'Erro ao excluir favorito', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao excluir favorito: ' + error.message, 'error');
+            }
+        }
+
+        async function showSavePrompt(phone) {
+            if (!token) return;
+
+         
+            try {
+                const response = await API.get('/api/favorites/check/' + phone, token);
+                const data = await response.json();
+
+                if (data.isFavorite) return;
+
+                lastSentPhone = phone;
+                document.getElementById('save-favorite-name').value = '';
+                document.getElementById('save-favorite-prompt').classList.add('show');
+            } catch (error) {
+                console.error('Erro ao verificar favorito:', error);
+            }
+        }
+
+        function closeSavePrompt() {
+            document.getElementById('save-favorite-prompt').classList.remove('show');
+            lastSentPhone = null;
+        }
+
+        async function saveFavoriteFromPrompt() {
+            const nameInput = document.getElementById('save-favorite-name');
+            const name = nameInput.value.trim();
+
+            if (!name) {
+                showAlert('Digite um nome para o contato', 'warning');
+                return;
+            }
+
+            if (!lastSentPhone) return;
+
+            try {
+                const response = await API.post('/api/favorites', { name, phone: lastSentPhone }, token);
+                const data = await response.json();
+
+                if (data.success) {
+                    await updateFavoritesSelect();
+                    closeSavePrompt();
+                    showAlert('Contato salvo nos favoritos!', 'success');
+                } else {
+                    showAlert(data.error || 'Erro ao salvar favorito', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao salvar favorito: ' + error.message, 'error');
+            }
+        }
+
+   
+        let customModalResolve = null;
+
+        function showAlert(message, type = 'info') {
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            const titles = {
+                success: 'Sucesso!',
+                error: 'Erro',
+                warning: 'Atenção',
+                info: 'Informação'
+            };
+            const btnClass = type === 'error' ? 'danger' : type === 'success' ? 'success' : 'primary';
+
+            document.getElementById('custom-modal-icon').textContent = icons[type] || icons.info;
+            document.getElementById('custom-modal-title').textContent = titles[type] || titles.info;
+            document.getElementById('custom-modal-message').textContent = message;
+            document.getElementById('custom-modal-buttons').innerHTML = `
+                <button class="custom-modal-btn ${btnClass}" onclick="closeCustomModal()">OK</button>
+            `;
+            document.getElementById('custom-modal').classList.add('show');
+        }
+
+        function showConfirm(message, title = 'Confirmar') {
+            return new Promise((resolve) => {
+                customModalResolve = resolve;
+                document.getElementById('custom-modal-icon').textContent = '❓';
+                document.getElementById('custom-modal-title').textContent = title;
+                document.getElementById('custom-modal-message').textContent = message;
+                document.getElementById('custom-modal-buttons').innerHTML = `
+                    <button class="custom-modal-btn secondary" onclick="resolveCustomModal(false)">Cancelar</button>
+                    <button class="custom-modal-btn danger" onclick="resolveCustomModal(true)">Confirmar</button>
+                `;
+                document.getElementById('custom-modal').classList.add('show');
+            });
+        }
+
+        function closeCustomModal() {
+            document.getElementById('custom-modal').classList.remove('show');
+        }
+
+        function resolveCustomModal(value) {
+            document.getElementById('custom-modal').classList.remove('show');
+            if (customModalResolve) {
+                customModalResolve(value);
+                customModalResolve = null;
+            }
+        }
+
+        function closeCustomModalOnBackdrop(event) {
+            if (event.target.id === 'custom-modal') {
+                closeCustomModal();
+                if (customModalResolve) {
+                    customModalResolve(false);
+                    customModalResolve = null;
+                }
+            }
+        }
+
+        function showSuccessRegistration(email) {
+            document.getElementById('custom-modal-icon').textContent = '🎉';
+            document.getElementById('custom-modal-title').textContent = 'Conta Criada com Sucesso!';
+            document.getElementById('custom-modal-message').innerHTML = `
+                <div style="text-align: left; line-height: 1.8;">
+                    <p style="margin-bottom: 12px;">📧 Um email de verificação foi enviado para:</p>
+                    <p style="font-weight: 600; color: #4f46e5; margin-bottom: 16px;">${email}</p>
+                    <p style="font-weight: 600; margin-bottom: 8px;">⚠️ IMPORTANTE:</p>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <li>Verifique sua caixa de entrada (e spam)</li>
+                        <li>Clique no link de verificação</li>
+                        <li>Só então você poderá fazer login</li>
+                    </ul>
+                </div>
+            `;
+            document.getElementById('custom-modal-buttons').innerHTML = `
+                <button class="custom-modal-btn success" onclick="closeCustomModal()">Entendi</button>
+            `;
+            document.getElementById('custom-modal').classList.add('show');
+        }
+   
 
         function togglePassword(inputId) {
             const input = document.getElementById(inputId);
@@ -1311,8 +2235,9 @@
             const mainSection = document.getElementById('main-section');
 
             if (token && user) {
+                const userIdentifier = user.email || user.phone || 'Usuário';
                 navButtons.innerHTML = `
-                    <span class="user-email">${user.email}</span>
+                    <span class="user-email">${userIdentifier}</span>
                     <button class="btn-nav" onclick="logout()">Sair</button>
                 `;
                 welcomeSection.classList.add('hidden');
@@ -1322,7 +2247,8 @@
                 loadReplies();
                 connectSocket();
                 startRepliesPolling();
-                checkWhatsAppStatus(); 
+                checkWhatsAppStatus();
+                updateFavoritesSelect(); 
             } else {
                 navButtons.innerHTML = `
                     <button class="btn-nav" onclick="openLoginModal()">Entrar / Cadastrar</button>
@@ -1513,19 +2439,176 @@
             document.getElementById('modal-message').style.display = 'none';
         }
 
+  
+        function toggleLoginType(type) {
+            currentLoginType = type;
+            const emailToggle = document.getElementById('login-email-toggle');
+            const phoneToggle = document.getElementById('login-phone-toggle');
+            const emailGroup = document.getElementById('login-email-group');
+            const phoneGroup = document.getElementById('login-phone-group');
+
+            if (type === 'email') {
+                emailToggle.style.background = '#4f46e5';
+                emailToggle.style.color = 'white';
+                emailToggle.style.borderColor = '#4f46e5';
+                phoneToggle.style.background = 'white';
+                phoneToggle.style.color = '#64748b';
+                phoneToggle.style.borderColor = '#e2e8f0';
+                emailGroup.style.display = 'block';
+                phoneGroup.style.display = 'none';
+                document.getElementById('login-email').required = true;
+                document.getElementById('login-phone').required = false;
+            } else {
+                phoneToggle.style.background = '#4f46e5';
+                phoneToggle.style.color = 'white';
+                phoneToggle.style.borderColor = '#4f46e5';
+                emailToggle.style.background = 'white';
+                emailToggle.style.color = '#64748b';
+                emailToggle.style.borderColor = '#e2e8f0';
+                emailGroup.style.display = 'none';
+                phoneGroup.style.display = 'block';
+                document.getElementById('login-email').required = false;
+                document.getElementById('login-phone').required = true;
+            }
+        }
+
+      
+        function toggleRegisterType(type) {
+            currentRegisterType = type;
+            const emailToggle = document.getElementById('register-email-toggle');
+            const phoneToggle = document.getElementById('register-phone-toggle');
+            const emailGroup = document.getElementById('register-email-group');
+            const phoneGroup = document.getElementById('register-phone-group');
+
+            if (type === 'email') {
+                emailToggle.style.background = '#4f46e5';
+                emailToggle.style.color = 'white';
+                emailToggle.style.borderColor = '#4f46e5';
+                phoneToggle.style.background = 'white';
+                phoneToggle.style.color = '#64748b';
+                phoneToggle.style.borderColor = '#e2e8f0';
+                emailGroup.style.display = 'block';
+                phoneGroup.style.display = 'none';
+                document.getElementById('register-email').required = true;
+                document.getElementById('register-phone').required = false;
+            } else {
+                phoneToggle.style.background = '#4f46e5';
+                phoneToggle.style.color = 'white';
+                phoneToggle.style.borderColor = '#4f46e5';
+                emailToggle.style.background = 'white';
+                emailToggle.style.color = '#64748b';
+                emailToggle.style.borderColor = '#e2e8f0';
+                emailGroup.style.display = 'none';
+                phoneGroup.style.display = 'block';
+                document.getElementById('register-email').required = false;
+                document.getElementById('register-phone').required = true;
+            }
+        }
+
+       
+        function backToRegister(event) {
+            event.preventDefault();
+            document.getElementById('verify-phone-form').style.display = 'none';
+            document.getElementById('register-form').classList.add('active');
+            document.getElementById('modal-message').style.display = 'none';
+        }
+
+   
+        async function handleVerifyPhone(event) {
+            event.preventDefault();
+
+            const code = document.getElementById('verify-code').value;
+            const btn = document.getElementById('verify-btn');
+
+            if (!pendingPhoneVerification) {
+                showModalMessage('Erro: Nenhuma verificação pendente', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Verificando...';
+
+            try {
+                const response = await API.post('/api/verify-phone', {
+                    phone: pendingPhoneVerification.phone,
+                    code: code
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    token = data.token;
+                    user = data.user;
+                    pendingPhoneVerification = null;
+                    showModalMessage('Telefone verificado com sucesso!', 'success');
+                    setTimeout(() => {
+                        closeLoginModal();
+                        updateUI();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 1000);
+                } else {
+                    showModalMessage(data.error || 'Código inválido', 'error');
+                }
+            } catch (error) {
+                showModalMessage('Erro ao verificar código: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Verificar';
+            }
+        }
+
+        
+        async function resendPhoneCode(event) {
+            event.preventDefault();
+
+            if (!pendingPhoneVerification) {
+                showModalMessage('Erro: Nenhuma verificação pendente', 'error');
+                return;
+            }
+
+            try {
+                const response = await API.post('/api/resend-phone-code', {
+                    phone: pendingPhoneVerification.phone
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showModalMessage('Código reenviado para seu WhatsApp!', 'success');
+                } else {
+                    showModalMessage(data.error || 'Erro ao reenviar código', 'error');
+                }
+            } catch (error) {
+                showModalMessage('Erro ao reenviar código: ' + error.message, 'error');
+            }
+        }
+
 
         async function handleLogin(event) {
             event.preventDefault();
 
-            const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
             const btn = document.getElementById('login-btn');
+
+            let identifier;
+            if (currentLoginType === 'email') {
+                identifier = document.getElementById('login-email').value;
+            } else {
+                const phoneNumber = document.getElementById('login-phone').value;
+                identifier = '+55' + phoneNumber;
+            }
 
             btn.disabled = true;
             btn.textContent = 'Entrando...';
 
             try {
-                const response = await API.post('/api/login', { email, password });
+                const response = await API.post('/api/login', {
+                    email: currentLoginType === 'email' ? identifier : undefined,
+                    phone: currentLoginType === 'phone' ? identifier : undefined,
+                    password
+                });
 
                 const data = await response.json();
 
@@ -1538,6 +2621,7 @@
                     setTimeout(() => {
                         closeLoginModal();
                         updateUI();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                     }, 1000);
                 } else {
                     showModalMessage(data.error, 'error');
@@ -1589,7 +2673,6 @@
         async function handleRegister(event) {
             event.preventDefault();
 
-            const email = document.getElementById('register-email').value;
             const password = document.getElementById('register-password').value;
             const passwordConfirm = document.getElementById('register-password-confirm').value;
             const btn = document.getElementById('register-btn');
@@ -1603,27 +2686,44 @@
             btn.textContent = 'Criando conta...';
 
             try {
-                const response = await API.post('/api/register', { email, password });
+                let response;
+                let data;
 
-                const data = await response.json();
-
-                if (data.success) {
+                if (currentRegisterType === 'email') {
+                  
                     const email = document.getElementById('register-email').value;
+                    response = await API.post('/api/register', { email, password });
+                    data = await response.json();
 
-                    document.getElementById('register-form').querySelector('form').reset();
-
-
-                    closeLoginModal();
-
-
-                    alert(`✅ CONTA CRIADA COM SUCESSO!\n\n📧 Um email de verificação foi enviado para:\n${email}\n\n⚠️ IMPORTANTE:\n• Verifique sua caixa de entrada (e spam)\n• Clique no link de verificação\n• Só então você poderá fazer login\n\nSem a verificação do email, você NÃO conseguirá acessar o sistema.`);
-
-
-                    openLoginModal();
-                    switchTab('login');
-                    showModalMessage('Verifique seu email para ativar sua conta antes de fazer login.', 'success');
+                    if (data.success) {
+                        document.getElementById('register-form').querySelector('form').reset();
+                        closeLoginModal();
+                        showSuccessRegistration(email);
+                        openLoginModal();
+                        switchTab('login');
+                        showModalMessage('Verifique seu email para ativar sua conta antes de fazer login.', 'success');
+                    } else {
+                        showModalMessage(data.error, 'error');
+                    }
                 } else {
-                    showModalMessage(data.error, 'error');
+            
+                    const phoneNumber = document.getElementById('register-phone').value;
+                    const phone = '+55' + phoneNumber;
+
+                    response = await API.post('/api/register-phone', { phone, password });
+                    data = await response.json();
+
+                    if (data.success) {
+                      
+                        pendingPhoneVerification = { phone };
+                        document.getElementById('verify-phone-display').textContent = phone;
+                        document.getElementById('register-form').classList.remove('active');
+                        document.getElementById('verify-phone-form').style.display = 'block';
+                        document.getElementById('verify-phone-form').classList.add('active');
+                        showModalMessage('Código de verificação enviado para seu WhatsApp!', 'success');
+                    } else {
+                        showModalMessage(data.error, 'error');
+                    }
                 }
             } catch (error) {
                 showModalMessage('Erro ao criar conta: ' + error.message, 'error');
@@ -1679,10 +2779,19 @@
                 if (data.success) {
                     const successMsg = hasAudio ? 'Áudio enviado com sucesso! ✓' : 'Mensagem enviada com sucesso! ✓';
                     showMessage('send-message', successMsg, 'success');
+
+                 
+                    const sentPhone = phoneNumber;
+
                     document.getElementById('sendForm').reset();
-                    removeAudio(); // Limpar áudio se houver
+                    removeAudio(); 
                     updateCreditsDisplay(data.whatsapp_credits, data.sms_credits);
                     loadHistory();
+
+              
+                    setTimeout(() => {
+                        showSavePrompt(sentPhone);
+                    }, 500);
                 } else {
                     if (data.moderationReason) {
                         showMessage('send-message', '⚠️ Mensagem bloqueada: Sua mensagem contém conteúdo inadequado e não pode ser enviada. Por favor, revise o texto e tente novamente.', 'error');
@@ -1707,6 +2816,21 @@
             });
             event.target.closest('.quantity-option').classList.add('selected');
             document.getElementById('custom-quantity').value = qty;
+            updateBonusPreview();
+        }
+
+        function updateBonusPreview() {
+            const input = document.getElementById('custom-quantity');
+            const preview = document.getElementById('bonus-preview');
+            const qty = parseInt(input.value);
+
+            if (qty && qty > 0) {
+                const total = qty * 2;
+                preview.textContent = `🎁 Você paga R$ ${qty},00 e recebe ${total} mensagens!`;
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
         }
 
         async function buyCredits() {
@@ -1893,22 +3017,61 @@
         updateUI();
     </script>
 
-    <!-- Seção de Suporte -->
-    <div style="max-width: 700px; margin: 30px auto 20px; padding: 0 20px;">
-        <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; padding: 25px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);">
-            <h3 style="color: white; font-size: 18px; margin-bottom: 10px; font-weight: 600;">
-                🦸‍♂️ Suporte 24 Horas (Sim, a gente nao dorme!)
-            </h3>
-            <p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 15px;">
-                Ficou com duvida? Nossa equipe ta sempre de plantao<br>- tipo aquele amigo que responde de madrugada! ☕
-            </p>
-            <a href="mailto:zapanonimo2025@gmail.com" style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white">
-                    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-                </svg>
-                zapanonimo2025@gmail.com
-            </a>
+    <!-- Footer -->
+    <footer style="max-width: 700px; margin: 40px auto 20px; text-align: center; padding: 20px; color: #64748b; font-size: 14px;">
+        <div style="margin-bottom: 15px;">
+            <a href="/privacy" style="color: #4f46e5; text-decoration: none; margin: 0 15px;">Politica de Privacidade</a>
+            <a href="/terms" style="color: #4f46e5; text-decoration: none; margin: 0 15px;">Termos de Uso</a>
+        </div>
+        <p style="margin: 0; color: #94a3b8; font-size: 12px;">
+            As mensagens nao exibem a identidade do remetente ao destinatario.<br>
+            A plataforma mantém registros tecnicos conforme a lei.
+        </p>
+        <p style="margin: 10px 0 0; color: #94a3b8; font-size: 12px;">
+            &copy; 2026 Zap Anonimo. Todos os direitos reservados.
+        </p>
+    </footer>
+
+    <!-- Modal Favoritos -->
+    <div id="favorites-modal" class="favorites-modal" onclick="closeFavoritesModalOnBackdrop(event)">
+        <div class="favorites-modal-content">
+            <div class="favorites-modal-header">
+                <h3>⭐ Meus Favoritos</h3>
+                <button class="favorites-modal-close" onclick="closeFavoritesModal()">&times;</button>
+            </div>
+            <div class="favorites-modal-body">
+                <div id="favorites-list" class="favorites-list">
+                    <!-- Lista de favoritos sera preenchida via JS -->
+                </div>
+                <div class="favorites-add-form">
+                    <h4>Adicionar novo favorito</h4>
+                    <input type="text" id="new-favorite-name" placeholder="Nome (ex: Joao)">
+                    <input type="tel" id="new-favorite-phone" placeholder="Telefone (ex: 11999999999)" maxlength="11">
+                    <button type="button" onclick="addFavorite()">Adicionar Favorito</button>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Prompt para salvar favorito -->
+    <div id="save-favorite-prompt" class="save-favorite-prompt">
+        <p>Deseja salvar este numero nos favoritos?</p>
+        <input type="text" id="save-favorite-name" placeholder="Nome do contato" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px; font-size: 14px;">
+        <div class="save-favorite-prompt-buttons">
+            <button class="btn-skip" onclick="closeSavePrompt()">Nao</button>
+            <button class="btn-save" onclick="saveFavoriteFromPrompt()">Salvar</button>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmacao/Alerta Personalizado -->
+    <div id="custom-modal" class="custom-modal-overlay" onclick="closeCustomModalOnBackdrop(event)">
+        <div class="custom-modal-box">
+            <div class="custom-modal-icon" id="custom-modal-icon"></div>
+            <div class="custom-modal-title" id="custom-modal-title"></div>
+            <div class="custom-modal-message" id="custom-modal-message"></div>
+            <div class="custom-modal-buttons" id="custom-modal-buttons"></div>
+        </div>
+    </div>
+
 </body>
 </html>

@@ -301,7 +301,7 @@ async function ensureAudioBucket() {
         console.error('[AudioStorage] Erro ao criar bucket:', error);
         return false;
       }
-      console.log('[AudioStorage] Bucket "audios" criado com sucesso');
+    
     }
     return true;
   } catch (error) {
@@ -357,7 +357,7 @@ async function uploadAudio(base64Data, mimetype, folder = 'replies') {
       .from(AUDIO_BUCKET_NAME)
       .getPublicUrl(filename);
 
-    console.log(`[AudioStorage] Áudio salvo: ${filename}`);
+
 
     return {
       success: true,
