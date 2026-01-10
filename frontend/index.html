@@ -1557,7 +1557,7 @@
                             <span onclick="addEmoji('🤭')">🤭</span>
                         </div>
                     </div>
-                    <small style="color: #64748b; font-size: 12px;">Maximo: 65.536 caracteres</small>
+                    <small style="color: #64748b; font-size: 12px;">Máximo: 65.536 caracteres</small>
                 </div>
 
                 <!-- Controles de Áudio -->
@@ -1648,9 +1648,19 @@
             </div>
 
             <div id="buy-message" class="message"></div>
+
+            <!-- Histórico de Pagamentos -->
+            <div style="margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                <h3 style="font-size: 16px; color: #374151; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">📋</span> Histórico de Pagamentos
+                </h3>
+                <div id="payment-history" style="max-height: 200px; overflow-y: auto;">
+                    <p style="text-align: center; color: #999; font-size: 14px;">Carregando...</p>
+                </div>
+            </div>
         </div>
 
-     
+
         <div class="card">
             <h2>Mensagens Enviadas</h2>
             <p class="subtitle">Histórico de mensagens que você enviou</p>
@@ -1698,7 +1708,7 @@
         <div class="modal-content">
             <span class="close" onclick="closeLoginModal()">&times;</span>
             <h2 style="color: #1e293b; margin-bottom: 10px;">Bem-vindo</h2>
-            <p style="color: #64748b; margin-bottom: 30px;">Faca login ou crie sua conta</p>
+            <p style="color: #64748b; margin-bottom: 30px;">Faça login ou crie sua conta</p>
 
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('login')">Login</div>
@@ -1756,10 +1766,10 @@
             <div id="register-form" class="form-content">
                 <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 18px; margin-bottom: 20px; border-radius: 8px; color: white;">
                     <p style="font-size: 15px; margin: 0 0 8px 0; font-weight: 600;">
-                        Bonus de Boas-Vindas
+                        Bônus de Boas-Vindas
                     </p>
                     <p style="font-size: 14px; margin: 0; opacity: 0.95;">
-                        <strong>5 mensagens WhatsApp gratis!</strong>
+                        <strong>5 mensagens WhatsApp grátis!</strong>
                     </p>
                 </div>
 
@@ -1787,7 +1797,7 @@
                             <input type="text" value="+55" readonly style="width: 60px; background: #f0f0f0; color: #666;">
                             <input type="tel" id="register-phone" placeholder="11999999999" pattern="[0-9]{10,11}" maxlength="11" style="flex: 1;">
                         </div>
-                        <p class="hint">Digite DDD + numero (ex: 11999999999)</p>
+                        <p class="hint">Digite DDD + número (ex: 11999999999)</p>
                     </div>
 
                     <div class="form-group">
@@ -1800,7 +1810,7 @@
                                 </svg>
                             </span>
                         </div>
-                        <p class="hint">Minimo 6 caracteres</p>
+                        <p class="hint">Mínimo 6 caracteres</p>
                     </div>
 
                     <div class="form-group">
@@ -1824,13 +1834,13 @@
                 <div style="text-align: center; margin-bottom: 20px;">
                     <div style="font-size: 48px; margin-bottom: 15px;">💬</div>
                     <h3 style="color: #1e293b; margin-bottom: 10px;">Verificar Telefone</h3>
-                    <p style="color: #64748b; font-size: 14px;">Digite o codigo de 6 digitos enviado pelo WhatsApp para</p>
+                    <p style="color: #64748b; font-size: 14px;">Digite o código de 6 dígitos enviado pelo WhatsApp para</p>
                     <p style="color: #4f46e5; font-weight: 600;" id="verify-phone-display"></p>
                 </div>
 
                 <form onsubmit="handleVerifyPhone(event)">
                     <div class="form-group">
-                        <label for="verify-code">Codigo de Verificacao</label>
+                        <label for="verify-code">Código de Verificação</label>
                         <input type="text" id="verify-code" placeholder="000000" maxlength="6" pattern="[0-9]{6}" style="text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: 600;" required>
                     </div>
 
@@ -1838,7 +1848,7 @@
                 </form>
 
                 <div style="text-align: center; margin-top: 15px;">
-                    <a href="#" onclick="resendPhoneCode(event)" style="color: #4f46e5; text-decoration: none; font-size: 14px;">Reenviar codigo</a>
+                    <a href="#" onclick="resendPhoneCode(event)" style="color: #4f46e5; text-decoration: none; font-size: 14px;">Reenviar código</a>
                 </div>
 
                 <div style="text-align: center; margin-top: 10px;">
@@ -2364,6 +2374,7 @@
                 loadUserData();
                 loadHistory();
                 loadReplies();
+                loadPaymentHistory();
                 connectSocket();
                 startRepliesPolling();
                 checkWhatsAppStatus();
@@ -2515,6 +2526,73 @@
                         <p style="color: #64748b; margin: 0;">Nenhuma resposta recebida ainda</p>
                         <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">Quando alguém responder suas mensagens, aparecerá aqui</p>
                     </div>
+                `;
+            }
+        }
+
+        async function loadPaymentHistory() {
+            if (!token) return;
+
+            const paymentHistoryEl = document.getElementById('payment-history');
+
+            try {
+                const response = await API.get('/api/transactions', token);
+                const data = await response.json();
+
+                if (data.success && data.transactions && data.transactions.length > 0) {
+                    // Filtrar apenas compras (type = 'purchase')
+                    const purchases = data.transactions.filter(t => t.type === 'purchase');
+
+                    if (purchases.length > 0) {
+                        paymentHistoryEl.innerHTML = purchases.slice(0, 10).map(purchase => {
+                            const date = new Date(purchase.created_at);
+                            const formattedDate = date.toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+
+                            const statusColor = '#10b981';
+                            const statusIcon = '✓';
+
+                            return `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f9fafb; border-radius: 8px; margin-bottom: 8px; font-size: 13px;">
+                                    <div>
+                                        <div style="color: #374151; font-weight: 500;">
+                                            <span style="color: ${statusColor}; margin-right: 5px;">${statusIcon}</span>
+                                            +${purchase.credits_added} créditos
+                                        </div>
+                                        <div style="color: #9ca3af; font-size: 11px; margin-top: 2px;">${formattedDate}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="color: #374151; font-weight: 600;">R$ ${purchase.price ? purchase.price.toFixed(2).replace('.', ',') : '0,00'}</div>
+                                        <div style="color: ${statusColor}; font-size: 11px;">Aprovado</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    } else {
+                        paymentHistoryEl.innerHTML = `
+                            <p style="text-align: center; color: #9ca3af; font-size: 13px; padding: 15px 0;">
+                                Nenhuma compra realizada ainda
+                            </p>
+                        `;
+                    }
+                } else {
+                    paymentHistoryEl.innerHTML = `
+                        <p style="text-align: center; color: #9ca3af; font-size: 13px; padding: 15px 0;">
+                            Nenhuma compra realizada ainda
+                        </p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar histórico de pagamentos:', error);
+                paymentHistoryEl.innerHTML = `
+                    <p style="text-align: center; color: #9ca3af; font-size: 13px; padding: 15px 0;">
+                        Nenhuma compra realizada ainda
+                    </p>
                 `;
             }
         }
@@ -3081,6 +3159,7 @@
                         setTimeout(() => {
                             closePixModal();
                             loadUserData();
+                            loadPaymentHistory();
                             showAlert('Pagamento confirmado! Seus créditos foram adicionados.', 'success');
                         }, 2000);
                     }
@@ -3241,6 +3320,7 @@
         if (urlParams.get('payment') === 'success' && token) {
             setTimeout(() => {
                 loadUserData();
+                loadPaymentHistory();
                 showMessage('buy-message', 'Mensagens adicionadas com sucesso!', 'success');
             }, 1000);
         }
@@ -3259,7 +3339,7 @@
             A plataforma mantém registros tecnicos conforme a lei.
         </p>
         <p style="margin: 10px 0 0; color: #94a3b8; font-size: 12px;">
-            &copy; 2026 Zap Anonimo. Todos os direitos reservados.
+            &copy; 2025 Zap Anonimo. Todos os direitos reservados.
         </p>
     </footer>
 
