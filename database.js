@@ -182,7 +182,7 @@ async function findRecentMessageWithoutReply(channel = 'whatsapp', maxMinutes = 
 }
 
 
-async function createUser(email, password, phone = null, name = null, cpf = null) {
+async function createUser(email, password, phone = null, name = null, cpf = null, acceptedTermsAt = null, termsVersion = null) {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const userData = {
@@ -204,6 +204,13 @@ async function createUser(email, password, phone = null, name = null, cpf = null
   }
   if (cpf) {
     userData.cpf = cpf;
+  }
+
+  if (acceptedTermsAt) {
+    userData.accepted_terms_at = acceptedTermsAt;
+  }
+  if (termsVersion) {
+    userData.terms_version = termsVersion;
   }
 
   const { data, error } = await supabase

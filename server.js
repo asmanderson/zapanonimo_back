@@ -262,10 +262,14 @@ app.use(express.static(frontendPath));
 
 app.post('/api/register', async (req, res) => {
   try {
-    const { email, password, name, cpf } = req.body;
+    const { email, password, name, cpf, acceptedTermsAt, termsVersion } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ success: false, error: 'Email e senha sao obrigatorios' });
+    }
+
+    if (!acceptedTermsAt) {
+      return res.status(400).json({ success: false, error: 'Voce deve aceitar os Termos de Uso' });
     }
 
     if (!name || name.trim().length < 3) {
@@ -291,7 +295,7 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'CPF ja cadastrado' });
     }
 
-    const result = await createUser(email, password, null, name.trim(), cpf);
+    const result = await createUser(email, password, null, name.trim(), cpf, acceptedTermsAt, termsVersion);
     const verificationToken = await createVerificationToken(result.id);
 
     try {
@@ -311,10 +315,14 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/register-phone', async (req, res) => {
   try {
-    const { phone, password, name, cpf } = req.body;
+    const { phone, password, name, cpf, acceptedTermsAt, termsVersion } = req.body;
 
     if (!phone || !password) {
       return res.status(400).json({ success: false, error: 'Telefone e senha sao obrigatorios' });
+    }
+
+    if (!acceptedTermsAt) {
+      return res.status(400).json({ success: false, error: 'Voce deve aceitar os Termos de Uso' });
     }
 
     if (!name || name.trim().length < 3) {
@@ -346,7 +354,7 @@ app.post('/api/register-phone', async (req, res) => {
       return res.status(400).json({ success: false, error: 'CPF ja cadastrado' });
     }
 
-    const result = await createUser(null, password, normalizedPhone, name.trim(), cpf);
+    const result = await createUser(null, password, normalizedPhone, name.trim(), cpf, acceptedTermsAt, termsVersion);
 
 
     const verificationCode = await createPhoneVerificationCode(result.id, normalizedPhone);
