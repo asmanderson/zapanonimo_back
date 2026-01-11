@@ -16,12 +16,12 @@ const client = new MercadoPagoConfig({
 const payment = new Payment(client);
 const preference = new Preference(client);
 
-// Calcula preco (R$ 1,00 por mensagem, sem desconto - promocao dobra na entrega)
+
 function calculatePrice(quantity) {
   return quantity * 1.00;
 }
 
-// Criar pagamento PIX
+
 async function createPixPayment(userId, quantity, userEmail) {
   const price = calculatePrice(quantity);
   const description = `${quantity} Crédito(s) WhatsApp - Zap Anônimo`;
@@ -58,7 +58,7 @@ async function createPixPayment(userId, quantity, userEmail) {
   }
 }
 
-// Criar preferencia para checkout (cartao de credito/debito)
+
 async function createCardPreference(userId, quantity, userEmail) {
   const price = calculatePrice(quantity);
   const baseUrl = process.env.FRONTEND_URL || process.env.BASE_URL || 'https://zapanonimo.com';
@@ -89,7 +89,7 @@ async function createCardPreference(userId, quantity, userEmail) {
     statement_descriptor: 'ZAPANONIMO',
     payment_methods: {
       excluded_payment_types: [
-        { id: 'ticket' } // Exclui boleto (demora muito)
+        { id: 'ticket' } 
       ],
       installments: 12
     }
@@ -101,8 +101,8 @@ async function createCardPreference(userId, quantity, userEmail) {
     return {
       success: true,
       preferenceId: result.id,
-      initPoint: result.init_point, // URL para redirecionar (producao)
-      sandboxInitPoint: result.sandbox_init_point // URL para teste
+      initPoint: result.init_point, 
+      sandboxInitPoint: result.sandbox_init_point 
     };
   } catch (error) {
     console.error('[MercadoPago] Erro ao criar preferencia:', error);
@@ -110,7 +110,7 @@ async function createCardPreference(userId, quantity, userEmail) {
   }
 }
 
-// Verificar status do pagamento
+
 async function getPaymentStatus(paymentId) {
   try {
     const result = await payment.get({ id: paymentId });
@@ -129,9 +129,9 @@ async function getPaymentStatus(paymentId) {
   }
 }
 
-// Processar webhook do Mercado Pago
+
 function parseWebhookData(body) {
-  // Webhook pode vir em diferentes formatos
+ 
   if (body.type === 'payment' && body.data?.id) {
     return {
       type: 'payment',
@@ -149,12 +149,12 @@ function parseWebhookData(body) {
   return null;
 }
 
-// Verificar se pagamento foi aprovado
+
 function isPaymentApproved(status) {
   return status === 'approved';
 }
 
-// Verificar se pagamento esta pendente (PIX aguardando)
+
 function isPaymentPending(status) {
   return status === 'pending' || status === 'in_process';
 }

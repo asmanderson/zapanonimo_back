@@ -6,6 +6,7 @@ const session = require('express-session');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+const bcrypt = require('bcrypt');
 
 const app = express();
 const server = http.createServer(app);
@@ -46,13 +47,41 @@ const io = new Server(server, {
 });
 
 const userSockets = new Map();
+const onlineStats = {
+  totalConnections: 0,
+  authenticatedUsers: new Set(),
+  visitors: 0,
+  lastUpdate: new Date()
+};
+
+function getOnlineStats() {
+  return {
+    total: onlineStats.totalConnections,
+    authenticated: onlineStats.authenticatedUsers.size,
+    visitors: onlineStats.totalConnections - onlineStats.authenticatedUsers.size,
+    lastUpdate: onlineStats.lastUpdate
+  };
+}
+
+function broadcastOnlineStats() {
+  const stats = getOnlineStats();
+  io.emit('online:stats', stats);
+}
 
 io.on('connection', (socket) => {
+
+  onlineStats.totalConnections++;
+  onlineStats.lastUpdate = new Date();
+  broadcastOnlineStats();
+
   socket.on('authenticate', (userId) => {
     if (userId) {
       const userIdStr = userId.toString();
       userSockets.set(userIdStr, socket.id);
       socket.userId = userIdStr;
+      onlineStats.authenticatedUsers.add(userIdStr);
+      onlineStats.lastUpdate = new Date();
+      broadcastOnlineStats();
 
       socket.join(`user:${userIdStr}`);
     }
@@ -62,15 +91,24 @@ io.on('connection', (socket) => {
   socket.on('admin:subscribe', () => {
     whatsappService.subscribeAdmin(socket.id);
     socket.isAdmin = true;
+
+    socket.emit('online:stats', getOnlineStats());
   });
 
   socket.on('disconnect', () => {
+
+    onlineStats.totalConnections = Math.max(0, onlineStats.totalConnections - 1);
+
     if (socket.userId) {
       userSockets.delete(socket.userId);
+      onlineStats.authenticatedUsers.delete(socket.userId);
     }
     if (socket.isAdmin) {
       whatsappService.unsubscribeAdmin(socket.id);
     }
+
+    onlineStats.lastUpdate = new Date();
+    broadcastOnlineStats();
   });
 });
 
@@ -85,6 +123,7 @@ const {
   createUser,
   getUserByEmail,
   getUserByPhone,
+  getUserByCpf,
   getUserByEmailOrPhone,
   getUserById,
   verifyPassword,
@@ -105,6 +144,8 @@ const {
   createPhoneVerificationCode,
   verifyPhoneCode,
   isPhoneVerified,
+  createPasswordResetCodeByPhone,
+  resetPasswordByPhone,
   logModerationEvent,
   deleteUserData,
   exportUserData,
@@ -112,7 +153,25 @@ const {
   getFavorites,
   addFavorite,
   deleteFavorite,
-  isFavorite
+  isFavorite,
+  supabase,
+  getAnnouncement,
+  saveAnnouncement,
+  deleteAnnouncement,
+  logAccess,
+  getAccessStats,
+  getRecentAccesses,
+  blockUser,
+  unblockUser,
+  isBlocked,
+  getBlockedByUser,
+  getPendingBlockNotifications,
+  markBlockAsNotified,
+  createNotification,
+  getUserNotifications,
+  getUnreadNotificationsCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
 } = require('./database');
 
 
@@ -147,7 +206,7 @@ const {
   constructWebhookEvent
 } = require('./stripe-payment');
 const { getWhatsAppService } = require('./whatsapp-service');
-const smsService = require('./sms-service');
+
 const { getModerationService } = require('./moderation-service');
 
 
@@ -203,10 +262,18 @@ app.use(express.static(frontendPath));
 
 app.post('/api/register', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, name, cpf } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ success: false, error: 'Email e senha sao obrigatorios' });
+    }
+
+    if (!name || name.trim().length < 3) {
+      return res.status(400).json({ success: false, error: 'Nome deve ter pelo menos 3 caracteres' });
+    }
+
+    if (!cpf || cpf.length !== 11) {
+      return res.status(400).json({ success: false, error: 'CPF invalido' });
     }
 
     if (password.length < 6) {
@@ -218,11 +285,17 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Email ja cadastrado' });
     }
 
-    const result = await createUser(email, password, null);
+    
+    const existingCpf = await getUserByCpf(cpf);
+    if (existingCpf) {
+      return res.status(400).json({ success: false, error: 'CPF ja cadastrado' });
+    }
+
+    const result = await createUser(email, password, null, name.trim(), cpf);
     const verificationToken = await createVerificationToken(result.id);
 
     try {
-      await sendVerificationEmail(email, verificationToken);
+      await sendVerificationEmail(email, verificationToken, name.trim());
     } catch (emailError) {}
 
     res.json({
@@ -238,20 +311,26 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/register-phone', async (req, res) => {
   try {
-    const { phone, password } = req.body;
+    const { phone, password, name, cpf } = req.body;
 
     if (!phone || !password) {
       return res.status(400).json({ success: false, error: 'Telefone e senha sao obrigatorios' });
+    }
+
+    if (!name || name.trim().length < 3) {
+      return res.status(400).json({ success: false, error: 'Nome deve ter pelo menos 3 caracteres' });
+    }
+
+    if (!cpf || cpf.length !== 11) {
+      return res.status(400).json({ success: false, error: 'CPF invalido' });
     }
 
     if (password.length < 6) {
       return res.status(400).json({ success: false, error: 'Senha deve ter no minimo 6 caracteres' });
     }
 
-   
     const normalizedPhone = phone.replace(/\D/g, '');
 
- 
     if (normalizedPhone.length < 10 || normalizedPhone.length > 13) {
       return res.status(400).json({ success: false, error: 'Telefone invalido. Use formato: 11999999999' });
     }
@@ -262,15 +341,21 @@ app.post('/api/register-phone', async (req, res) => {
     }
 
   
-    const result = await createUser(null, password, normalizedPhone);
+    const existingCpf = await getUserByCpf(cpf);
+    if (existingCpf) {
+      return res.status(400).json({ success: false, error: 'CPF ja cadastrado' });
+    }
 
-   
+    const result = await createUser(null, password, normalizedPhone, name.trim(), cpf);
+
+
     const verificationCode = await createPhoneVerificationCode(result.id, normalizedPhone);
 
-   
+
     const fullPhone = normalizedPhone.startsWith('55') ? '+' + normalizedPhone : '+55' + normalizedPhone;
+    const firstName = name ? name.trim().split(' ')[0] : '';
     try {
-      const verificationMessage = `🔐 *Código de Verificação Zap Anônimo*\n\nSeu código: *${verificationCode}*\n\n⏱️ Válido por 10 minutos.\n\n_Não compartilhe este código com ninguém._`;
+      const verificationMessage = `🔐 *Código de Verificação Zap Anônimo*\n\nOlá${firstName ? ', ' + firstName : ''}!\n\nSeu código: *${verificationCode}*\n\n⏱️ Válido por 10 minutos.\n\n_Não compartilhe este código com ninguém._`;
       await whatsappService.sendMessage(fullPhone, verificationMessage);
     } catch (whatsappError) {
       console.error('[Register] Erro ao enviar WhatsApp:', whatsappError);
@@ -310,6 +395,7 @@ app.post('/api/verify-phone', async (req, res) => {
       token,
       user: {
         id: user.id,
+        name: user.name || null,
         email: user.email,
         phone: user.phone,
         whatsapp_credits: user.whatsapp_credits,
@@ -344,10 +430,11 @@ app.post('/api/resend-phone-code', async (req, res) => {
    
     const verificationCode = await createPhoneVerificationCode(user.id, normalizedPhone);
 
-   
+
     const fullPhone = normalizedPhone.startsWith('55') ? '+' + normalizedPhone : '+55' + normalizedPhone;
+    const firstName = user.name ? user.name.split(' ')[0] : '';
     try {
-      const verificationMessage = `🔐 *Código de Verificação Zap Anônimo*\n\nSeu código: *${verificationCode}*\n\n⏱️ Válido por 10 minutos.\n\n_Não compartilhe este código com ninguém._`;
+      const verificationMessage = `🔐 *Código de Verificação Zap Anônimo*\n\nOlá${firstName ? ', ' + firstName : ''}!\n\nSeu código: *${verificationCode}*\n\n⏱️ Válido por 10 minutos.\n\n_Não compartilhe este código com ninguém._`;
       await whatsappService.sendMessage(fullPhone, verificationMessage);
     } catch (whatsappError) {
       return res.status(500).json({ success: false, error: 'Erro ao enviar codigo por WhatsApp' });
@@ -428,6 +515,7 @@ app.post('/api/login', async (req, res) => {
       token,
       user: {
         id: user.id,
+        name: user.name || null,
         email: user.email || null,
         phone: user.phone || null,
         whatsapp_credits: user.whatsapp_credits,
@@ -466,7 +554,7 @@ app.get('/api/verify-email/:token', async (req, res) => {
     const user = await getUserById(userId);
 
     try {
-      await sendWelcomeEmail(user.email);
+      await sendWelcomeEmail(user.email, user.name || '');
     } catch (emailError) {}
 
     res.json({
@@ -496,7 +584,7 @@ app.post('/api/resend-verification', async (req, res) => {
     }
 
     const verificationToken = await createVerificationToken(user.id);
-    await resendVerificationEmail(email, verificationToken);
+    await resendVerificationEmail(email, verificationToken, user.name || '');
 
     res.json({
       success: true,
@@ -563,12 +651,83 @@ app.post('/api/reset-password', async (req, res) => {
   }
 });
 
-// Rota de contato (Fale Conosco)
+
+app.post('/api/forgot-password-phone', async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'Telefone é obrigatório' });
+    }
+
+   
+    const normalizedPhone = phone.replace(/\D/g, '');
+    const fullPhone = normalizedPhone.startsWith('55') ? `+${normalizedPhone}` : `+55${normalizedPhone}`;
+
+    const user = await getUserByPhone(fullPhone);
+    if (!user) {
+    
+      return res.json({
+        success: true,
+        message: 'Se o telefone estiver cadastrado, você receberá um código via WhatsApp.'
+      });
+    }
+
+    const verificationCode = await createPasswordResetCodeByPhone(user.id, fullPhone);
+    const firstName = user.name ? user.name.split(' ')[0] : '';
+
+    try {
+      await whatsappService.sendMessage(
+        fullPhone.replace('+', ''),
+        `🔐 *Recuperação de Senha - Zap Anônimo*\n\nOlá${firstName ? ', ' + firstName : ''}!\n\nSeu código de recuperação é: *${verificationCode}*\n\n⏰ Este código expira em 10 minutos.\n\n⚠️ Se você não solicitou a recuperação de senha, ignore esta mensagem.`
+      );
+    } catch (whatsappError) {
+      console.error('Erro ao enviar código via WhatsApp:', whatsappError);
+      return res.status(500).json({ success: false, error: 'Erro ao enviar código via WhatsApp' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Código de recuperação enviado para seu WhatsApp!',
+      phone: fullPhone
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/reset-password-phone', async (req, res) => {
+  try {
+    const { phone, code, password } = req.body;
+
+    if (!phone || !code || !password) {
+      return res.status(400).json({ success: false, error: 'Telefone, código e senha são obrigatórios' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, error: 'Senha deve ter no mínimo 6 caracteres' });
+    }
+
+  
+    const normalizedPhone = phone.replace(/\D/g, '');
+    const fullPhone = normalizedPhone.startsWith('55') ? `+${normalizedPhone}` : `+55${normalizedPhone}`;
+
+    await resetPasswordByPhone(fullPhone, code, password);
+
+    res.json({
+      success: true,
+      message: 'Senha redefinida com sucesso!'
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+
 app.post('/api/contact', async (req, res) => {
   try {
     const { name, email, subject, message } = req.body;
 
-    // Validação dos campos
     if (!name || !email || !subject || !message) {
       return res.status(400).json({
         success: false,
@@ -576,7 +735,7 @@ app.post('/api/contact', async (req, res) => {
       });
     }
 
-    // Validação básica de email
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({
@@ -585,7 +744,7 @@ app.post('/api/contact', async (req, res) => {
       });
     }
 
-    // Validação de tamanho da mensagem
+ 
     if (message.length < 10) {
       return res.status(400).json({
         success: false,
@@ -600,10 +759,9 @@ app.post('/api/contact', async (req, res) => {
       });
     }
 
-    // Enviar email
+ 
     await sendContactEmail(name, email, subject, message);
 
-    console.log(`[Contact] Nova mensagem de contato de ${email} - Assunto: ${subject}`);
 
     res.json({
       success: true,
@@ -641,6 +799,154 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
 });
 
 
+const phoneUpdateVerifications = new Map();
+
+
+app.post('/api/user/send-phone-verification', authMiddleware, async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'Telefone é obrigatório' });
+    }
+
+    const normalizedPhone = phone.replace(/\D/g, '');
+
+    if (normalizedPhone.length < 10 || normalizedPhone.length > 13) {
+      return res.status(400).json({ success: false, error: 'Telefone inválido' });
+    }
+
+  
+    const existingUser = await getUserByPhone(normalizedPhone);
+    if (existingUser && existingUser.id !== req.userId) {
+      return res.status(400).json({ success: false, error: 'Este telefone já está cadastrado por outro usuário' });
+    }
+
+  
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+   
+    const key = `${req.userId}_${normalizedPhone}`;
+    phoneUpdateVerifications.set(key, {
+      code,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      phone: normalizedPhone
+    });
+
+ 
+    const fullPhone = normalizedPhone.startsWith('55') ? '+' + normalizedPhone : '+55' + normalizedPhone;
+    const user = await getUserById(req.userId);
+    const firstName = user.name ? user.name.split(' ')[0] : '';
+
+    const verificationMessage = `🔐 *Verificação de Telefone - Zap Anônimo*\n\nOlá${firstName ? ', ' + firstName : ''}!\n\nSeu código para adicionar este telefone à sua conta: *${code}*\n\n⏱️ Válido por 10 minutos.\n\n_Não compartilhe este código com ninguém._`;
+
+    await whatsappService.sendMessage(fullPhone, verificationMessage);
+
+    res.json({ success: true, message: 'Código enviado com sucesso' });
+  } catch (error) {
+    console.error('[PhoneVerification] Erro:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao enviar código' });
+  }
+});
+
+
+app.post('/api/user/verify-phone-update', authMiddleware, async (req, res) => {
+  try {
+    const { phone, code } = req.body;
+
+    if (!phone || !code) {
+      return res.status(400).json({ success: false, error: 'Telefone e código são obrigatórios' });
+    }
+
+    const normalizedPhone = phone.replace(/\D/g, '');
+    const key = `${req.userId}_${normalizedPhone}`;
+
+    const verification = phoneUpdateVerifications.get(key);
+
+    if (!verification) {
+      return res.status(400).json({ success: false, error: 'Código não encontrado. Solicite um novo código.' });
+    }
+
+    if (Date.now() > verification.expiresAt) {
+      phoneUpdateVerifications.delete(key);
+      return res.status(400).json({ success: false, error: 'Código expirado. Solicite um novo código.' });
+    }
+
+    if (verification.code !== code) {
+      return res.status(400).json({ success: false, error: 'Código inválido' });
+    }
+
+   
+    verification.verified = true;
+    phoneUpdateVerifications.set(key, verification);
+
+    res.json({ success: true, message: 'Código verificado com sucesso' });
+  } catch (error) {
+    console.error('[PhoneVerification] Erro:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erro ao verificar código' });
+  }
+});
+
+
+app.get('/api/user/block-notifications', authMiddleware, async (req, res) => {
+  try {
+    const result = await getPendingBlockNotifications(req.userId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.post('/api/user/block-notifications/:id/read', authMiddleware, async (req, res) => {
+  try {
+    const blockId = parseInt(req.params.id);
+    const result = await markBlockAsNotified(blockId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/user/notifications', authMiddleware, async (req, res) => {
+  try {
+    const result = await getUserNotifications(req.userId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.get('/api/user/notifications/unread-count', authMiddleware, async (req, res) => {
+  try {
+    const result = await getUnreadNotificationsCount(req.userId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.post('/api/user/notifications/:id/read', authMiddleware, async (req, res) => {
+  try {
+    const notificationId = parseInt(req.params.id);
+    const result = await markNotificationAsRead(notificationId, req.userId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.post('/api/user/notifications/read-all', authMiddleware, async (req, res) => {
+  try {
+    const result = await markAllNotificationsAsRead(req.userId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 app.get('/api/favorites', authMiddleware, async (req, res) => {
   try {
@@ -699,9 +1005,7 @@ app.get('/api/favorites/check/:phone', authMiddleware, async (req, res) => {
   }
 });
 
-// ========== MERCADO PAGO - PAGAMENTOS ==========
 
-// Criar pagamento PIX
 app.post('/api/create-pix', authMiddleware, async (req, res) => {
   try {
     const { quantity } = req.body;
@@ -734,7 +1038,7 @@ app.post('/api/create-pix', authMiddleware, async (req, res) => {
   }
 });
 
-// Criar pagamento com cartao (redireciona para Stripe)
+
 app.post('/api/create-card-payment', authMiddleware, async (req, res) => {
   try {
     const { quantity } = req.body;
@@ -764,12 +1068,12 @@ app.post('/api/create-card-payment', authMiddleware, async (req, res) => {
   }
 });
 
-// Webhook do Mercado Pago
+
 const processedPayments = new Set();
 
 app.post('/api/mercadopago/webhook', async (req, res) => {
   try {
-    console.log('[MercadoPago Webhook] Recebido:', JSON.stringify(req.body));
+  
 
     const webhookData = parseWebhookData(req.body);
 
@@ -777,7 +1081,7 @@ app.post('/api/mercadopago/webhook', async (req, res) => {
       const paymentId = webhookData.paymentId;
 
       if (processedPayments.has(paymentId)) {
-        console.log('[MercadoPago Webhook] Pagamento ja processado:', paymentId);
+
         return res.json({ received: true });
       }
 
@@ -787,13 +1091,13 @@ app.post('/api/mercadopago/webhook', async (req, res) => {
         const metadata = paymentInfo.metadata || {};
         let userId, quantity, creditType;
 
-        // Tentar pegar do metadata (PIX)
+  
         if (metadata.user_id) {
           userId = parseInt(metadata.user_id);
           quantity = parseInt(metadata.quantity);
           creditType = metadata.credit_type || 'whatsapp';
         }
-        // Tentar pegar do external_reference (Cartao)
+    
         else if (paymentInfo.externalReference) {
           try {
             const extRef = JSON.parse(paymentInfo.externalReference);
@@ -806,15 +1110,15 @@ app.post('/api/mercadopago/webhook', async (req, res) => {
         }
 
         if (userId && quantity) {
-          // Promocao: ganhe em dobro!
+    
           const bonusQuantity = quantity * 2;
-          const price = quantity; // R$ 1,00 por unidade
+          const price = quantity; 
           await addCredits(userId, bonusQuantity, price, creditType);
 
           processedPayments.add(paymentId);
           setTimeout(() => processedPayments.delete(paymentId), 60 * 60 * 1000);
 
-          console.log(`[MercadoPago Webhook] Creditos adicionados: ${bonusQuantity} para usuario ${userId}`);
+   
         }
       }
     }
@@ -826,7 +1130,7 @@ app.post('/api/mercadopago/webhook', async (req, res) => {
   }
 });
 
-// Webhook do Stripe (para pagamentos com cartao)
+
 const processedStripeSessions = new Set();
 
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -834,14 +1138,14 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     const sig = req.headers['stripe-signature'];
     const event = constructWebhookEvent(req.body, sig);
 
-    console.log('[Stripe Webhook] Evento recebido:', event.type);
+
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const sessionId = session.id;
 
       if (processedStripeSessions.has(sessionId)) {
-        console.log('[Stripe Webhook] Sessao ja processada:', sessionId);
+ 
         return res.json({ received: true });
       }
 
@@ -852,7 +1156,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         const creditType = metadata.creditType || 'whatsapp';
 
         if (userId && quantity) {
-          // Promocao: ganhe em dobro!
+    
           const bonusQuantity = quantity * 2;
           const price = quantity;
           await addCredits(userId, bonusQuantity, price, creditType);
@@ -860,7 +1164,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           processedStripeSessions.add(sessionId);
           setTimeout(() => processedStripeSessions.delete(sessionId), 60 * 60 * 1000);
 
-          console.log(`[Stripe Webhook] Creditos adicionados: ${bonusQuantity} para usuario ${userId}`);
+      
         }
       }
     }
@@ -872,7 +1176,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   }
 });
 
-// Verificar sessao do Stripe (apos redirect de sucesso)
+
 app.get('/api/verify-stripe-session/:sessionId', authMiddleware, async (req, res) => {
   try {
     const sessionId = req.params.sessionId;
@@ -885,7 +1189,7 @@ app.get('/api/verify-stripe-session/:sessionId', authMiddleware, async (req, res
         const quantity = parseInt(metadata.quantity);
         const creditType = metadata.creditType || 'whatsapp';
 
-        // Promocao: ganhe em dobro!
+
         const bonusQuantity = quantity * 2;
         const price = quantity;
         await addCredits(req.userId, bonusQuantity, price, creditType);
@@ -905,13 +1209,13 @@ app.get('/api/verify-stripe-session/:sessionId', authMiddleware, async (req, res
   }
 });
 
-// Verificar status do pagamento PIX
+
 app.get('/api/verify-payment/:paymentId', authMiddleware, async (req, res) => {
   try {
     const paymentId = req.params.paymentId;
     const paymentInfo = await getPaymentStatus(paymentId);
 
-    // Se pagamento aprovado e ainda nao processado, adicionar creditos
+  
     if (isPaymentApproved(paymentInfo.status) && !processedPayments.has(paymentId)) {
       const metadata = paymentInfo.metadata || {};
 
@@ -919,7 +1223,7 @@ app.get('/api/verify-payment/:paymentId', authMiddleware, async (req, res) => {
         const quantity = parseInt(metadata.quantity);
         const creditType = metadata.credit_type || 'whatsapp';
 
-        // Promocao: ganhe em dobro!
+     
         const bonusQuantity = quantity * 2;
         const price = quantity;
         await addCredits(req.userId, bonusQuantity, price, creditType);
@@ -940,7 +1244,7 @@ app.get('/api/verify-payment/:paymentId', authMiddleware, async (req, res) => {
   }
 });
 
-// ========== FIM MERCADO PAGO ==========
+
 
 app.get('/api/transactions', authMiddleware, async (req, res) => {
   try {
@@ -969,36 +1273,7 @@ app.get('/api/replies', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/webhook/twilio/sms', express.urlencoded({ extended: false }), async (req, res) => {
-  try {
-    const {
-      From: fromPhone,
-      Body: message,
-      To: toPhone,
-      MessageSid: messageSid
-    } = req.body;
 
-    if (!fromPhone || !message) {
-      return res.status(200).send('<Response></Response>');
-    }
-
-    const result = await saveReplyFromWebhook(fromPhone, message, 'sms');
-
-    if (result) {
-      emitNewReply(result.originalMessage.user_id, {
-        ...result.reply,
-        original_message: result.originalMessage.message
-      });
-    }
-
-    res.set('Content-Type', 'text/xml');
-    res.status(200).send('<Response></Response>');
-
-  } catch (error) {
-    console.error('[Webhook Twilio] Erro ao processar:', error);
-    res.status(200).send('<Response></Response>');
-  }
-});
 
 app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
   try {
@@ -1068,6 +1343,24 @@ app.post('/api/webhook/wasender/whatsapp', async (req, res) => {
       return res.status(200).json({ success: true, message: 'Tipo ignorado' });
     }
 
+  
+    const msgLower = messageText.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    if (msgLower === 'bloquear' || msgLower === 'desbloquear') {
+      const lastMessage = await findMessageByPhone(fromPhone, 'whatsapp');
+
+      if (lastMessage) {
+        if (msgLower === 'bloquear') {
+          await blockUser(fromPhone, lastMessage.user_id);
+          await whatsappService.sendMessage(fromPhone, '✅ Você bloqueou este remetente.\n\nVocê não receberá mais mensagens anônimas desta pessoa.\n\nPara desbloquear, envie: *desbloquear*');
+        } else {
+          await unblockUser(fromPhone, lastMessage.user_id);
+          await whatsappService.sendMessage(fromPhone, '✅ Remetente desbloqueado.\n\nVocê voltará a receber mensagens anônimas desta pessoa.');
+        }
+      }
+      return res.status(200).json({ success: true, message: 'Comando processado' });
+    }
+
     const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
 
     if (result) {
@@ -1119,6 +1412,24 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
 
     fromPhone = fromPhone.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '');
 
+  
+    const msgLower = messageText.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    if (msgLower === 'bloquear' || msgLower === 'desbloquear') {
+      const lastMessage = await findMessageByPhone(fromPhone, 'whatsapp');
+
+      if (lastMessage) {
+        if (msgLower === 'bloquear') {
+          await blockUser(fromPhone, lastMessage.user_id);
+          await whatsappService.sendMessage(fromPhone, '✅ Você bloqueou este remetente.\n\nVocê não receberá mais mensagens anônimas desta pessoa.\n\nPara desbloquear, envie: *desbloquear*');
+        } else {
+          await unblockUser(fromPhone, lastMessage.user_id);
+          await whatsappService.sendMessage(fromPhone, '✅ Remetente desbloqueado.\n\nVocê voltará a receber mensagens anônimas desta pessoa.');
+        }
+      }
+      return res.status(200).json({ success: true });
+    }
+
     const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp');
 
     if (result) {
@@ -1159,7 +1470,16 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
   }
 
   try {
-   
+  
+    const blocked = await isBlocked(phone, req.userId);
+    if (blocked) {
+      return res.status(403).json({
+        success: false,
+        error: 'Este número bloqueou você. Não é possível enviar mensagens.',
+        blocked: true
+      });
+    }
+
     const userBefore = await getUserById(req.userId);
     if (userBefore.whatsapp_credits < 1) {
       return res.status(402).json({
@@ -1169,7 +1489,6 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
       });
     }
 
-    
     const moderation = await moderationService.validateAndRecord(message, req.userId, phone);
 
    
@@ -1198,9 +1517,19 @@ app.post('/api/send-whatsapp', authMiddleware, async (req, res) => {
 
    
     const trackingCode = generateTrackingCode();
-    const messageWithCode = `${message}\n\n[Cód: ${trackingCode}]`;
+    const messageWithCode = `*Mensagem Anônima*
 
-   
+Você recebeu uma mensagem anônima.
+Responda aqui se desejar.
+
+*Mensagem:*
+${message}
+
+
+Para bloquear, envie: *bloquear*
+ᶜᵒᵈ ${trackingCode}`;
+
+
     const result = await whatsappService.sendMessage(phone, messageWithCode);
 
 
@@ -1257,11 +1586,11 @@ app.post('/api/test-whatsapp', authMiddleware, async (req, res) => {
 
 app.post('/api/send-whatsapp-audio', authMiddleware, async (req, res) => {
   const { phone, audioBase64, mimetype, caption } = req.body;
+  const userId = req.userId;
 
   if (!phone || !audioBase64) {
     return res.status(400).json({ success: false, error: 'Telefone e áudio são obrigatórios' });
   }
-
 
   const allowedMimetypes = [
     'audio/ogg',
@@ -1279,15 +1608,23 @@ app.post('/api/send-whatsapp-audio', authMiddleware, async (req, res) => {
     return res.status(400).json({ success: false, error: 'Tipo de áudio não suportado' });
   }
 
- 
   const estimatedSize = (audioBase64.length * 3) / 4;
   if (estimatedSize > 16 * 1024 * 1024) {
     return res.status(400).json({ success: false, error: 'Arquivo muito grande. Máximo: 16MB' });
   }
 
   try {
- 
-    const userBefore = await getUserById(req.userId);
+   
+    const blocked = await isBlocked(phone, userId);
+    if (blocked) {
+      return res.status(403).json({
+        success: false,
+        error: 'Este número bloqueou você. Não é possível enviar mensagens.',
+        blocked: true
+      });
+    }
+
+    const userBefore = await getUserById(userId);
     if (userBefore.whatsapp_credits < 1) {
       return res.status(402).json({
         success: false,
@@ -1296,27 +1633,91 @@ app.post('/api/send-whatsapp-audio', authMiddleware, async (req, res) => {
       });
     }
 
-   
-    const trackingCode = generateTrackingCode();
-    const captionWithCode = caption ? `${caption}\n\n[Cód: ${trackingCode}]` : `[Cód: ${trackingCode}]`;
 
-   
-    const result = await whatsappService.sendAudio(phone, audioBase64, audioMimetype, captionWithCode);
+    const processId = `audio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-   
-    await useCredit(req.userId, phone, '[Mensagem de áudio]', 'whatsapp', trackingCode);
-
-    const user = await getUserById(req.userId);
 
     res.json({
       success: true,
-      data: result.data,
-      whatsapp_credits: user.whatsapp_credits,
-      sms_credits: user.sms_credits,
-      tokenUsed: result.tokenUsed,
-      attempts: result.attempts,
-      trackingCode: trackingCode
+      processing: true,
+      processId: processId,
+      message: 'Áudio em análise. Você será notificado quando o envio for concluído.'
     });
+
+
+    (async () => {
+      try {
+
+      
+        const moderation = await moderationService.moderateAudio(audioBase64, audioMimetype, userId, phone);
+
+     
+        await logModerationEvent({
+          userId: userId,
+          message: moderation.transcription || '[Áudio sem transcrição]',
+          action: moderation.allowed ? 'allowed' : 'blocked',
+          category: moderation.category || 'audio',
+          riskScore: moderation.riskScore || 0,
+          targetPhone: phone,
+          channel: 'whatsapp',
+          detectedTypes: moderation.detectedTypes || [],
+          matchedWord: moderation.matchedWord || null
+        });
+
+        if (!moderation.allowed) {
+      
+          io.to(`user:${userId}`).emit('audio-moderation-result', {
+            processId: processId,
+            success: false,
+            blocked: true,
+            reason: moderation.reason || 'Conteúdo inadequado detectado no áudio',
+            category: moderation.category
+          });
+          return;
+        }
+
+  
+        const trackingCode = generateTrackingCode();
+        const messageContent = caption ? `*Mensagem:*\n${caption}` : '*Áudio anexo*';
+        const captionWithCode = `*Mensagem Anônima*
+
+Você recebeu uma mensagem anônima.
+Responda aqui se desejar.
+
+${messageContent}
+
+
+Para bloquear, envie: *bloquear*
+ᶜᵒᵈ ${trackingCode}`;
+
+        const result = await whatsappService.sendAudio(phone, audioBase64, audioMimetype, captionWithCode);
+
+  
+        await useCredit(userId, phone, '[Mensagem de áudio]', 'whatsapp', trackingCode);
+
+        const user = await getUserById(userId);
+
+     
+        io.to(`user:${userId}`).emit('audio-moderation-result', {
+          processId: processId,
+          success: true,
+          blocked: false,
+          data: result.data,
+          whatsapp_credits: user.whatsapp_credits,
+          trackingCode: trackingCode,
+          message: 'Áudio enviado com sucesso!'
+        });
+
+      } catch (error) {
+        console.error(`[Audio] Erro no processamento ${processId}:`, error.message);
+   
+        io.to(`user:${userId}`).emit('audio-moderation-result', {
+          processId: processId,
+          success: false,
+          error: error.message
+        });
+      }
+    })();
 
   } catch (error) {
     if (error.message.includes('Créditos') && error.message.includes('insuficientes')) {
@@ -1326,7 +1727,6 @@ app.post('/api/send-whatsapp-audio', authMiddleware, async (req, res) => {
         needsPayment: true
       });
     } else {
-     
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -1376,152 +1776,6 @@ app.post('/api/whatsapp/test-all', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/send-sms', authMiddleware, async (req, res) => {
-  const { phone, message } = req.body;
-  const clientInfo = getClientInfo(req);
-
-  if (!phone || !message) {
-    return res.status(400).json({ success: false, error: 'Telefone e mensagem são obrigatórios' });
-  }
-
-  try {
-  
-    const moderation = await moderationService.validateAndRecord(message, req.userId, phone);
-
-   
-    await logModerationEvent({
-      userId: req.userId,
-      message: message,
-      action: moderation.allowed ? 'allowed' : 'blocked',
-      category: moderation.category,
-      riskScore: moderation.riskScore || 0,
-      ipAddress: clientInfo.ipAddress,
-      userAgent: clientInfo.userAgent,
-      targetPhone: phone,
-      channel: 'sms',
-      detectedTypes: moderation.detectedTypes || [],
-      matchedWord: moderation.matchedWord || null
-    });
-
-    if (!moderation.allowed) {
-      return res.status(400).json({
-        success: false,
-        error: 'Mensagem bloqueada por conteúdo inadequado',
-        moderationReason: moderation.reason,
-        moderationCategory: moderation.category
-      });
-    }
-
-    const trackingCode = generateTrackingCode();
-    const messageWithCode = `${message}\n\n[Cód: ${trackingCode}]`;
-
-    await useCredit(req.userId, phone, message, 'sms', trackingCode);
-
-    const result = await smsService.sendSMS(phone, messageWithCode);
-
-    const user = await getUserById(req.userId);
-
-    res.json({
-      success: true,
-      data: result,
-      whatsapp_credits: user.whatsapp_credits,
-      sms_credits: user.sms_credits,
-      trackingCode: trackingCode
-    });
-
-  } catch (error) {
-    if (error.message.includes('Créditos') && error.message.includes('insuficientes')) {
-      res.status(402).json({
-        success: false,
-        error: error.message,
-        needsPayment: true
-      });
-    } else {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-});
-
-app.post('/api/send-bulk-sms', authMiddleware, async (req, res) => {
-  const { phoneNumbers, message } = req.body;
-
-  if (!phoneNumbers || !Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
-    return res.status(400).json({ success: false, error: 'Lista de telefones inválida' });
-  }
-
-  if (!message) {
-    return res.status(400).json({ success: false, error: 'Mensagem é obrigatória' });
-  }
-
-  try {
-
-    const moderation = await moderationService.validateMessage(message);
-    if (!moderation.allowed) {
-      return res.status(400).json({
-        success: false,
-        error: 'Mensagem bloqueada por conteúdo inadequado',
-        moderationReason: moderation.reason,
-        moderationCategory: moderation.category
-      });
-    }
-
-    const user = await getUserById(req.userId);
-    if (user.sms_credits < phoneNumbers.length) {
-      return res.status(402).json({
-        success: false,
-        error: `Créditos de SMS insuficientes. Você tem ${user.sms_credits} créditos mas precisa de ${phoneNumbers.length}`,
-        needsPayment: true
-      });
-    }
-
-    const result = await smsService.sendBulkSMS(phoneNumbers, message);
-
-    for (let i = 0; i < result.success; i++) {
-      await useCredit(req.userId, phoneNumbers[i], message, 'sms');
-    }
-
-    const updatedUser = await getUserById(req.userId);
-
-    res.json({
-      success: true,
-      data: result,
-      whatsapp_credits: updatedUser.whatsapp_credits,
-      sms_credits: updatedUser.sms_credits
-    });
-
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/test-sms', authMiddleware, async (req, res) => {
-  const { phone, message } = req.body;
-
-  if (!phone || !message) {
-    return res.status(400).json({ success: false, error: 'Telefone e mensagem são obrigatórios' });
-  }
-
-  try {
-    const result = await smsService.sendSMS(phone, message);
-
-    res.json({
-      success: true,
-      data: result,
-      note: 'Teste realizado SEM debitar crédito'
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/sms/balance', authMiddleware, async (req, res) => {
-  try {
-    const balance = await smsService.checkBalance();
-    res.json({ success: true, balance });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
@@ -1596,6 +1850,139 @@ app.get('/api/admin/whatsapp/status', adminAuthMiddleware, async (req, res) => {
 });
 
 
+app.get('/api/admin/online-users', adminAuthMiddleware, (req, res) => {
+  res.json({
+    success: true,
+    ...getOnlineStats()
+  });
+});
+
+
+app.get('/api/admin/announcement', adminAuthMiddleware, async (req, res) => {
+  try {
+    const announcement = await getAnnouncement();
+    res.json({ success: true, announcement });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/admin/announcement', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { title, message, type, scheduled_at, expires_at } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({ success: false, error: 'Título e mensagem são obrigatórios' });
+    }
+
+    const announcement = {
+      title,
+      message,
+      type: type || 'announcement', 
+      active: true,
+      scheduled_at: scheduled_at || null,
+      expires_at: expires_at || null,
+      created_at: new Date().toISOString()
+    };
+
+    const result = await saveAnnouncement(announcement);
+
+    if (result.success) {
+
+      io.emit('announcement:new', result.announcement);
+    }
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/admin/announcement', adminAuthMiddleware, async (req, res) => {
+  try {
+    const result = await deleteAnnouncement();
+
+    if (result.success) {
+     
+      io.emit('announcement:removed');
+    }
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.get('/api/announcement', async (req, res) => {
+  try {
+    const announcement = await getAnnouncement();
+    res.json({ success: true, announcement });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/track/access', async (req, res) => {
+  try {
+    const { sessionId, page } = req.body;
+    const clientInfo = getClientInfo(req);
+
+    if (!sessionId) {
+      return res.status(400).json({ success: false, error: 'sessionId é obrigatório' });
+    }
+
+
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret-key-dev');
+        userId = decoded.userId;
+      } catch (e) {
+   
+      }
+    }
+
+    await logAccess({
+      sessionId,
+      userId,
+      ipAddress: clientInfo.ipAddress,
+      userAgent: clientInfo.userAgent,
+      page: page || 'home',
+      referrer: req.headers.referer || req.headers.referrer
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Track] Erro:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.get('/api/admin/stats/access', adminAuthMiddleware, async (req, res) => {
+  try {
+    const period = req.query.period || 'today';
+    const stats = await getAccessStats(period);
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.get('/api/admin/stats/accesses', adminAuthMiddleware, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const result = await getRecentAccesses(limit);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/admin/whatsapp/reconnect', adminAuthMiddleware, async (req, res) => {
   try {
     await whatsappService.reconnect();
@@ -1626,6 +2013,348 @@ app.post('/api/admin/whatsapp/logout', adminAuthMiddleware, async (req, res) => 
 });
 
 
+app.get('/api/admin/legal-retention', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { cpf, email, phone, userId } = req.query;
+
+    let query = supabase.from('legal_retention').select('*');
+
+  
+    if (cpf) {
+      query = query.eq('cpf', cpf.replace(/\D/g, ''));
+    }
+    if (email) {
+      query = query.ilike('email', `%${email}%`);
+    }
+    if (phone) {
+      query = query.ilike('phone', `%${phone.replace(/\D/g, '')}%`);
+    }
+    if (userId) {
+      query = query.eq('original_user_id', userId);
+    }
+
+    const { data, error } = await query.order('account_deleted_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      count: data?.length || 0,
+      data: data || [],
+      notice: 'Estes dados são mantidos conforme Marco Civil da Internet (Lei 12.965/2014) e LGPD. Acesso restrito a ordens judiciais.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.get('/api/admin/legal-retention/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('legal_retention')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Registro não encontrado' });
+    }
+
+    res.json({
+      success: true,
+      data,
+      notice: 'Dados mantidos para fins legais. Acesso deve ser registrado.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.post('/api/admin/legal-retention/:id/hold', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ success: false, error: 'Motivo é obrigatório para retenção legal' });
+    }
+
+    const { data, error } = await supabase
+      .from('legal_retention')
+      .update({
+        legal_hold: true,
+        legal_hold_reason: reason,
+        legal_hold_set_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+  
+
+    res.json({
+      success: true,
+      message: 'Retenção legal ativada. Dados não serão excluídos automaticamente.',
+      data
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.delete('/api/admin/legal-retention/:id/hold', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('legal_retention')
+      .update({
+        legal_hold: false,
+        legal_hold_reason: null,
+        legal_hold_set_at: null
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+
+
+    res.json({
+      success: true,
+      message: 'Retenção legal removida. Dados serão excluídos após expiração.',
+      data
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.get('/api/admin/legal-retention/stats', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { count: totalCount } = await supabase
+      .from('legal_retention')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: holdCount } = await supabase
+      .from('legal_retention')
+      .select('*', { count: 'exact', head: true })
+      .eq('legal_hold', true);
+
+    const { count: expiringCount } = await supabase
+      .from('legal_retention')
+      .select('*', { count: 'exact', head: true })
+      .lt('retention_expires_at', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())
+      .eq('legal_hold', false);
+
+    res.json({
+      success: true,
+      stats: {
+        total: totalCount || 0,
+        onLegalHold: holdCount || 0,
+        expiringIn30Days: expiringCount || 0
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.get('/api/user/data', authMiddleware, async (req, res) => {
+  try {
+    const user = await getUserById(req.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+   
+    const { count: messagesCount } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', req.userId);
+
+    const { count: repliesCount } = await supabase
+      .from('replies')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', req.userId);
+
+    const { count: transactionsCount } = await supabase
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', req.userId);
+
+    res.json({
+      success: true,
+      data: {
+        profile: {
+          id: user.id,
+          email: user.email || null,
+          phone: user.phone || null,
+          name: user.name || null,
+          cpf: user.cpf || null,
+          email_verified: user.email_verified,
+          phone_verified: user.phone_verified,
+          created_at: user.created_at
+        },
+        credits: {
+          whatsapp: user.whatsapp_credits,
+          sms: user.sms_credits
+        },
+        statistics: {
+          totalMessages: messagesCount || 0,
+          totalReplies: repliesCount || 0,
+          totalTransactions: transactionsCount || 0
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+app.put('/api/user/data', authMiddleware, async (req, res) => {
+  try {
+    const { name, cpf, email, phone, currentPassword, newPassword } = req.body;
+    const user = await getUserById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+    const updates = {};
+
+ 
+    if (name && name.trim().length >= 3) {
+   
+      if (!user.name) {
+        updates.name = name.trim();
+      }
+    }
+
+   
+    if (cpf && !user.cpf) {
+      const normalizedCpf = cpf.replace(/\D/g, '');
+      if (normalizedCpf.length !== 11) {
+        return res.status(400).json({ success: false, error: 'CPF inválido' });
+      }
+
+      const existingUser = await getUserByCpf(normalizedCpf);
+      if (existingUser && existingUser.id !== req.userId) {
+        return res.status(400).json({ success: false, error: 'Este CPF já está cadastrado' });
+      }
+      updates.cpf = normalizedCpf;
+    }
+
+
+    if (email && !user.email) {
+      const normalizedEmail = email.trim().toLowerCase();
+     
+      const existingEmail = await getUserByEmail(normalizedEmail);
+      if (existingEmail && existingEmail.id !== req.userId) {
+        return res.status(400).json({ success: false, error: 'Este email já está cadastrado' });
+      }
+      updates.email = normalizedEmail;
+      updates.email_verified = false; 
+    }
+
+  
+    if (phone && !user.phone) {
+      const normalizedPhone = phone.replace(/\D/g, '');
+
+
+      const existingPhone = await getUserByPhone(normalizedPhone);
+      if (existingPhone && existingPhone.id !== req.userId) {
+        return res.status(400).json({ success: false, error: 'Este telefone já está cadastrado' });
+      }
+
+
+      const key = `${req.userId}_${normalizedPhone}`;
+      const verification = phoneUpdateVerifications.get(key);
+
+      if (!verification || !verification.verified) {
+        return res.status(400).json({ success: false, error: 'Telefone não verificado. Por favor, verifique o código enviado.' });
+      }
+
+     
+      phoneUpdateVerifications.delete(key);
+
+      updates.phone = normalizedPhone.startsWith('55') ? '+' + normalizedPhone : '+55' + normalizedPhone;
+      updates.phone_verified = true; 
+    }
+
+   
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ success: false, error: 'Senha atual é obrigatória para alterar a senha' });
+      }
+
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({ success: false, error: 'Senha atual incorreta' });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ success: false, error: 'Nova senha deve ter no mínimo 6 caracteres' });
+      }
+
+      updates.password = await bcrypt.hash(newPassword, 10);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, error: 'Nenhum dado para atualizar' });
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', req.userId);
+
+    if (error) throw error;
+
+
+    if (updates.email) {
+      try {
+        const { createVerificationToken } = require('./database');
+        const { sendVerificationEmail } = require('./email-service');
+        const verificationToken = await createVerificationToken(req.userId);
+        const userName = updates.name || user.name || '';
+        await sendVerificationEmail(updates.email, verificationToken, userName);
+      } catch (emailError) {
+        console.error('Erro ao enviar email de verificação:', emailError);
+      }
+    }
+
+
+    const updatedUser = await getUserById(req.userId);
+
+    res.json({
+      success: true,
+      message: 'Dados atualizados com sucesso',
+      updated: Object.keys(updates).filter(k => k !== 'password'),
+      profile: {
+        name: updatedUser.name,
+        cpf: updatedUser.cpf,
+        email: updatedUser.email,
+        phone: updatedUser.phone
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 app.get('/api/user/export-data', authMiddleware, async (req, res) => {
   try {
@@ -1638,7 +2367,7 @@ app.get('/api/user/export-data', authMiddleware, async (req, res) => {
       });
     }
 
-  
+
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="meus-dados-${Date.now()}.json"`);
     res.json(result.data);
@@ -1651,19 +2380,70 @@ app.get('/api/user/export-data', authMiddleware, async (req, res) => {
 
 app.delete('/api/user/delete-account', authMiddleware, async (req, res) => {
   try {
-    const { confirmEmail } = req.body;
+    const { confirmEmail, confirmPhone, password } = req.body;
     const user = await getUserById(req.userId);
 
- 
-    if (!confirmEmail || confirmEmail !== user.email) {
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
+
+
+    if (!password) {
       return res.status(400).json({
         success: false,
-        error: 'Por favor, confirme seu email para excluir a conta'
+        error: 'Por favor, informe sua senha para confirmar a exclusão'
+      });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Senha incorreta'
+      });
+    }
+
+
+    let confirmationValid = false;
+
+  
+    if (confirmEmail && user.email) {
+      if (confirmEmail.toLowerCase() === user.email.toLowerCase()) {
+        confirmationValid = true;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'O email informado não corresponde ao email da sua conta'
+        });
+      }
+    }
+
+  
+    if (confirmPhone && user.phone) {
+      const normalizedConfirmPhone = confirmPhone.replace(/\D/g, '');
+      const normalizedUserPhone = user.phone.replace(/\D/g, '');
+  
+      const userPhoneWithoutCountry = normalizedUserPhone.replace(/^55/, '');
+      if (normalizedConfirmPhone === userPhoneWithoutCountry || normalizedConfirmPhone === normalizedUserPhone) {
+        confirmationValid = true;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'O telefone informado não corresponde ao telefone da sua conta'
+        });
+      }
+    }
+
+
+    if (!confirmationValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Por favor, confirme seu email ou telefone para excluir a conta'
       });
     }
 
     const result = await deleteUserData(req.userId, {
-      keepTransactionsForTax: true 
+      keepTransactionsForTax: true
     });
 
     if (!result.success) {

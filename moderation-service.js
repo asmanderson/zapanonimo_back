@@ -1,4 +1,5 @@
 require('dotenv').config();
+const FormData = require('form-data');
 
 const AI_CONFIG = {
   claude: {
@@ -10,6 +11,10 @@ const AI_CONFIG = {
     apiKey: process.env.GEMINI_API_KEY || '',
     model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
     enabled: process.env.GEMINI_ENABLED === 'true'
+  },
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    enabled: !!process.env.OPENAI_API_KEY
   }
 };
 
@@ -579,6 +584,129 @@ Seja criterioso mas não excessivamente restritivo. Mensagens ambíguas devem se
     }
 
     return { allowed: true, reason: null, riskScore: 0, category: null };
+  }
+
+
+  get openaiApiKey() {
+    return AI_CONFIG.openai.apiKey;
+  }
+
+  get openaiEnabled() {
+    return AI_CONFIG.openai.enabled;
+  }
+
+  async transcribeAudio(audioBase64, mimetype = 'audio/ogg') {
+    if (!this.openaiEnabled) {
+      return { success: false, error: 'OpenAI não configurada' };
+    }
+
+    try {
+
+      const audioBuffer = Buffer.from(audioBase64, 'base64');
+
+   
+      const extMap = {
+        'audio/ogg': 'ogg',
+        'audio/mpeg': 'mp3',
+        'audio/mp3': 'mp3',
+        'audio/mp4': 'mp4',
+        'audio/wav': 'wav',
+        'audio/webm': 'webm'
+      };
+      const ext = extMap[mimetype.split(';')[0]] || 'ogg';
+      const contentType = mimetype.split(';')[0];
+
+
+      const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+
+ 
+      const bodyParts = [];
+
+      
+      bodyParts.push(`--${boundary}`);
+      bodyParts.push(`Content-Disposition: form-data; name="file"; filename="audio.${ext}"`);
+      bodyParts.push(`Content-Type: ${contentType}`);
+      bodyParts.push('');
+
+    
+      const modelPart = [
+        `--${boundary}`,
+        'Content-Disposition: form-data; name="model"',
+        '',
+        'whisper-1'
+      ].join('\r\n');
+
+      
+      const langPart = [
+        `--${boundary}`,
+        'Content-Disposition: form-data; name="language"',
+        '',
+        'pt'
+      ].join('\r\n');
+
+    
+      const headerBuffer = Buffer.from(bodyParts.join('\r\n') + '\r\n');
+      const footerBuffer = Buffer.from('\r\n' + modelPart + '\r\n' + langPart + '\r\n--' + boundary + '--\r\n');
+      const fullBody = Buffer.concat([headerBuffer, audioBuffer, footerBuffer]);
+
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openaiApiKey}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`
+        },
+        body: fullBody
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Moderation] Erro na transcrição:', errorText);
+        return { success: false, error: errorText };
+      }
+
+      const result = await response.json();
+
+      return { success: true, text: result.text || '' };
+    } catch (error) {
+      console.error('[Moderation] Erro ao transcrever áudio:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async moderateAudio(audioBase64, mimetype, userId, targetPhone) {
+  
+    const transcription = await this.transcribeAudio(audioBase64, mimetype);
+
+    if (!transcription.success || !transcription.text) {
+  
+      return {
+        allowed: true,
+        transcription: null,
+        reason: 'Transcrição não disponível'
+      };
+    }
+
+   
+    if (transcription.text.trim().length < 3) {
+      return {
+        allowed: true,
+        transcription: transcription.text,
+        reason: 'Áudio muito curto ou sem fala detectada'
+      };
+    }
+
+
+    const moderation = await this.validateAndRecord(transcription.text, userId, targetPhone);
+
+    return {
+      allowed: moderation.allowed,
+      transcription: transcription.text,
+      reason: moderation.reason,
+      category: moderation.category,
+      riskScore: moderation.riskScore,
+      detectedTypes: moderation.detectedTypes,
+      matchedWord: moderation.matchedWord
+    };
   }
 }
 

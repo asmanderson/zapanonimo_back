@@ -266,6 +266,63 @@
             right: 20px;
         }
 
+        /* Ponto pulsante para indicar tempo real */
+        .pulse-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #25D366;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(37, 211, 102, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+            }
+        }
+
+        #onlineIndicator {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Badges de tipo de anúncio */
+        .announcement-type-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .announcement-type-badge.maintenance {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+        }
+
+        .announcement-type-badge.announcement {
+            background: rgba(52, 152, 219, 0.2);
+            color: #3498db;
+        }
+
+        .announcement-type-badge.warning {
+            background: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+        }
+
+        .status-badge.active-announcement {
+            background: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 15px;
@@ -379,6 +436,60 @@
         <div id="dashboard" class="dashboard">
             <button id="logoutBtn" class="btn btn-secondary btn-small logout-btn">Sair</button>
 
+            <!-- Card de Usuários Online -->
+            <div class="status-card" style="background: linear-gradient(135deg, rgba(37, 211, 102, 0.1) 0%, rgba(18, 140, 126, 0.1) 100%);">
+                <div class="status-header">
+                    <h3>Usuários Online</h3>
+                    <span class="status-badge connected" id="onlineIndicator">
+                        <span class="pulse-dot"></span> Ao Vivo
+                    </span>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div id="totalOnline" class="value" style="color: #25D366;">0</div>
+                        <div class="label">Total Online</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="authenticatedUsers" class="value" style="color: #3b82f6;">0</div>
+                        <div class="label">Logados</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="visitorUsers" class="value" style="color: #f59e0b;">0</div>
+                        <div class="label">Visitantes</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card de Estatísticas de Acesso -->
+            <div class="status-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.1) 100%);">
+                <div class="status-header">
+                    <h3>Estatísticas de Acesso</h3>
+                    <select id="statsPeriod" onchange="loadAccessStats()" style="background: rgba(0,0,0,0.3); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 5px 10px;">
+                        <option value="today">Hoje</option>
+                        <option value="week">Últimos 7 dias</option>
+                        <option value="month">Este mês</option>
+                        <option value="all">Todo período</option>
+                    </select>
+                </div>
+
+                <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="stat-item">
+                        <div id="totalPageviews" class="value" style="color: #6366f1;">0</div>
+                        <div class="label">Visualizações</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="uniqueVisitors" class="value" style="color: #8b5cf6;">0</div>
+                        <div class="label">Visitantes Únicos</div>
+                    </div>
+                </div>
+
+                <div id="accessChart" style="margin-top: 20px; height: 150px; background: rgba(0,0,0,0.2); border-radius: 8px; display: flex; align-items: flex-end; padding: 10px; gap: 2px;">
+                    <!-- Gráfico de barras será preenchido via JS -->
+                </div>
+                <p style="text-align: center; font-size: 11px; color: #666; margin-top: 5px;">Acessos por dia (últimos 30 dias)</p>
+            </div>
+
             <div class="status-card">
                 <div class="status-header">
                     <h3>Status do WhatsApp</h3>
@@ -423,6 +534,58 @@
                     <div id="logsArea"></div>
                 </div>
             </div>
+
+            <!-- Card de Anúncios/Manutenção -->
+            <div class="status-card">
+                <div class="status-header">
+                    <h3>Anúncios & Manutenção</h3>
+                    <span id="announcementStatus" class="status-badge disconnected">Sem anúncio</span>
+                </div>
+
+                <!-- Anúncio atual -->
+                <div id="currentAnnouncement" style="display: none; margin-bottom: 20px;">
+                    <div style="background: rgba(241, 196, 15, 0.1); border: 1px solid rgba(241, 196, 15, 0.3); border-radius: 12px; padding: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                            <h4 id="currentAnnouncementTitle" style="color: #f1c40f; margin: 0;"></h4>
+                            <span id="currentAnnouncementType" class="announcement-type-badge"></span>
+                        </div>
+                        <p id="currentAnnouncementMessage" style="color: #ccc; margin: 0 0 15px 0; white-space: pre-wrap;"></p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: #888;">
+                            <span id="currentAnnouncementExpires"></span>
+                        </div>
+                        <button onclick="removeAnnouncement()" class="btn btn-danger btn-small" style="margin-top: 15px;">
+                            Remover Anúncio
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Formulário para criar anúncio -->
+                <div id="announcementForm">
+                    <div class="form-group">
+                        <label for="announcementType">Tipo</label>
+                        <select id="announcementType" style="width: 100%; padding: 12px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff;">
+                            <option value="announcement">Anúncio Geral</option>
+                            <option value="maintenance">Manutenção Programada</option>
+                            <option value="warning">Aviso Importante</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="announcementTitle">Título</label>
+                        <input type="text" id="announcementTitle" placeholder="Ex: Manutenção Programada">
+                    </div>
+                    <div class="form-group">
+                        <label for="announcementMessage">Mensagem</label>
+                        <textarea id="announcementMessage" rows="4" placeholder="Descreva o anúncio ou aviso de manutenção..." style="width: 100%; padding: 12px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; resize: vertical;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="announcementExpires">Expira em (opcional)</label>
+                        <input type="datetime-local" id="announcementExpires" style="width: 100%; padding: 12px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff;">
+                    </div>
+                    <button onclick="createAnnouncement()" class="btn btn-primary">
+                        Publicar Anúncio
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -452,6 +615,9 @@
         const successCountEl = document.getElementById('successCount');
         const failureCountEl = document.getElementById('failureCount');
         const lastUsedEl = document.getElementById('lastUsed');
+        const totalOnlineEl = document.getElementById('totalOnline');
+        const authenticatedUsersEl = document.getElementById('authenticatedUsers');
+        const visitorUsersEl = document.getElementById('visitorUsers');
 
    
         let currentStatus = 'disconnected';
@@ -591,6 +757,209 @@
 
             socket.on('disconnect', (reason) => {
             });
+
+          
+            socket.on('online:stats', (stats) => {
+                updateOnlineStats(stats);
+            });
+        }
+
+      
+        function updateOnlineStats(stats) {
+            if (stats) {
+                totalOnlineEl.textContent = stats.total || 0;
+                authenticatedUsersEl.textContent = stats.authenticated || 0;
+                visitorUsersEl.textContent = stats.visitors || 0;
+            }
+        }
+
+      
+        async function loadOnlineStats() {
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/online-users`);
+                const data = await response.json();
+                if (data.success) {
+                    updateOnlineStats(data);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar usuários online:', error);
+            }
+        }
+
+  
+        async function loadAnnouncement() {
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/announcement`);
+                const data = await response.json();
+
+                if (data.success && data.announcement) {
+                    displayCurrentAnnouncement(data.announcement);
+                } else {
+                    hideCurrentAnnouncement();
+                }
+            } catch (error) {
+                console.error('Erro ao carregar anúncio:', error);
+            }
+        }
+
+        async function loadAccessStats() {
+            try {
+                const period = document.getElementById('statsPeriod').value;
+                const response = await authFetch(`${API_URL}/api/admin/stats/access?period=${period}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const stats = data.stats;
+
+                    document.getElementById('totalPageviews').textContent = stats.totalPageviews.toLocaleString('pt-BR');
+                    document.getElementById('uniqueVisitors').textContent = stats.uniqueVisitors.toLocaleString('pt-BR');
+
+                
+                    renderAccessChart(stats.accessesByDay);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+            }
+        }
+
+        function renderAccessChart(accessesByDay) {
+            const container = document.getElementById('accessChart');
+            container.innerHTML = '';
+
+            const days = Object.keys(accessesByDay).sort();
+            if (days.length === 0) {
+                container.innerHTML = '<p style="color: #666; margin: auto;">Sem dados para exibir</p>';
+                return;
+            }
+
+            const maxValue = Math.max(...Object.values(accessesByDay));
+
+            days.slice(-30).forEach(day => {
+                const value = accessesByDay[day] || 0;
+                const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                const bar = document.createElement('div');
+                bar.style.cssText = `
+                    flex: 1;
+                    background: linear-gradient(to top, #6366f1, #8b5cf6);
+                    height: ${Math.max(height, 2)}%;
+                    border-radius: 2px 2px 0 0;
+                    min-width: 8px;
+                    cursor: pointer;
+                    transition: opacity 0.2s;
+                `;
+                bar.title = `${day}: ${value} acessos`;
+                bar.onmouseover = () => bar.style.opacity = '0.8';
+                bar.onmouseout = () => bar.style.opacity = '1';
+                container.appendChild(bar);
+            });
+        }
+
+        function displayCurrentAnnouncement(announcement) {
+            const container = document.getElementById('currentAnnouncement');
+            const status = document.getElementById('announcementStatus');
+            const form = document.getElementById('announcementForm');
+
+            document.getElementById('currentAnnouncementTitle').textContent = announcement.title;
+            document.getElementById('currentAnnouncementMessage').textContent = announcement.message;
+
+            const typeBadge = document.getElementById('currentAnnouncementType');
+            typeBadge.className = 'announcement-type-badge ' + announcement.type;
+            const typeLabels = {
+                'maintenance': 'Manutenção',
+                'announcement': 'Anúncio',
+                'warning': 'Aviso'
+            };
+            typeBadge.textContent = typeLabels[announcement.type] || announcement.type;
+
+            const expiresEl = document.getElementById('currentAnnouncementExpires');
+            if (announcement.expires_at) {
+                const expiresDate = new Date(announcement.expires_at);
+                expiresEl.textContent = 'Expira em: ' + expiresDate.toLocaleString('pt-BR');
+            } else {
+                expiresEl.textContent = 'Sem data de expiração';
+            }
+
+            container.style.display = 'block';
+            form.style.display = 'none';
+            status.className = 'status-badge active-announcement';
+            status.textContent = 'Ativo';
+        }
+
+      
+        function hideCurrentAnnouncement() {
+            document.getElementById('currentAnnouncement').style.display = 'none';
+            document.getElementById('announcementForm').style.display = 'block';
+            document.getElementById('announcementStatus').className = 'status-badge disconnected';
+            document.getElementById('announcementStatus').textContent = 'Sem anúncio';
+        }
+
+     
+        async function createAnnouncement() {
+            const type = document.getElementById('announcementType').value;
+            const title = document.getElementById('announcementTitle').value.trim();
+            const message = document.getElementById('announcementMessage').value.trim();
+            const expiresInput = document.getElementById('announcementExpires').value;
+
+            if (!title || !message) {
+                alert('Preencha o título e a mensagem');
+                return;
+            }
+
+            const body = {
+                type,
+                title,
+                message,
+                expires_at: expiresInput ? new Date(expiresInput).toISOString() : null
+            };
+
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/announcement`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                  
+                    document.getElementById('announcementTitle').value = '';
+                    document.getElementById('announcementMessage').value = '';
+                    document.getElementById('announcementExpires').value = '';
+                    document.getElementById('announcementType').value = 'announcement';
+
+                    displayCurrentAnnouncement(data.announcement);
+                    addLog({ timestamp: new Date().toISOString(), message: 'Anúncio publicado: ' + title });
+                } else {
+                    alert('Erro ao criar anúncio: ' + data.error);
+                }
+            } catch (error) {
+                alert('Erro ao criar anúncio: ' + error.message);
+            }
+        }
+
+       
+        async function removeAnnouncement() {
+            if (!confirm('Tem certeza que deseja remover o anúncio?')) {
+                return;
+            }
+
+            try {
+                const response = await authFetch(`${API_URL}/api/admin/announcement`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    hideCurrentAnnouncement();
+                    addLog({ timestamp: new Date().toISOString(), message: 'Anúncio removido' });
+                } else {
+                    alert('Erro ao remover anúncio: ' + data.error);
+                }
+            } catch (error) {
+                alert('Erro ao remover anúncio: ' + error.message);
+            }
         }
 
 
@@ -630,15 +999,20 @@
             loginContainer.style.display = 'none';
             dashboard.classList.add('active');
 
-         
-            await loadStatus();
 
-      
+            await loadStatus();
+            await loadOnlineStats();
+            await loadAnnouncement();
+            await loadAccessStats();
+
             connectSocket();
 
-        
             if (refreshInterval) clearInterval(refreshInterval);
-            refreshInterval = setInterval(loadStatus, 30000);
+            refreshInterval = setInterval(() => {
+                loadStatus();
+                loadOnlineStats();
+                loadAccessStats();
+            }, 30000);
         }
 
    

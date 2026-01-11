@@ -39,6 +39,17 @@ const API = {
         return this.fetch(endpoint, options);
     },
 
+    async put(endpoint, data, token = null) {
+        const options = {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        };
+        if (token) {
+            options.headers = { 'Authorization': `Bearer ${token}` };
+        }
+        return this.fetch(endpoint, options);
+    },
+
     async delete(endpoint, token = null) {
         const options = {
             method: 'DELETE'

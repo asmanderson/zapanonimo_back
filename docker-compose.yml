@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  zap-anonimo:
+    build: .
+    container_name: zap-anonimo
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    restart: unless-stopped

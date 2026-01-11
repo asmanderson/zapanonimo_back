@@ -19,9 +19,10 @@ transporter.verify(function(error, success) {
   }
 });
 
-async function sendVerificationEmail(email, verificationToken) {
+async function sendVerificationEmail(email, verificationToken, name = '') {
   const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
   const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
+  const displayName = name ? name.split(' ')[0] : ''; // Pega o primeiro nome
 
   const mailOptions = {
     from: `"Zap Anônimo" <${process.env.EMAIL_USER}>`,
@@ -95,7 +96,7 @@ async function sendVerificationEmail(email, verificationToken) {
           </div>
 
           <div class="content">
-            <h2>Bem-vindo!</h2>
+            <h2>Bem-vindo${displayName ? ', ' + displayName : ''}!</h2>
             <p>Obrigado por se cadastrar no Zap Anônimo.</p>
             <p>Para ativar sua conta e começar a enviar mensagens, você precisa verificar seu endereço de email.</p>
 
@@ -127,11 +128,13 @@ async function sendVerificationEmail(email, verificationToken) {
   return { success: true, messageId: info.messageId };
 }
 
-async function resendVerificationEmail(email, verificationToken) {
-  return sendVerificationEmail(email, verificationToken);
+async function resendVerificationEmail(email, verificationToken, name = '') {
+  return sendVerificationEmail(email, verificationToken, name);
 }
 
-async function sendWelcomeEmail(email) {
+async function sendWelcomeEmail(email, name = '') {
+  const displayName = name ? name.split(' ')[0] : ''; // Pega o primeiro nome
+
   const mailOptions = {
     from: `"Zap Anônimo" <${process.env.EMAIL_USER}>`,
     to: email,
@@ -200,7 +203,7 @@ async function sendWelcomeEmail(email) {
 
           <div class="content">
             <h2 style="text-align: center; color: #25D366;">Email Verificado com Sucesso!</h2>
-            <p>Parabéns! Sua conta foi ativada e você já pode começar a usar o Zap Anônimo.</p>
+            <p>Parabéns${displayName ? ', ' + displayName : ''}! Sua conta foi ativada e você já pode começar a usar o Zap Anônimo.</p>
 
             <div class="features">
               <h3>O que você pode fazer agora:</h3>

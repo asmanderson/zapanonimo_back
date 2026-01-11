@@ -714,8 +714,73 @@ class WhatsAppService {
 
         this.addLog(`Mensagem de ${fromPhone} (isLid: ${isLid}): ${messageText.substring(0, 50)}...`);
 
+
+        const { saveReplyFromWebhook, findMessageByPhone, blockUser, unblockUser, createNotification } = require('./database');
+
+       
+        const msgLower = messageText.toLowerCase().trim();
+        if (msgLower === 'bloquear' || msgLower === 'desbloquear') {
+          this.addLog(`🚫 Comando de ${msgLower} detectado de ${fromPhone}`);
+          const lastMessage = await findMessageByPhone(fromPhone, 'whatsapp');
+
+          if (lastMessage) {
+            const userId = lastMessage.user_id.toString();
+            const phoneMasked = `****${fromPhone.slice(-4)}`;
+
+            if (msgLower === 'bloquear') {
+              const blockResult = await blockUser(fromPhone, lastMessage.user_id);
+              this.addLog(`🚫 Bloqueio: ${JSON.stringify(blockResult)}`);
+              await this.sendMessage(fromPhone, '✅ Você bloqueou este remetente.\n\nVocê não receberá mais mensagens anônimas desta pessoa.\n\nPara desbloquear, envie: *desbloquear*');
+
      
-        const { saveReplyFromWebhook } = require('./database');
+              const notifResult = await createNotification(
+                lastMessage.user_id,
+                'blocked',
+                'Você foi bloqueado',
+                `O número ${phoneMasked} bloqueou você. Não será possível enviar mensagens para este número.`,
+                fromPhone
+              );
+
+           
+              if (this.io) {
+                this.io.to(`user:${userId}`).emit('user-blocked', {
+                  phone: fromPhone,
+                  notificationId: notifResult.notification?.id || null,
+                  message: `O número ${phoneMasked} bloqueou você.`,
+                  blockedAt: new Date().toISOString()
+                });
+                this.addLog(`📢 Usuário ${userId} notificado sobre bloqueio`);
+              }
+            } else {
+              const unblockResult = await unblockUser(fromPhone, lastMessage.user_id);
+              this.addLog(`✅ Desbloqueio: ${JSON.stringify(unblockResult)}`);
+              await this.sendMessage(fromPhone, '✅ Remetente desbloqueado.\n\nVocê voltará a receber mensagens anônimas desta pessoa.');
+
+       
+              const notifResult = await createNotification(
+                lastMessage.user_id,
+                'unblocked',
+                'Você foi desbloqueado',
+                `O número ${phoneMasked} desbloqueou você. Você pode enviar mensagens novamente.`,
+                fromPhone
+              );
+
+           
+              if (this.io) {
+                this.io.to(`user:${userId}`).emit('user-unblocked', {
+                  phone: fromPhone,
+                  notificationId: notifResult.notification?.id || null,
+                  message: `O número ${phoneMasked} desbloqueou você.`,
+                  unblockedAt: new Date().toISOString()
+                });
+                this.addLog(`📢 Usuário ${userId} notificado sobre desbloqueio`);
+              }
+            }
+          } else {
+            this.addLog(`❌ Nenhuma mensagem encontrada para bloquear/desbloquear de ${fromPhone}`);
+          }
+          return; 
+        }
 
         this.addLog(`Chamando saveReplyFromWebhook com isLid=${isLid}, audioUrl=${audioUrl ? 'sim' : 'não'}...`);
         const result = await saveReplyFromWebhook(fromPhone, messageText, 'whatsapp', isLid, audioUrl);

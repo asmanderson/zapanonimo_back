@@ -29,7 +29,7 @@ function generateTrackingCode() {
 
 function extractTrackingCode(message) {
 
-  const match = message.match(/\bby([A-HJ-NP-Za-hj-np-z2-9]{4})\b/i);
+  const match = message.match(/by([A-HJ-NP-Za-hj-np-z2-9]{4})/i);
   return match ? 'by' + match[1] : null;
 }
 
@@ -182,7 +182,7 @@ async function findRecentMessageWithoutReply(channel = 'whatsapp', maxMinutes = 
 }
 
 
-async function createUser(email, password, phone = null) {
+async function createUser(email, password, phone = null, name = null, cpf = null) {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const userData = {
@@ -193,12 +193,17 @@ async function createUser(email, password, phone = null) {
     phone_verified: false
   };
 
-
   if (email) {
     userData.email = email;
   }
   if (phone) {
     userData.phone = phone;
+  }
+  if (name) {
+    userData.name = name;
+  }
+  if (cpf) {
+    userData.cpf = cpf;
   }
 
   const { data, error } = await supabase
@@ -224,8 +229,21 @@ async function getUserByPhone(phone) {
   return data;
 }
 
+async function getUserByCpf(cpf) {
+  const normalizedCpf = cpf.replace(/\D/g, '');
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('cpf', normalizedCpf)
+    .single();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+}
+
 async function getUserByEmailOrPhone(identifier) {
-  // Verificar se é telefone (só números) ou email
+ 
   const isPhone = /^\+?\d{10,15}$/.test(identifier.replace(/\D/g, ''));
 
   if (isPhone) {
@@ -235,20 +253,17 @@ async function getUserByEmailOrPhone(identifier) {
   }
 }
 
-// ==========================================
-// VERIFICAÇÃO POR SMS
-// ==========================================
 
 function generateVerificationCode() {
-  // Gerar código de 6 dígitos
+
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 async function createPhoneVerificationCode(userId, phone) {
   const code = generateVerificationCode();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); 
 
-  // Invalidar códigos anteriores para este telefone
+ 
   await supabase
     .from('phone_verifications')
     .update({ verified: true })
@@ -283,29 +298,29 @@ async function verifyPhoneCode(phone, code) {
     throw new Error('Código inválido ou já utilizado');
   }
 
-  // Verificar se não expirou
+  
   if (new Date(data.expires_at) < new Date()) {
     throw new Error('Código expirado. Solicite um novo código.');
   }
 
-  // Verificar tentativas (máximo 5)
+  
   if (data.attempts >= 5) {
     throw new Error('Muitas tentativas. Solicite um novo código.');
   }
 
-  // Incrementar tentativas
+  
   await supabase
     .from('phone_verifications')
     .update({ attempts: data.attempts + 1 })
     .eq('id', data.id);
 
-  // Marcar como verificado
+  
   await supabase
     .from('phone_verifications')
     .update({ verified: true, verified_at: new Date().toISOString() })
     .eq('id', data.id);
 
-  // Marcar telefone do usuário como verificado
+ 
   await supabase
     .from('users')
     .update({ phone_verified: true })
@@ -341,7 +356,7 @@ async function getUserByEmail(email) {
 async function getUserById(id) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, whatsapp_credits, sms_credits, email_verified')
+    .select('id, email, phone, name, cpf, whatsapp_credits, sms_credits, email_verified, phone_verified, created_at, password')
     .eq('id', id)
     .single();
 
@@ -772,6 +787,84 @@ async function resetPassword(token, newPassword) {
   return true;
 }
 
+
+async function createPasswordResetCodeByPhone(userId, phone) {
+  const code = generateVerificationCode();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); 
+
+
+  await supabase
+    .from('phone_verifications')
+    .update({ verified: true })
+    .eq('phone', phone)
+    .eq('verified', false);
+
+  const { data, error } = await supabase
+    .from('phone_verifications')
+    .insert([{
+      user_id: userId,
+      phone: phone,
+      code: code,
+      expires_at: expiresAt.toISOString()
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return code;
+}
+
+async function verifyPasswordResetCodeByPhone(phone, code) {
+  const { data, error } = await supabase
+    .from('phone_verifications')
+    .select('*')
+    .eq('phone', phone)
+    .eq('code', code)
+    .eq('verified', false)
+    .single();
+
+  if (error || !data) {
+    throw new Error('Código inválido ou já utilizado');
+  }
+
+  if (new Date(data.expires_at) < new Date()) {
+    throw new Error('Código expirado. Solicite um novo código.');
+  }
+
+  if (data.attempts >= 5) {
+    throw new Error('Muitas tentativas. Solicite um novo código.');
+  }
+
+ 
+  await supabase
+    .from('phone_verifications')
+    .update({ attempts: data.attempts + 1 })
+    .eq('id', data.id);
+
+  return data.user_id;
+}
+
+async function resetPasswordByPhone(phone, code, newPassword) {
+  const userId = await verifyPasswordResetCodeByPhone(phone, code);
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ password: hashedPassword })
+    .eq('id', userId);
+
+  if (updateError) throw updateError;
+
+
+  await supabase
+    .from('phone_verifications')
+    .update({ verified: true, verified_at: new Date().toISOString() })
+    .eq('phone', phone)
+    .eq('code', code);
+
+  return true;
+}
+
 async function getWhatsAppStats() {
   try {
     const { data, error } = await supabase
@@ -852,9 +945,6 @@ async function saveWhatsAppStats(stats, status = null) {
   }
 }
 
-// ==========================================
-// LOGGING DE MODERAÇÃO (CONFORMIDADE JURÍDICA)
-// ==========================================
 
 async function logModerationEvent(data) {
   try {
@@ -862,14 +952,14 @@ async function logModerationEvent(data) {
       timestamp: new Date().toISOString(),
       user_id: data.userId || null,
       message_hash: data.message ? hashMessage(data.message) : null,
-      action: data.action, // 'blocked' | 'allowed'
+      action: data.action, 
       category: data.category || null,
       risk_score: data.riskScore || 0,
       ip_address: data.ipAddress || null,
       user_agent: data.userAgent || null,
       target_phone_hash: data.targetPhone ? hashMessage(data.targetPhone) : null,
       channel: data.channel || 'whatsapp',
-      // NÃO guardar o conteúdo da mensagem, apenas o hash
+    
       metadata: {
         detected_types: data.detectedTypes || [],
         matched_rule: data.matchedWord || null
@@ -891,21 +981,123 @@ async function logModerationEvent(data) {
   }
 }
 
-// ==========================================
-// FUNÇÕES LGPD - DIREITOS DO TITULAR
-// ==========================================
 
-// LGPD Art. 18 - Direito à exclusão de dados
+async function saveToLegalRetention(userId) {
+  try {
+  
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      console.error('[LegalRetention] Usuário não encontrado:', userError?.message);
+      return { success: false, error: 'Usuário não encontrado' };
+    }
+
+
+    const { data: messages } = await supabase
+      .from('messages')
+      .select('to_phone, content, sent_at, tracking_code, ip_address')
+      .eq('user_id', userId)
+      .order('sent_at', { ascending: false });
+
+    const messagesSummary = (messages || []).map(msg => ({
+      to_phone: msg.to_phone,
+      content_hash: require('crypto').createHash('sha256').update(msg.content || '').digest('hex').substring(0, 16),
+      content_preview: (msg.content || '').substring(0, 50) + '...', 
+      sent_at: msg.sent_at,
+      tracking_code: msg.tracking_code,
+      ip_address: msg.ip_address
+    }));
+
+ 
+    const { data: transactions } = await supabase
+      .from('transactions')
+      .select('amount, type, status, payment_id, created_at')
+      .eq('user_id', userId);
+
+    const transactionsSummary = (transactions || []).map(t => ({
+      amount: t.amount,
+      type: t.type,
+      status: t.status,
+      payment_id: t.payment_id,
+      date: t.created_at
+    }));
+
+    const totalSpent = (transactions || [])
+      .filter(t => t.status === 'completed')
+      .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+ 
+    const ipLogs = (messages || [])
+      .filter(m => m.ip_address)
+      .map(m => ({
+        ip: m.ip_address,
+        action: 'message_sent',
+        timestamp: m.sent_at
+      }));
+
+
+    const { data: retention, error: retentionError } = await supabase
+      .from('legal_retention')
+      .insert({
+        original_user_id: userId,
+        name: user.name,
+        cpf: user.cpf,
+        email: user.email,
+        phone: user.phone,
+        account_created_at: user.created_at,
+        messages_summary: messagesSummary,
+        total_messages_sent: messages?.length || 0,
+        ip_logs: ipLogs,
+        transactions_summary: transactionsSummary,
+        total_spent: totalSpent,
+        deleted_by: 'user',
+        retention_expires_at: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString() 
+      })
+      .select()
+      .single();
+
+    if (retentionError) {
+      console.error('[LegalRetention] Erro ao salvar:', retentionError.message);
+      return { success: false, error: retentionError.message };
+    }
+
+ 
+    return { success: true, retentionId: retention.id };
+
+  } catch (error) {
+    console.error('[LegalRetention] Erro:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+
 async function deleteUserData(userId, options = {}) {
   const { keepTransactionsForTax = true } = options;
   const results = {
     deleted: [],
     errors: [],
-    anonymized: []
+    anonymized: [],
+    legalRetention: null
   };
 
   try {
-    // 1. Deletar respostas
+
+    const retentionResult = await saveToLegalRetention(userId);
+
+    if (retentionResult.success) {
+      results.legalRetention = retentionResult.retentionId;
+
+    } else {
+      console.error(`[DeleteUser] AVISO: Falha ao salvar retenção legal: ${retentionResult.error}`);
+ 
+      results.errors.push({ table: 'legal_retention', error: retentionResult.error });
+    }
+
+
     const { error: repliesError } = await supabase
       .from('replies')
       .delete()
@@ -917,7 +1109,7 @@ async function deleteUserData(userId, options = {}) {
       results.deleted.push('replies');
     }
 
-    // 2. Deletar mensagens
+   
     const { error: messagesError } = await supabase
       .from('messages')
       .delete()
@@ -929,7 +1121,7 @@ async function deleteUserData(userId, options = {}) {
       results.deleted.push('messages');
     }
 
-    // 3. Anonimizar transações (manter para fins fiscais/legais)
+ 
     if (keepTransactionsForTax) {
       const { error: transactionsError } = await supabase
         .from('transactions')
@@ -950,7 +1142,7 @@ async function deleteUserData(userId, options = {}) {
       if (!transactionsError) results.deleted.push('transactions');
     }
 
-    // 4. Deletar verificações de email
+ 
     const { error: emailVerifError } = await supabase
       .from('email_verifications')
       .delete()
@@ -958,7 +1150,15 @@ async function deleteUserData(userId, options = {}) {
 
     if (!emailVerifError) results.deleted.push('email_verifications');
 
-    // 5. Deletar tokens de reset de senha
+   
+    const { error: phoneVerifError } = await supabase
+      .from('phone_verifications')
+      .delete()
+      .eq('user_id', userId);
+
+    if (!phoneVerifError) results.deleted.push('phone_verifications');
+
+   
     const { error: passwordResetError } = await supabase
       .from('password_resets')
       .delete()
@@ -966,7 +1166,7 @@ async function deleteUserData(userId, options = {}) {
 
     if (!passwordResetError) results.deleted.push('password_resets');
 
-    // 6. Deletar logs de moderação
+   
     const { error: modLogsError } = await supabase
       .from('moderation_logs')
       .delete()
@@ -974,7 +1174,15 @@ async function deleteUserData(userId, options = {}) {
 
     if (!modLogsError) results.deleted.push('moderation_logs');
 
-    // 7. Por último, deletar o usuário
+   
+    const { error: favoritesError } = await supabase
+      .from('favorites')
+      .delete()
+      .eq('user_id', userId);
+
+    if (!favoritesError) results.deleted.push('favorites');
+
+ 
     const { error: userError } = await supabase
       .from('users')
       .delete()
@@ -1001,7 +1209,7 @@ async function deleteUserData(userId, options = {}) {
   }
 }
 
-// LGPD Art. 18 - Direito à portabilidade (exportação de dados)
+
 async function exportUserData(userId) {
   try {
     const exportData = {
@@ -1010,17 +1218,17 @@ async function exportUserData(userId) {
       version: '1.0'
     };
 
-    // 1. Dados do usuário (sem senha)
+   
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('id, email, whatsapp_credits, sms_credits, email_verified, created_at')
+      .select('id, email, phone, whatsapp_credits, sms_credits, email_verified, phone_verified, created_at')
       .eq('id', userId)
       .single();
 
     if (userError) throw userError;
     exportData.user = userData;
 
-    // 2. Mensagens enviadas (com dados mascarados)
+
     const { data: messagesData } = await supabase
       .from('messages')
       .select('id, phone, message, channel, tracking_code, created_at, has_reply')
@@ -1033,7 +1241,7 @@ async function exportUserData(userId) {
       message: maskSensitiveData(msg.message)
     }));
 
-    // 3. Respostas recebidas
+  
     const { data: repliesData } = await supabase
       .from('replies')
       .select('id, message, channel, created_at, audio_url')
@@ -1045,7 +1253,7 @@ async function exportUserData(userId) {
       message: maskSensitiveData(reply.message)
     }));
 
-    // 4. Histórico de transações
+    
     const { data: transactionsData } = await supabase
       .from('transactions')
       .select('id, type, credit_type, amount, credits_added, price, created_at')
@@ -1054,11 +1262,23 @@ async function exportUserData(userId) {
 
     exportData.transactions = transactionsData || [];
 
-    // 5. Metadados
+    const { data: favoritesData } = await supabase
+      .from('favorites')
+      .select('id, phone, name, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    exportData.favorites = (favoritesData || []).map(fav => ({
+      ...fav,
+      phone: maskSensitiveData(fav.phone)
+    }));
+
+
     exportData.metadata = {
       totalMessages: exportData.messages.length,
       totalReplies: exportData.replies.length,
       totalTransactions: exportData.transactions.length,
+      totalFavorites: exportData.favorites.length,
       dataRetentionPolicy: RETENTION_POLICY
     };
 
@@ -1075,9 +1295,6 @@ async function exportUserData(userId) {
   }
 }
 
-// ==========================================
-// POLÍTICA DE RETENÇÃO - LIMPEZA AUTOMÁTICA
-// ==========================================
 
 async function cleanupExpiredData() {
   const results = {
@@ -1088,7 +1305,7 @@ async function cleanupExpiredData() {
   try {
     const now = new Date();
 
-    // 1. Limpar mensagens antigas
+
     const messagesExpiry = new Date(now);
     messagesExpiry.setDate(messagesExpiry.getDate() - RETENTION_POLICY.messages);
 
@@ -1104,7 +1321,7 @@ async function cleanupExpiredData() {
       results.errors.push({ table: 'messages', error: messagesError.message });
     }
 
-    // 2. Limpar respostas antigas
+   
     const repliesExpiry = new Date(now);
     repliesExpiry.setDate(repliesExpiry.getDate() - RETENTION_POLICY.replies);
 
@@ -1120,7 +1337,7 @@ async function cleanupExpiredData() {
       results.errors.push({ table: 'replies', error: repliesError.message });
     }
 
-    // 3. Limpar logs de moderação antigos (não-abuso)
+   
     const logsExpiry = new Date(now);
     logsExpiry.setDate(logsExpiry.getDate() - RETENTION_POLICY.logs_technical);
 
@@ -1134,7 +1351,7 @@ async function cleanupExpiredData() {
       results.cleaned.push({ table: 'moderation_logs (technical)' });
     }
 
-    // 4. Limpar tokens de verificação de email expirados
+  
     const { error: tokenError } = await supabase
       .from('email_verifications')
       .delete()
@@ -1144,7 +1361,7 @@ async function cleanupExpiredData() {
       results.cleaned.push({ table: 'email_verifications (expired)' });
     }
 
-    // 5. Limpar tokens de reset de senha expirados
+
     const { error: resetError } = await supabase
       .from('password_resets')
       .delete()
@@ -1161,26 +1378,23 @@ async function cleanupExpiredData() {
   }
 }
 
-// Função para uso com cron job (executar diariamente)
+
 function scheduleDataCleanup() {
-  // Executar limpeza diariamente às 3h da manhã
-  const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 horas
+
+  const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; 
 
   setInterval(async () => {
 
     await cleanupExpiredData();
   }, CLEANUP_INTERVAL);
 
-  // Executar uma vez na inicialização (após 1 minuto)
+
   setTimeout(async () => {
 
     await cleanupExpiredData();
   }, 60 * 1000);
 }
 
-// ==========================================
-// FAVORITOS
-// ==========================================
 
 async function getFavorites(userId) {
   try {
@@ -1200,7 +1414,7 @@ async function getFavorites(userId) {
 
 async function addFavorite(userId, name, phone) {
   try {
-    // Limpar telefone (só números)
+  
     const cleanPhone = phone.replace(/\D/g, '');
 
     const { data, error } = await supabase
@@ -1262,11 +1476,507 @@ async function isFavorite(userId, phone) {
   }
 }
 
+
+
+async function getAnnouncement() {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'announcement')
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    if (data && data.value) {
+      const announcement = data.value;
+   
+      if (announcement.active) {
+        if (announcement.expires_at && new Date(announcement.expires_at) < new Date()) {
+          return null; 
+        }
+        return announcement;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('[Database] Erro ao buscar anúncio:', error.message);
+    return null;
+  }
+}
+
+async function saveAnnouncement(announcement) {
+  try {
+    const data = {
+      ...announcement,
+      updated_at: new Date().toISOString()
+    };
+
+    if (!data.created_at) {
+      data.created_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase
+      .from('system_settings')
+      .upsert({
+        key: 'announcement',
+        value: data,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+
+    if (error) throw error;
+    return { success: true, announcement: data };
+  } catch (error) {
+    console.error('[Database] Erro ao salvar anúncio:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function deleteAnnouncement() {
+  try {
+    const { error } = await supabase
+      .from('system_settings')
+      .update({
+        value: { active: false },
+        updated_at: new Date().toISOString()
+      })
+      .eq('key', 'announcement');
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error('[Database] Erro ao deletar anúncio:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+
+
+async function logAccess(data) {
+  try {
+    const { sessionId, userId, ipAddress, userAgent, page, referrer } = data;
+
+
+    await supabase
+      .from('access_logs')
+      .insert({
+        session_id: sessionId,
+        user_id: userId || null,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        page: page || 'home',
+        referrer: referrer
+      });
+
+
+    const { data: existing } = await supabase
+      .from('unique_visitors')
+      .select('id, visit_count')
+      .eq('session_id', sessionId)
+      .single();
+
+    if (existing) {
+      await supabase
+        .from('unique_visitors')
+        .update({
+          last_visit: new Date().toISOString(),
+          visit_count: existing.visit_count + 1,
+          user_id: userId || null
+        })
+        .eq('session_id', sessionId);
+    } else {
+      await supabase
+        .from('unique_visitors')
+        .insert({
+          session_id: sessionId,
+          user_id: userId || null
+        });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('[Access] Erro ao registrar acesso:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function getAccessStats(period = 'today') {
+  try {
+    let startDate;
+    const now = new Date();
+
+    switch (period) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      case 'all':
+        startDate = new Date(0);
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+
+   
+    const { count: totalPageviews } = await supabase
+      .from('access_logs')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', startDate.toISOString());
+
+  
+    const { count: uniqueVisitors } = await supabase
+      .from('unique_visitors')
+      .select('*', { count: 'exact', head: true })
+      .gte('first_visit', startDate.toISOString());
+
+ 
+    const { count: loggedUsers } = await supabase
+      .from('access_logs')
+      .select('user_id', { count: 'exact', head: true })
+      .not('user_id', 'is', null)
+      .gte('created_at', startDate.toISOString());
+
+
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const { data: dailyAccesses } = await supabase
+      .from('access_logs')
+      .select('created_at')
+      .gte('created_at', thirtyDaysAgo.toISOString())
+      .order('created_at', { ascending: true });
+
+    const accessesByDay = {};
+    (dailyAccesses || []).forEach(access => {
+      const day = access.created_at.split('T')[0];
+      accessesByDay[day] = (accessesByDay[day] || 0) + 1;
+    });
+
+
+    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+    const { data: onlineUsers } = await supabase
+      .from('access_logs')
+      .select('session_id, user_id')
+      .gte('created_at', fiveMinutesAgo.toISOString());
+
+    const uniqueOnline = new Set((onlineUsers || []).map(u => u.session_id)).size;
+
+    return {
+      success: true,
+      stats: {
+        period,
+        totalPageviews: totalPageviews || 0,
+        uniqueVisitors: uniqueVisitors || 0,
+        loggedUsers: loggedUsers || 0,
+        onlineNow: uniqueOnline,
+        accessesByDay
+      }
+    };
+  } catch (error) {
+    console.error('[Access] Erro ao obter estatísticas:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function getRecentAccesses(limit = 50) {
+  try {
+    const { data, error } = await supabase
+      .from('access_logs')
+      .select(`
+        id,
+        session_id,
+        user_id,
+        ip_address,
+        user_agent,
+        page,
+        created_at,
+        users (
+          email,
+          name,
+          phone
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    return { success: true, accesses: data };
+  } catch (error) {
+    console.error('[Access] Erro ao obter acessos recentes:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+
+
+async function blockUser(phone, userId) {
+  try {
+    const normalizedPhone = phone.replace(/\D/g, '');
+
+    const { data, error } = await supabase
+      .from('blocked_numbers')
+      .insert({
+        phone: normalizedPhone,
+        user_id: userId,
+        notified: false
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+   
+        return { success: true, alreadyBlocked: true };
+      }
+      throw error;
+    }
+
+   
+    return { success: true, data };
+  } catch (error) {
+    console.error('[Block] Erro ao bloquear:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+
+async function getPendingBlockNotifications(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('blocked_numbers')
+      .select('id, phone, blocked_at')
+      .eq('user_id', userId)
+      .eq('notified', false);
+
+    if (error) throw error;
+
+    return { success: true, blocks: data || [] };
+  } catch (error) {
+    console.error('[Block] Erro ao buscar notificações pendentes:', error.message);
+    return { success: false, blocks: [] };
+  }
+}
+
+
+async function markBlockAsNotified(blockId) {
+  try {
+    const { error } = await supabase
+      .from('blocked_numbers')
+      .update({ notified: true })
+      .eq('id', blockId);
+
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error) {
+    console.error('[Block] Erro ao marcar como notificado:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function isBlocked(phone, userId) {
+  try {
+    const normalizedPhone = phone.replace(/\D/g, '');
+    const last9Digits = normalizedPhone.slice(-9);
+    const last8Digits = normalizedPhone.slice(-8);
+
+ 
+    const { data, error } = await supabase
+      .from('blocked_numbers')
+      .select('id, phone')
+      .eq('user_id', userId);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      return false;
+    }
+
+   
+    const isPhoneBlocked = data.some(blocked => {
+      const blockedNormalized = blocked.phone.replace(/\D/g, '');
+      const blockedLast9 = blockedNormalized.slice(-9);
+      const blockedLast8 = blockedNormalized.slice(-8);
+
+      return normalizedPhone === blockedNormalized ||
+             last9Digits === blockedLast9 ||
+             last8Digits === blockedLast8;
+    });
+
+    return isPhoneBlocked;
+  } catch (error) {
+    console.error('[Block] Erro ao verificar bloqueio:', error.message);
+    return false;
+  }
+}
+
+async function unblockUser(phone, userId) {
+  try {
+    const normalizedPhone = phone.replace(/\D/g, '');
+    const last9Digits = normalizedPhone.slice(-9);
+
+
+    const { data: blocks, error: findError } = await supabase
+      .from('blocked_numbers')
+      .select('id, phone')
+      .eq('user_id', userId);
+
+    if (findError) throw findError;
+
+    if (!blocks || blocks.length === 0) {
+      return { success: true, message: 'Nenhum bloqueio encontrado' };
+    }
+
+    const blockToRemove = blocks.find(blocked => {
+      const blockedNormalized = blocked.phone.replace(/\D/g, '');
+      const blockedLast9 = blockedNormalized.slice(-9);
+      return normalizedPhone === blockedNormalized || last9Digits === blockedLast9;
+    });
+
+    if (!blockToRemove) {
+      return { success: true, message: 'Bloqueio não encontrado para este número' };
+    }
+
+    const { error } = await supabase
+      .from('blocked_numbers')
+      .delete()
+      .eq('id', blockToRemove.id);
+
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error) {
+    console.error('[Block] Erro ao desbloquear:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function getBlockedByUser(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('blocked_numbers')
+      .select('phone, blocked_at')
+      .eq('user_id', userId)
+      .order('blocked_at', { ascending: false });
+
+    if (error) throw error;
+
+    return { success: true, blocked: data || [] };
+  } catch (error) {
+    console.error('[Block] Erro ao obter bloqueios:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+
+async function createNotification(userId, type, title, message, phone = null) {
+  try {
+    const { data, error } = await supabase
+      .from('user_notifications')
+      .insert({
+        user_id: userId,
+        type,
+        title,
+        message,
+        phone,
+        read: false
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { success: true, notification: data };
+  } catch (error) {
+    console.error('[Notification] Erro ao criar:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function getUserNotifications(userId, limit = 50) {
+  try {
+    const { data, error } = await supabase
+      .from('user_notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    return { success: true, notifications: data || [] };
+  } catch (error) {
+    console.error('[Notification] Erro ao buscar:', error.message);
+    return { success: false, notifications: [] };
+  }
+}
+
+async function getUnreadNotificationsCount(userId) {
+  try {
+    const { count, error } = await supabase
+      .from('user_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('read', false);
+
+    if (error) throw error;
+
+    return { success: true, count: count || 0 };
+  } catch (error) {
+    console.error('[Notification] Erro ao contar:', error.message);
+    return { success: false, count: 0 };
+  }
+}
+
+async function markNotificationAsRead(notificationId, userId) {
+  try {
+    const { error } = await supabase
+      .from('user_notifications')
+      .update({ read: true })
+      .eq('id', notificationId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error) {
+    console.error('[Notification] Erro ao marcar como lida:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function markAllNotificationsAsRead(userId) {
+  try {
+    const { error } = await supabase
+      .from('user_notifications')
+      .update({ read: true })
+      .eq('user_id', userId)
+      .eq('read', false);
+
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error) {
+    console.error('[Notification] Erro ao marcar todas como lidas:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   supabase,
   createUser,
   getUserByEmail,
   getUserByPhone,
+  getUserByCpf,
   getUserByEmailOrPhone,
   getUserById,
   verifyPassword,
@@ -1293,24 +2003,50 @@ module.exports = {
   saveLidMapping,
   getPhoneByLid,
   loadLidMappings,
-  // Funções de verificação por SMS
+ 
   createPhoneVerificationCode,
   verifyPhoneCode,
   isPhoneVerified,
-  // Novas funções de segurança e LGPD
+
+  createPasswordResetCodeByPhone,
+  verifyPasswordResetCodeByPhone,
+  resetPasswordByPhone,
+
   hashMessage,
   encryptMessage,
   decryptMessage,
   maskSensitiveData,
   logModerationEvent,
+  saveToLegalRetention,
   deleteUserData,
   exportUserData,
   cleanupExpiredData,
   scheduleDataCleanup,
   RETENTION_POLICY,
-  // Favoritos
+
   getFavorites,
   addFavorite,
   deleteFavorite,
-  isFavorite
+  isFavorite,
+
+  getAnnouncement,
+  saveAnnouncement,
+  deleteAnnouncement,
+
+  logAccess,
+  getAccessStats,
+  getRecentAccesses,
+
+  blockUser,
+  unblockUser,
+  isBlocked,
+  getBlockedByUser,
+  getPendingBlockNotifications,
+  markBlockAsNotified,
+
+  createNotification,
+  getUserNotifications,
+  getUnreadNotificationsCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
 };
