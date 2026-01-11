@@ -341,9 +341,152 @@ async function sendPasswordResetEmail(email, resetToken) {
   return { success: true, messageId: info.messageId };
 }
 
+async function sendContactEmail(name, email, subject, message) {
+  const subjectLabels = {
+    'duvida': 'Dúvida sobre o serviço',
+    'pagamento': 'Problemas com pagamento',
+    'creditos': 'Créditos não recebidos',
+    'mensagem': 'Problema ao enviar mensagem',
+    'conta': 'Problemas com minha conta',
+    'sugestao': 'Sugestão de melhoria',
+    'parceria': 'Proposta de parceria',
+    'outro': 'Outro assunto'
+  };
+
+  const subjectLabel = subjectLabels[subject] || subject;
+
+  const mailOptions = {
+    from: `"Zap Anônimo - Contato" <${process.env.EMAIL_USER}>`,
+    to: process.env.CONTACT_EMAIL || process.env.EMAIL_USER,
+    replyTo: email,
+    subject: `[Fale Conosco] ${subjectLabel}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .container {
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            padding: 30px;
+            border: 1px solid #ddd;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #4f46e5;
+          }
+          .header h1 {
+            color: #4f46e5;
+            margin: 0;
+            font-size: 24px;
+          }
+          .content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+          }
+          .field {
+            margin-bottom: 20px;
+          }
+          .field-label {
+            font-weight: bold;
+            color: #4f46e5;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+          }
+          .field-value {
+            background-color: #f8fafc;
+            padding: 12px;
+            border-radius: 5px;
+            border-left: 3px solid #4f46e5;
+          }
+          .message-box {
+            background-color: #f8fafc;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 3px solid #4f46e5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+          }
+          .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+          }
+          .timestamp {
+            background-color: #fef3c7;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #92400e;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Nova Mensagem de Contato</h1>
+          </div>
+
+          <div class="content">
+            <div class="field">
+              <div class="field-label">Nome</div>
+              <div class="field-value">${name}</div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">E-mail</div>
+              <div class="field-value"><a href="mailto:${email}">${email}</a></div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">Assunto</div>
+              <div class="field-value">${subjectLabel}</div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">Mensagem</div>
+              <div class="message-box">${message.replace(/\n/g, '<br>')}</div>
+            </div>
+
+            <div class="timestamp">
+              Recebido em: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>Esta mensagem foi enviada através do formulário de contato do Zap Anônimo.</p>
+            <p>Para responder, basta clicar em "Responder" - o email do usuário está configurado como Reply-To.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  return { success: true, messageId: info.messageId };
+}
+
 module.exports = {
   sendVerificationEmail,
   resendVerificationEmail,
   sendWelcomeEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendContactEmail
 };

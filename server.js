@@ -130,7 +130,8 @@ const {
   sendVerificationEmail,
   resendVerificationEmail,
   sendWelcomeEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendContactEmail
 } = require('./email-service');
 const {
   createPixPayment,
@@ -183,7 +184,7 @@ whatsappService.loadStats().then(() => {
 const frontendPath = path.join(__dirname, './frontend');
 
 
-const cleanRoutes = ['admin', 'index', 'verify-email', 'reset-password', 'payment-success', 'payment-failure', 'payment-pending', 'payment-instructions', 'privacy', 'terms'];
+const cleanRoutes = ['admin', 'index', 'verify-email', 'reset-password', 'payment-success', 'payment-failure', 'payment-pending', 'payment-instructions', 'privacy', 'terms', 'fale-conosco'];
 
 cleanRoutes.forEach(route => {
   app.get(`/${route}`, (req, res) => {
@@ -559,6 +560,61 @@ app.post('/api/reset-password', async (req, res) => {
     });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Rota de contato (Fale Conosco)
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, subject, message } = req.body;
+
+    // Validação dos campos
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Todos os campos são obrigatórios'
+      });
+    }
+
+    // Validação básica de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Por favor, insira um email válido'
+      });
+    }
+
+    // Validação de tamanho da mensagem
+    if (message.length < 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'A mensagem deve ter pelo menos 10 caracteres'
+      });
+    }
+
+    if (message.length > 5000) {
+      return res.status(400).json({
+        success: false,
+        error: 'A mensagem não pode exceder 5000 caracteres'
+      });
+    }
+
+    // Enviar email
+    await sendContactEmail(name, email, subject, message);
+
+    console.log(`[Contact] Nova mensagem de contato de ${email} - Assunto: ${subject}`);
+
+    res.json({
+      success: true,
+      message: 'Mensagem enviada com sucesso! Responderemos em breve.'
+    });
+  } catch (error) {
+    console.error('[Contact] Erro ao enviar mensagem de contato:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao enviar mensagem. Tente novamente mais tarde.'
+    });
   }
 });
 

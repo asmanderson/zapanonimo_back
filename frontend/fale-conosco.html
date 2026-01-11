@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fale Conosco - Zap Anônimo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom, #f0f4f8 0%, #ffffff 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a1a1a;
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            margin-bottom: 30px;
+        }
+
+        .navbar h1 {
+            color: #1a1a1a;
+            font-size: 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .whatsapp-icon {
+            width: 32px;
+            height: 32px;
+            background: #25D366;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .whatsapp-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .btn-nav {
+            padding: 10px 24px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-nav:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+
+        .content {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .page-title svg {
+            width: 36px;
+            height: 36px;
+            fill: #4f46e5;
+        }
+
+        .page-subtitle {
+            color: #64748b;
+            font-size: 16px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .contact-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s;
+            border: 1px solid #e2e8f0;
+        }
+
+        .contact-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        .contact-card-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+        }
+
+        .contact-card-icon.email {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        }
+
+        .contact-card-icon svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+        }
+
+        .contact-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+
+        .contact-card p {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .contact-card a {
+            color: #4f46e5;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+        }
+
+        .contact-card a:hover {
+            text-decoration: underline;
+        }
+
+        .form-section h2 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            color: #334155;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 14px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.3s;
+            background: #f8fafc;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .form-group textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .btn-submit {
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-submit svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .success-message,
+        .error-message {
+            padding: 16px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .success-message {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            color: #166534;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        .success-message svg,
+        .error-message svg {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .success-message svg {
+            fill: #166534;
+        }
+
+        .error-message svg {
+            fill: #991b1b;
+        }
+
+        .faq-section {
+            margin-top: 50px;
+            padding-top: 40px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .faq-section h2 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 25px;
+            padding-left: 15px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        .faq-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .faq-question {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .faq-question::before {
+            content: "Q";
+            background: #4f46e5;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .faq-answer {
+            color: #64748b;
+            padding-left: 34px;
+            font-size: 15px;
+        }
+
+        .response-time {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border: 1px solid #fbbf24;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-top: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .response-time svg {
+            width: 24px;
+            height: 24px;
+            fill: #b45309;
+            flex-shrink: 0;
+        }
+
+        .response-time p {
+            color: #92400e;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .footer-links {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .footer-links a {
+            color: #4f46e5;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <h1>
+                <div class="whatsapp-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                </div>
+                Zap Anônimo
+            </h1>
+            <a href="index.html" class="btn-nav">Voltar ao Início</a>
+        </nav>
+
+        <div class="content">
+            <h1 class="page-title">
+                <svg viewBox="0 0 24 24">
+                    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                </svg>
+                Fale Conosco
+            </h1>
+            <p class="page-subtitle">Estamos aqui para ajudar! Entre em contato conosco através do formulário abaixo ou diretamente pelo nosso e-mail.</p>
+
+            <div class="contact-card" style="max-width: 400px; margin: 0 auto 40px;">
+                <div class="contact-card-icon email">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                    </svg>
+                </div>
+                <h3>E-mail de Suporte</h3>
+                <p>Respondemos em até 24 horas</p>
+                <a href="mailto:zapanonimo2025@gmail.com">zapanonimo2025@gmail.com</a>
+            </div>
+
+            <div class="form-section">
+                <h2>Envie sua mensagem</h2>
+
+                <div class="success-message" id="successMessage">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    <span>Mensagem enviada com sucesso! Responderemos em breve.</span>
+                </div>
+
+                <div class="error-message" id="errorMessage">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                    </svg>
+                    <span id="errorText">Ocorreu um erro ao enviar sua mensagem. Tente novamente.</span>
+                </div>
+
+                <form class="contact-form" id="contactForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Nome completo *</label>
+                            <input type="text" id="name" name="name" placeholder="Seu nome" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">E-mail *</label>
+                            <input type="email" id="email" name="email" placeholder="seu@email.com" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="subject">Assunto *</label>
+                        <select id="subject" name="subject" required>
+                            <option value="">Selecione um assunto</option>
+                            <option value="duvida">Dúvida sobre o serviço</option>
+                            <option value="pagamento">Problemas com pagamento</option>
+                            <option value="creditos">Créditos não recebidos</option>
+                            <option value="mensagem">Problema ao enviar mensagem</option>
+                            <option value="conta">Problemas com minha conta</option>
+                            <option value="sugestao">Sugestão de melhoria</option>
+                            <option value="parceria">Proposta de parceria</option>
+                            <option value="outro">Outro assunto</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">Mensagem *</label>
+                        <textarea id="message" name="message" placeholder="Descreva sua dúvida ou problema em detalhes..." required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-submit" id="submitBtn">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                        Enviar mensagem
+                    </button>
+
+                    <div class="response-time">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                        </svg>
+                        <p><strong>Tempo médio de resposta:</strong> Respondemos todas as mensagens em até 24 horas úteis.</p>
+                    </div>
+                </form>
+            </div>
+
+            <div class="faq-section">
+                <h2>Perguntas Frequentes</h2>
+
+                <div class="faq-item">
+                    <div class="faq-question">Como funciona o Zap Anônimo?</div>
+                    <div class="faq-answer">O Zap Anônimo permite enviar mensagens pelo WhatsApp de forma anônima. Basta inserir o número do destinatário, escrever sua mensagem e enviar. O destinatário não saberá quem enviou.</div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Quanto tempo demora para a mensagem ser entregue?</div>
+                    <div class="faq-answer">As mensagens são enviadas instantaneamente após a confirmação. Em alguns casos, pode haver um pequeno atraso de alguns segundos.</div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Posso cancelar uma mensagem enviada?</div>
+                    <div class="faq-answer">Infelizmente, após o envio da mensagem, não é possível cancelá-la. Por isso, recomendamos revisar bem antes de enviar.</div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Meus créditos expiram?</div>
+                    <div class="faq-answer">Não! Seus créditos não expiram. Uma vez adquiridos, eles ficam disponíveis na sua conta até você utilizá-los.</div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Como solicitar reembolso?</div>
+                    <div class="faq-answer">Reembolsos podem ser solicitados em até 7 dias após a compra, desde que os créditos não tenham sido utilizados. Entre em contato pelo formulário acima informando o motivo.</div>
+                </div>
+            </div>
+
+            <footer class="footer-links">
+                <p>&copy; 2025 Zap Anônimo. Todos os direitos reservados.</p>
+                <p style="margin-top: 10px;">
+                    <a href="/">Início</a> |
+                    <a href="/privacy">Política de Privacidade</a> |
+                    <a href="/terms">Termos de Uso</a>
+                </p>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('contactForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const successMessage = document.getElementById('successMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+
+            // Reset messages
+            successMessage.style.display = 'none';
+            errorMessage.style.display = 'none';
+
+            // Disable button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `
+                <svg viewBox="0 0 24 24" style="animation: spin 1s linear infinite;">
+                    <path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/>
+                </svg>
+                Enviando...
+            `;
+
+            const formData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                subject: document.getElementById('subject').value,
+                message: document.getElementById('message').value
+            };
+
+            try {
+                const response = await fetch('/api/contact', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    successMessage.style.display = 'flex';
+                    document.getElementById('contactForm').reset();
+                    // Scroll to success message
+                    successMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    errorText.textContent = data.error || 'Ocorreu um erro ao enviar sua mensagem. Tente novamente.';
+                    errorMessage.style.display = 'flex';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorText.textContent = 'Erro de conexão. Verifique sua internet e tente novamente.';
+                errorMessage.style.display = 'flex';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                    Enviar mensagem
+                `;
+            }
+        });
+    </script>
+
+    <style>
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</body>
+</html>
