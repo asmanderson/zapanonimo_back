@@ -111,7 +111,41 @@
             .navbar {
                 padding: 15px;
                 flex-direction: column;
-                gap: 15px;
+                gap: 12px;
+                position: relative;
+            }
+
+            .navbar h1 {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .navbar-buttons .btn-theme-toggle {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                padding: 5px 7px;
+                font-size: 14px;
+                border-radius: 6px;
+                z-index: 10;
+            }
+
+            .navbar-buttons .notification-dropdown {
+                position: absolute;
+                top: 10px;
+                right: 50px;
+                margin-right: 0;
+                z-index: 10;
+            }
+
+            .navbar-buttons .notification-btn {
+                width: 32px;
+                height: 32px;
+            }
+
+            .navbar-buttons .notification-btn svg {
+                width: 16px;
+                height: 16px;
             }
         }
 
@@ -156,8 +190,23 @@
         @media (max-width: 768px) {
             .navbar-buttons {
                 width: 100%;
-                flex-direction: column;
-                gap: 8px;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                gap: 10px;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .navbar-buttons .user-dropdown-btn {
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+
+            .navbar-buttons .btn-nav {
+                padding: 10px 20px;
+                font-size: 14px;
+                flex: none;
+                width: auto;
             }
         }
 
@@ -171,26 +220,12 @@
 
         @media (max-width: 768px) {
             .user-email {
-                max-width: 100%;
-                width: 100%;
-                text-align: center;
-                font-size: 13px;
-                order: 3;
-                background: var(--bg-secondary);
-                padding: 8px;
-                border-radius: 6px;
+                display: none;
             }
 
             .credits-badge {
-                order: 1;
-                flex: 1;
-                text-align: center;
-            }
-
-            .btn-nav {
-                order: 2;
-                flex: 1;
-                width: 100%;
+                font-size: 12px;
+                padding: 6px 10px;
             }
         }
 
@@ -800,13 +835,127 @@
             transition: background 0.3s ease;
         }
 
+        .modal-title {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 22px;
+        }
+
+        html.dark-mode .modal-title {
+            color: var(--text-primary);
+        }
+
+        html.dark-mode .modal-content .form-group label {
+            color: var(--text-primary);
+        }
+
+        html.dark-mode .modal-content .form-group input,
+        html.dark-mode .modal-content .form-group textarea {
+            background: var(--bg-input) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        html.dark-mode .modal-content .form-group input:-webkit-autofill,
+        html.dark-mode .modal-content .form-group input:-webkit-autofill:hover,
+        html.dark-mode .modal-content .form-group input:-webkit-autofill:focus,
+        html.dark-mode .modal-content .form-group input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px var(--bg-input) inset !important;
+            -webkit-text-fill-color: var(--text-primary) !important;
+            background-color: var(--bg-input) !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        html.dark-mode .lgpd-data-section h4 {
+            color: var(--text-primary);
+        }
+
+        html.dark-mode .lgpd-data-label {
+            color: var(--text-secondary);
+        }
+
+        html.dark-mode .lgpd-data-value {
+            color: var(--text-primary);
+        }
+
+        html.dark-mode .lgpd-data-item {
+            border-bottom-color: var(--border-color);
+        }
+
         @media (max-width: 768px) {
             .modal {
                 padding: 10px 0;
             }
             .modal-content {
-                padding: 25px 20px;
-                width: 95%;
+                padding: 20px 15px !important;
+                width: 95% !important;
+            }
+            .modal-title {
+                font-size: 18px !important;
+                margin-bottom: 15px !important;
+            }
+            .modal-content .form-group {
+                margin-bottom: 12px !important;
+            }
+            .modal-content .form-group label {
+                font-size: 13px !important;
+                margin-bottom: 5px !important;
+            }
+            .modal-content .form-group input,
+            .modal-content .form-group textarea {
+                padding: 10px !important;
+                font-size: 14px !important;
+            }
+            .modal-content .phone-prefix {
+                width: 45px !important;
+                padding: 10px 5px !important;
+                font-size: 12px !important;
+                text-align: center !important;
+            }
+            .modal-content .btn {
+                padding: 12px !important;
+                font-size: 14px !important;
+            }
+        }
+
+        /* Phone input group */
+        .phone-input-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .phone-number-input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .phone-verify-btn {
+            padding: 10px 12px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 480px) {
+            .modal-content .phone-input-group {
+                flex-wrap: wrap !important;
+            }
+
+            .modal-content .phone-number-input {
+                flex: 1 1 auto !important;
+                min-width: 100px !important;
+            }
+
+            .modal-content .phone-verify-btn {
+                width: 100% !important;
+                margin-top: 5px !important;
+                padding: 10px !important;
             }
         }
 
@@ -2045,6 +2194,46 @@
             }
         }
 
+        /* Trust badges mobile */
+        .trust-badges {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+            padding: 0 20px;
+        }
+
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        @media (max-width: 480px) {
+            .trust-badges {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+                padding: 0 20px;
+                max-width: 220px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .trust-badge {
+                font-size: 12px;
+                width: 100%;
+            }
+
+            .trust-badge svg {
+                flex-shrink: 0;
+                width: 16px;
+            }
+        }
+
         /* LGPD / Minha Conta Buttons */
         .lgpd-buttons {
             display: grid;
@@ -2146,6 +2335,31 @@
             color: #1e293b;
             font-size: 13px;
             font-weight: 500;
+        }
+
+        @media (max-width: 480px) {
+            .lgpd-data-section {
+                margin-bottom: 15px;
+            }
+
+            .lgpd-data-section h4 {
+                font-size: 13px;
+                margin-bottom: 8px;
+            }
+
+            .lgpd-data-item {
+                flex-direction: column;
+                gap: 2px;
+                padding: 6px 0;
+            }
+
+            .lgpd-data-label {
+                font-size: 11px;
+            }
+
+            .lgpd-data-value {
+                font-size: 14px;
+            }
         }
 
         .delete-warning {
@@ -2648,13 +2862,13 @@
                     <small style="color: #64748b; font-size: 12px;">Clique em gravar, fale e clique novamente para parar</small>
                 </div>
 
+                <button type="submit" class="btn" id="send-btn">Enviar Mensagem</button>
+
                 <!-- Uso Responsável -->
-                <div class="usage-notice" style="display: flex; align-items: center; justify-content: center; gap: 6px; margin: 15px 0 10px 0; font-size: 11px; color: #6b7280;">
+                <div class="usage-notice" style="display: flex; align-items: center; justify-content: center; gap: 6px; margin: 10px 0 0 0; font-size: 11px; color: #6b7280;">
                     <span>ℹ️</span>
                     <span>Uso Responsável: mensagens com conteúdo ilegal não são permitidas. <a href="/terms" target="_blank" style="color: #6b7280; text-decoration: underline;">Consulte os Termos de Uso</a></span>
                 </div>
-
-                <button type="submit" class="btn" id="send-btn">Enviar Mensagem</button>
             </form>
 
             <div id="whatsapp-status-indicator" class="message" style="display: none;"></div>
@@ -2746,7 +2960,7 @@
     <div id="accessDataModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeLgpdModal('accessDataModal')">&times;</span>
-            <h2 style="color: #1e293b; margin-bottom: 20px;">Seus Dados</h2>
+            <h2 class="modal-title">Seus Dados</h2>
             <div id="accessDataContent">Carregando...</div>
         </div>
     </div>
@@ -2755,7 +2969,7 @@
     <div id="correctDataModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeLgpdModal('correctDataModal')">&times;</span>
-            <h2 style="color: #1e293b; margin-bottom: 20px;">Alterar Dados</h2>
+            <h2 class="modal-title">Alterar Dados</h2>
             <form id="correctDataForm" onsubmit="submitCorrectData(event)">
                 <div class="form-group">
                     <label for="correctName">Nome Completo</label>
@@ -2771,10 +2985,10 @@
                 </div>
                 <div class="form-group">
                     <label for="correctPhone">Telefone</label>
-                    <div style="display: flex; gap: 10px;">
+                    <div class="phone-input-group">
                         <input type="text" value="+55" readonly class="phone-prefix">
-                        <input type="tel" id="correctPhone" placeholder="11999999999" maxlength="11" style="flex: 1;">
-                        <button type="button" id="sendPhoneCodeBtn" onclick="sendCorrectPhoneCode()" style="padding: 10px 15px; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; white-space: nowrap; display: none;">Verificar</button>
+                        <input type="tel" id="correctPhone" placeholder="11999999999" maxlength="11" class="phone-number-input">
+                        <button type="button" id="sendPhoneCodeBtn" onclick="sendCorrectPhoneCode()" class="phone-verify-btn" style="display: none;">Verificar</button>
                     </div>
                 </div>
                 <!-- Campo de verificação do telefone (oculto inicialmente) -->
@@ -6127,27 +6341,6 @@
 
     <!-- Footer -->
     <footer class="site-footer" style="border-top: 1px solid #e2e8f0; padding-top: 30px;">
-        <!-- Bloco de Confiança integrado -->
-        <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin-bottom: 25px; padding: 0 20px;">
-            <div style="display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 13px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="#4f46e5">
-                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
-                </svg>
-                <span>Moderação automática</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 13px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="#4f46e5">
-                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-                </svg>
-                <span>Registros conforme a lei</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 13px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="#4f46e5">
-                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
-                </svg>
-                <span>Conforme LGPD</span>
-            </div>
-        </div>
         <div class="footer-social">
             <a href="https://www.instagram.com/zapanonimo2025" target="_blank" class="social-link instagram">
                 <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>

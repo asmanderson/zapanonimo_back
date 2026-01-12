@@ -95,6 +95,40 @@
             transform: translateY(-1px);
         }
 
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 12px;
+                padding: 15px;
+                position: relative;
+            }
+
+            .navbar h1 {
+                font-size: 20px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .navbar .btn-theme-toggle {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                padding: 5px 7px;
+                font-size: 14px;
+                border-radius: 6px;
+            }
+
+            .nav-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .nav-buttons .btn-nav {
+                padding: 8px 16px;
+                font-size: 13px;
+            }
+        }
+
         .whatsapp-icon {
             width: 32px;
             height: 32px;
