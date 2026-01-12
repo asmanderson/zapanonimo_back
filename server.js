@@ -276,10 +276,6 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Nome deve ter pelo menos 3 caracteres' });
     }
 
-    if (!cpf || cpf.length !== 11) {
-      return res.status(400).json({ success: false, error: 'CPF invalido' });
-    }
-
     if (password.length < 6) {
       return res.status(400).json({ success: false, error: 'Senha deve ter no minimo 6 caracteres' });
     }
@@ -289,13 +285,7 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Email ja cadastrado' });
     }
 
-    
-    const existingCpf = await getUserByCpf(cpf);
-    if (existingCpf) {
-      return res.status(400).json({ success: false, error: 'CPF ja cadastrado' });
-    }
-
-    const result = await createUser(email, password, null, name.trim(), cpf, acceptedTermsAt, termsVersion);
+    const result = await createUser(email, password, null, name.trim(), null, acceptedTermsAt, termsVersion);
     const verificationToken = await createVerificationToken(result.id);
 
     try {
@@ -329,10 +319,6 @@ app.post('/api/register-phone', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Nome deve ter pelo menos 3 caracteres' });
     }
 
-    if (!cpf || cpf.length !== 11) {
-      return res.status(400).json({ success: false, error: 'CPF invalido' });
-    }
-
     if (password.length < 6) {
       return res.status(400).json({ success: false, error: 'Senha deve ter no minimo 6 caracteres' });
     }
@@ -348,13 +334,7 @@ app.post('/api/register-phone', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Telefone ja cadastrado' });
     }
 
-  
-    const existingCpf = await getUserByCpf(cpf);
-    if (existingCpf) {
-      return res.status(400).json({ success: false, error: 'CPF ja cadastrado' });
-    }
-
-    const result = await createUser(null, password, normalizedPhone, name.trim(), cpf, acceptedTermsAt, termsVersion);
+    const result = await createUser(null, password, normalizedPhone, name.trim(), null, acceptedTermsAt, termsVersion);
 
 
     const verificationCode = await createPhoneVerificationCode(result.id, normalizedPhone);

@@ -5,6 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Política de Privacidade - Zap Anônimo</title>
     <style>
+        :root {
+            --bg-body: linear-gradient(to bottom, #f0f4f8 0%, #ffffff 100%);
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f0f4f8;
+            --text-primary: #1a1a1a;
+            --text-secondary: #64748b;
+            --text-paragraph: #475569;
+            --text-heading: #334155;
+            --border-color: #e2e8f0;
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        html.dark-mode {
+            --bg-body: linear-gradient(to bottom, #0f172a 0%, #1e293b 100%);
+            --bg-primary: #1e293b;
+            --bg-secondary: #334155;
+            --bg-tertiary: #0f172a;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-paragraph: #cbd5e1;
+            --text-heading: #e2e8f0;
+            --border-color: #334155;
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,10 +39,10 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(to bottom, #f0f4f8 0%, #ffffff 100%);
+            background: var(--bg-body);
             min-height: 100vh;
             padding: 20px;
-            color: #1a1a1a;
+            color: var(--text-primary);
             line-height: 1.7;
         }
 
@@ -29,20 +55,44 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: white;
+            background: var(--bg-primary);
             padding: 20px 30px;
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            box-shadow: var(--card-shadow);
             margin-bottom: 30px;
         }
 
         .navbar h1 {
-            color: #1a1a1a;
+            color: var(--text-primary);
             font-size: 24px;
             font-weight: 600;
             display: flex;
             align-items: center;
             gap: 12px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-theme-toggle {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-theme-toggle:hover {
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
         }
 
         .whatsapp-icon {
@@ -80,16 +130,16 @@
         }
 
         .content {
-            background: white;
+            background: var(--bg-primary);
             border-radius: 16px;
             padding: 40px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            box-shadow: var(--card-shadow);
         }
 
         .page-title {
             font-size: 32px;
             font-weight: 700;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 10px;
             display: flex;
             align-items: center;
@@ -103,17 +153,17 @@
         }
 
         .last-update {
-            color: #64748b;
+            color: var(--text-secondary);
             font-size: 14px;
             margin-bottom: 30px;
             padding-bottom: 20px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--border-color);
         }
 
         h2 {
             font-size: 20px;
             font-weight: 600;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin: 30px 0 15px;
             padding-left: 15px;
             border-left: 4px solid #4f46e5;
@@ -122,17 +172,17 @@
         h3 {
             font-size: 16px;
             font-weight: 600;
-            color: #334155;
+            color: var(--text-heading);
             margin: 20px 0 10px;
         }
 
         p {
-            color: #475569;
+            color: var(--text-paragraph);
             margin-bottom: 15px;
         }
 
         ul {
-            color: #475569;
+            color: var(--text-paragraph);
             margin: 15px 0;
             padding-left: 25px;
         }
@@ -159,6 +209,21 @@
             border-color: #6ee7b7;
         }
 
+        html.dark-mode .highlight-box {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        html.dark-mode .highlight-box.warning {
+            background: rgba(251, 191, 36, 0.15);
+            border-color: rgba(251, 191, 36, 0.3);
+        }
+
+        html.dark-mode .highlight-box.success {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
         .highlight-box h4 {
             font-size: 14px;
             font-weight: 600;
@@ -166,6 +231,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            color: var(--text-primary);
         }
 
         .highlight-box.warning h4 {
@@ -176,9 +242,18 @@
             color: #065f46;
         }
 
+        html.dark-mode .highlight-box.warning h4 {
+            color: #fcd34d;
+        }
+
+        html.dark-mode .highlight-box.success h4 {
+            color: #6ee7b7;
+        }
+
         .highlight-box p, .highlight-box li {
             font-size: 14px;
             margin-bottom: 8px;
+            color: var(--text-paragraph);
         }
 
         .retention-table {
@@ -192,17 +267,17 @@
         .retention-table td {
             padding: 12px 15px;
             text-align: left;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .retention-table th {
-            background: #f8fafc;
+            background: var(--bg-secondary);
             font-weight: 600;
-            color: #334155;
+            color: var(--text-heading);
         }
 
         .retention-table tr:hover {
-            background: #f8fafc;
+            background: var(--bg-secondary);
         }
 
         .badge {
@@ -236,7 +311,7 @@
         }
 
         .right-card {
-            background: #f8fafc;
+            background: var(--bg-secondary);
             border-radius: 10px;
             padding: 20px;
             text-align: center;
@@ -252,13 +327,13 @@
         .right-card h4 {
             font-size: 14px;
             font-weight: 600;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 5px;
         }
 
         .right-card p {
             font-size: 12px;
-            color: #64748b;
+            color: var(--text-secondary);
             margin: 0;
         }
 
@@ -289,7 +364,7 @@
         .footer {
             text-align: center;
             margin-top: 30px;
-            color: #64748b;
+            color: var(--text-secondary);
             font-size: 14px;
         }
 
@@ -412,7 +487,12 @@
                 </span>
                 Zap Anônimo
             </h1>
-            <a href="/" class="btn-nav">Voltar ao Início</a>
+            <div class="nav-buttons">
+                <button class="btn-theme-toggle" onclick="toggleDarkMode()" title="Alternar tema">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <a href="/" class="btn-nav">Voltar ao Início</a>
+            </div>
         </nav>
 
         <main class="content">
@@ -641,5 +721,30 @@
         </footer>
     </div>
 
+    <script>
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark-mode');
+            const isDark = document.documentElement.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const icon = document.getElementById('theme-icon');
+            if (icon) {
+                icon.textContent = isDark ? '☀️' : '🌙';
+            }
+        }
+
+        (function initDarkMode() {
+            const savedTheme = localStorage.getItem('darkMode');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDark = savedTheme === 'true' || (savedTheme === null && prefersDark);
+            if (isDark) {
+                document.documentElement.classList.add('dark-mode');
+            }
+            document.addEventListener('DOMContentLoaded', () => updateThemeIcon(isDark));
+        })();
+    </script>
 </body>
 </html>
