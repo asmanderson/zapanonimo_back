@@ -3498,6 +3498,13 @@
             return date.toLocaleString('pt-BR');
         }
 
+        // Para respostas que foram salvas com horário local no banco
+        function formatDateBRReply(dateString) {
+            const date = new Date(dateString);
+            date.setHours(date.getHours() - 3);
+            return date.toLocaleString('pt-BR');
+        }
+
         let token = localStorage.getItem('token');
         let user = JSON.parse(localStorage.getItem('user') || 'null');
         let selectedQuantity = 0;
@@ -4469,7 +4476,7 @@
                                 <div class="date">
                                     <span style="background: #4f46e5; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-right: 8px;">Nova</span>
                                     ${hasAudio ? '<span class="audio-badge" style="margin-right: 8px;">🎤 Áudio</span>' : ''}
-                                    ${formatDateBR(reply.created_at)}
+                                    ${formatDateBRReply(reply.created_at)}
                                 </div>
                                 <div class="details">
                                     <strong>De:</strong> ${displayFromPhone}<br>
