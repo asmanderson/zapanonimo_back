@@ -715,13 +715,41 @@ class WhatsAppService {
         this.addLog(`Mensagem de ${fromPhone} (isLid: ${isLid}): ${messageText.substring(0, 50)}...`);
 
 
-        const { saveReplyFromWebhook, findMessageByPhone, blockUser, unblockUser, createNotification } = require('./database');
+        const { saveReplyFromWebhook, findMessageByPhone, blockUser, unblockUser, createNotification, getPhoneByLid, findRecentMessageWithoutReply, saveLidMapping } = require('./database');
 
-       
+
         const msgLower = messageText.toLowerCase().trim();
         if (msgLower === 'bloquear' || msgLower === 'desbloquear') {
           this.addLog(`🚫 Comando de ${msgLower} detectado de ${fromPhone}`);
-          const lastMessage = await findMessageByPhone(fromPhone, 'whatsapp');
+
+          // Tentar resolver LID para número real antes de buscar
+          let phoneToSearch = fromPhone;
+          let lastMessage = null;
+
+          if (isLid) {
+            const mappedPhone = await getPhoneByLid(fromPhone);
+            if (mappedPhone) {
+              phoneToSearch = mappedPhone;
+              this.addLog(`📱 LID ${fromPhone} resolvido para ${mappedPhone}`);
+              lastMessage = await findMessageByPhone(phoneToSearch, 'whatsapp');
+            }
+          }
+
+          // Se não achou com LID mapeado, buscar pelo número diretamente
+          if (!lastMessage) {
+            lastMessage = await findMessageByPhone(fromPhone, 'whatsapp');
+          }
+
+          // Fallback: buscar mensagem recente sem resposta (para LIDs não mapeados)
+          if (!lastMessage && isLid) {
+            this.addLog(`🔍 Tentando encontrar mensagem recente sem resposta para LID não mapeado...`);
+            lastMessage = await findRecentMessageWithoutReply('whatsapp', 60);
+            if (lastMessage) {
+              // Salvar o mapeamento para futuras mensagens
+              await saveLidMapping(fromPhone, lastMessage.phone);
+              this.addLog(`💾 Mapeamento LID salvo: ${fromPhone} -> ${lastMessage.phone}`);
+            }
+          }
 
           if (lastMessage) {
             const userId = lastMessage.user_id.toString();
