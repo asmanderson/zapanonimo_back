@@ -53,10 +53,17 @@
 
         /* Phone prefix (+55) styling */
         .phone-prefix {
-            width: 60px;
+            width: 55px;
+            min-width: 55px;
+            flex-shrink: 0;
             background: var(--bg-secondary) !important;
             color: var(--text-secondary) !important;
             border: 2px solid var(--border-color) !important;
+            border-radius: 8px;
+            padding: 10px 8px;
+            text-align: center;
+            font-weight: 500;
+            font-size: 14px;
         }
 
         /* Override inline styles for +55 inputs */
@@ -358,6 +365,14 @@
 
         .mark-all-read-btn:hover {
             background: var(--bg-secondary);
+        }
+
+        html.dark-mode .mark-all-read-btn {
+            color: #ffffff;
+        }
+
+        html.dark-mode .mark-all-read-btn:hover {
+            color: #818cf8;
         }
 
         .notification-list {
@@ -882,6 +897,24 @@
             border-bottom-color: var(--border-color);
         }
 
+        /* Dark mode para texto de aceite dos termos */
+        html.dark-mode label[style*="color: #475569"] {
+            color: var(--text-primary) !important;
+        }
+
+        html.dark-mode label[style*="color: #475569"] span {
+            color: var(--text-primary) !important;
+        }
+
+        html.dark-mode label[style*="color: #475569"] a {
+            color: #818cf8 !important;
+        }
+
+        /* Dark mode para link "Esqueceu sua senha?" */
+        html.dark-mode a[style*="color: #4f46e5"] {
+            color: #818cf8 !important;
+        }
+
         @media (max-width: 768px) {
             .modal {
                 padding: 10px 0;
@@ -943,19 +976,36 @@
         }
 
         @media (max-width: 480px) {
-            .modal-content .phone-input-group {
-                flex-wrap: wrap !important;
+            .modal-content .phone-input-group,
+            .modal-content div[style*="display: flex"][style*="gap: 10px"] {
+                flex-wrap: nowrap !important;
+                align-items: stretch !important;
             }
 
-            .modal-content .phone-number-input {
+            .modal-content .phone-prefix,
+            .modal-content input[value="+55"][readonly] {
+                width: 50px !important;
+                min-width: 50px !important;
+                padding: 10px 6px !important;
+                font-size: 13px !important;
+                flex-shrink: 0 !important;
+            }
+
+            .modal-content .phone-number-input,
+            .modal-content input[type="tel"]:not(.phone-prefix) {
                 flex: 1 1 auto !important;
-                min-width: 100px !important;
+                min-width: 0 !important;
             }
 
             .modal-content .phone-verify-btn {
                 width: 100% !important;
-                margin-top: 5px !important;
+                margin-top: 8px !important;
                 padding: 10px !important;
+            }
+
+            /* Quando tem botão de verificar, permitir wrap */
+            .modal-content .phone-input-group:has(.phone-verify-btn) {
+                flex-wrap: wrap !important;
             }
         }
 
@@ -1034,6 +1084,38 @@
 
         .announcement-banner-close:hover {
             color: #1e293b;
+        }
+
+        /* Dark mode para banners de anúncio */
+        html.dark-mode .announcement-banner.maintenance {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.15) 100%);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        html.dark-mode .announcement-banner.warning {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.15) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
+        html.dark-mode .announcement-banner.announcement {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.15) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+        }
+
+        html.dark-mode .announcement-banner-text strong {
+            color: var(--text-primary);
+        }
+
+        html.dark-mode .announcement-banner-text span {
+            color: var(--text-secondary);
+        }
+
+        html.dark-mode .announcement-banner-close {
+            color: var(--text-secondary);
+        }
+
+        html.dark-mode .announcement-banner-close:hover {
+            color: var(--text-primary);
         }
 
         /* Modal de Anúncio */
@@ -1156,6 +1238,15 @@
             background-color: var(--bg-secondary);
         }
 
+        html.dark-mode .quantity-option {
+            background-color: var(--bg-secondary);
+            border-color: var(--border-color);
+        }
+
+        html.dark-mode .quantity-option:hover {
+            border-color: #818cf8;
+        }
+
         html.dark-mode .quantity-option.selected {
             background-color: rgba(79, 70, 229, 0.2);
         }
@@ -1210,6 +1301,25 @@
 
         html.dark-mode .history-item.reply-item {
             background: linear-gradient(135deg, rgba(79, 70, 229, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%);
+        }
+
+        /* Dark mode para caixa "Em resposta a:" */
+        html.dark-mode .history-item.reply-item div[style*="background: #f8fafc"] {
+            background: var(--bg-secondary) !important;
+            border-left-color: var(--border-light) !important;
+        }
+
+        html.dark-mode .history-item.reply-item div[style*="background: #f8fafc"] small {
+            color: var(--text-secondary) !important;
+        }
+
+        html.dark-mode .history-item.reply-item div[style*="background: #f8fafc"] span {
+            color: var(--text-primary) !important;
+        }
+
+        /* Dark mode para audio player nas respostas */
+        html.dark-mode .reply-audio-player {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%) !important;
         }
 
         .welcome-message {
@@ -2136,6 +2246,14 @@
 
         .social-link.tiktok svg {
             fill: #000000;
+        }
+
+        html.dark-mode .social-link.tiktok {
+            color: #ffffff;
+        }
+
+        html.dark-mode .social-link.tiktok svg {
+            fill: #ffffff;
         }
 
         .footer-links {
@@ -3377,7 +3495,6 @@
 
         function formatDateBR(dateString) {
             const date = new Date(dateString);
-            date.setHours(date.getHours() - 3);
             return date.toLocaleString('pt-BR');
         }
 
