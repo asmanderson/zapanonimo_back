@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
+
 const ENCRYPTION_KEY = process.env.MESSAGE_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 
