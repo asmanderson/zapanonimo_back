@@ -86,11 +86,13 @@ class DatabaseSessionStore {
 
       if (error) {
         console.error('[SessionStore] Erro ao salvar sessão:', error.message);
-        throw error;
+        return; // Não lança erro para não crashar o servidor
       }
+
+      console.log('[SessionStore] Sessão salva com sucesso');
     } catch (error) {
       console.error('[SessionStore] Erro ao salvar sessão:', error.message);
-      throw error;
+      // Não lança erro para não crashar o servidor
     }
   }
 
