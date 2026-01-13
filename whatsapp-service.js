@@ -753,26 +753,30 @@ class WhatsAppService {
 
           if (lastMessage) {
             const userId = lastMessage.user_id.toString();
-            const phoneMasked = `****${fromPhone.slice(-4)}`;
+            // Usar o número real da mensagem original (não o LID)
+            const realPhone = lastMessage.phone;
+            const phoneMasked = `****${realPhone.slice(-4)}`;
+
+            this.addLog(`📞 Usando número real para bloqueio: ${realPhone}`);
 
             if (msgLower === 'bloquear') {
-              const blockResult = await blockUser(fromPhone, lastMessage.user_id);
+              const blockResult = await blockUser(realPhone, lastMessage.user_id);
               this.addLog(`🚫 Bloqueio: ${JSON.stringify(blockResult)}`);
-              await this.sendMessage(fromPhone, '✅ Você bloqueou este remetente.\n\nVocê não receberá mais mensagens anônimas desta pessoa.\n\nPara desbloquear, envie: *desbloquear*');
+              await this.sendMessage(realPhone, '✅ Você bloqueou este remetente.\n\nVocê não receberá mais mensagens anônimas desta pessoa.\n\nPara desbloquear, envie: *desbloquear*');
 
-     
+
               const notifResult = await createNotification(
                 lastMessage.user_id,
                 'blocked',
                 'Você foi bloqueado',
                 `O número ${phoneMasked} bloqueou você. Não será possível enviar mensagens para este número.`,
-                fromPhone
+                realPhone
               );
 
-           
+
               if (this.io) {
                 this.io.to(`user:${userId}`).emit('user-blocked', {
-                  phone: fromPhone,
+                  phone: realPhone,
                   notificationId: notifResult.notification?.id || null,
                   message: `O número ${phoneMasked} bloqueou você.`,
                   blockedAt: new Date().toISOString()
@@ -780,23 +784,23 @@ class WhatsAppService {
                 this.addLog(`📢 Usuário ${userId} notificado sobre bloqueio`);
               }
             } else {
-              const unblockResult = await unblockUser(fromPhone, lastMessage.user_id);
+              const unblockResult = await unblockUser(realPhone, lastMessage.user_id);
               this.addLog(`✅ Desbloqueio: ${JSON.stringify(unblockResult)}`);
-              await this.sendMessage(fromPhone, '✅ Remetente desbloqueado.\n\nVocê voltará a receber mensagens anônimas desta pessoa.');
+              await this.sendMessage(realPhone, '✅ Remetente desbloqueado.\n\nVocê voltará a receber mensagens anônimas desta pessoa.');
 
-       
+
               const notifResult = await createNotification(
                 lastMessage.user_id,
                 'unblocked',
                 'Você foi desbloqueado',
                 `O número ${phoneMasked} desbloqueou você. Você pode enviar mensagens novamente.`,
-                fromPhone
+                realPhone
               );
 
-           
+
               if (this.io) {
                 this.io.to(`user:${userId}`).emit('user-unblocked', {
-                  phone: fromPhone,
+                  phone: realPhone,
                   notificationId: notifResult.notification?.id || null,
                   message: `O número ${phoneMasked} desbloqueou você.`,
                   unblockedAt: new Date().toISOString()
