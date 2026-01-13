@@ -79,6 +79,37 @@
             color: var(--text-secondary) !important;
         }
 
+        /* Caixa "Em resposta a:" nas respostas recebidas */
+        .original-message-box {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border-left: 3px solid #cbd5e1;
+        }
+
+        .original-message-box small {
+            color: #64748b;
+        }
+
+        .original-message-box span {
+            color: #475569;
+            font-size: 13px;
+        }
+
+        html.dark-mode .original-message-box {
+            background: #0f172a;
+            border-left-color: #475569;
+        }
+
+        html.dark-mode .original-message-box small {
+            color: #94a3b8;
+        }
+
+        html.dark-mode .original-message-box span {
+            color: #e2e8f0;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -995,6 +1026,38 @@
             border: 1px solid #93c5fd;
         }
 
+        /* Dark mode para banners de anúncio */
+        html.dark-mode .announcement-banner.maintenance {
+            background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%);
+            border: 1px solid #991b1b;
+        }
+
+        html.dark-mode .announcement-banner.warning {
+            background: linear-gradient(135deg, #451a03 0%, #78350f 100%);
+            border: 1px solid #b45309;
+        }
+
+        html.dark-mode .announcement-banner.announcement {
+            background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
+            border: 1px solid #3b82f6;
+        }
+
+        html.dark-mode .announcement-banner-text strong {
+            color: #f1f5f9;
+        }
+
+        html.dark-mode .announcement-banner-text span {
+            color: #cbd5e1;
+        }
+
+        html.dark-mode .announcement-banner-close {
+            color: #94a3b8;
+        }
+
+        html.dark-mode .announcement-banner-close:hover {
+            color: #f1f5f9;
+        }
+
         .announcement-banner-content {
             display: flex;
             align-items: center;
@@ -1021,6 +1084,9 @@
         .announcement-banner-text span {
             color: #475569;
             font-size: 13px;
+            display: block;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .announcement-banner-close {
@@ -2136,6 +2202,14 @@
 
         .social-link.tiktok svg {
             fill: #000000;
+        }
+
+        html.dark-mode .social-link.tiktok {
+            color: #ffffff;
+        }
+
+        html.dark-mode .social-link.tiktok svg {
+            fill: #ffffff;
         }
 
         .footer-links {
@@ -3921,9 +3995,7 @@
             banner.className = 'announcement-banner ' + announcement.type;
             icon.textContent = icons[announcement.type] || '📢';
             title.textContent = announcement.title;
-            message.textContent = announcement.message.length > 100
-                ? announcement.message.substring(0, 100) + '...'
-                : announcement.message;
+            message.textContent = announcement.message;
 
             banner.style.display = 'block';
         }
@@ -4359,9 +4431,9 @@
                                     <strong>Resposta:</strong> ${reply.message}
                                 </div>
                                 ${audioPlayer}
-                                ${reply.original_message ? `<div style="margin-top: 10px; padding: 10px; background: #f8fafc; border-radius: 6px; border-left: 3px solid #cbd5e1;">
-                                    <small style="color: #64748b;">Em resposta a:</small><br>
-                                    <span style="color: #475569; font-size: 13px;">${reply.original_message}</span>
+                                ${reply.original_message ? `<div class="original-message-box">
+                                    <small>Em resposta a:</small><br>
+                                    <span>${reply.original_message}</span>
                                 </div>` : ''}
                             </div>
                         `;

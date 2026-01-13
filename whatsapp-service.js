@@ -481,13 +481,14 @@ class WhatsAppService {
     }
 
    
-    const store = new DatabaseSessionStore({ sessionId: 'whatsapp-main' });
+    const sessionDataPath = './.wwebjs_auth';
+    const store = new DatabaseSessionStore({ sessionId: 'whatsapp-main', dataPath: sessionDataPath });
 
     this.client = new Client({
       authStrategy: new RemoteAuth({
         store: store,
-        backupSyncIntervalMs: 300000, 
-        dataPath: './.wwebjs_auth'
+        backupSyncIntervalMs: 300000,
+        dataPath: sessionDataPath
       }),
       puppeteer: puppeteerConfig
     });

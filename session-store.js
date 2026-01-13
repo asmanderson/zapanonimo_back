@@ -17,6 +17,7 @@ class DatabaseSessionStore {
   constructor(options = {}) {
     this.sessionId = options.sessionId || 'whatsapp-main';
     this.tableName = 'whatsapp_sessions';
+    this.dataPath = options.dataPath || './.wwebjs_auth';
   }
 
 
@@ -54,13 +55,18 @@ class DatabaseSessionStore {
 
       const { session } = options;
 
-      if (!session || !fs.existsSync(session)) {
-        console.error('[SessionStore] Caminho da sessão inválido:', session);
+      // RemoteAuth passa 'RemoteAuth' como session, então usamos o dataPath configurado
+      const sessionPath = (session && session !== 'RemoteAuth' && fs.existsSync(session))
+        ? session
+        : this.dataPath;
+
+      if (!fs.existsSync(sessionPath)) {
+        console.log('[SessionStore] Aguardando criação da pasta de sessão:', sessionPath);
         return;
       }
 
-    
-      const sessionData = await this.readSessionFolder(session);
+
+      const sessionData = await this.readSessionFolder(sessionPath);
 
       if (!sessionData || Object.keys(sessionData).length === 0) {
         console.error('[SessionStore] Nenhum dado de sessão para salvar');
