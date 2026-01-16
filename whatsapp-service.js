@@ -857,27 +857,44 @@ class WhatsAppService {
     });
   }
 
- 
+
   async isClientReady() {
     if (!this.client) return false;
     if (this._status !== 'connected') return false;
 
     try {
-   
-      const state = await this.client.getState();
-      return state === 'CONNECTED';
+      // Verifica se o estado é CONNECTED
+      const state = await Promise.race([
+        this.client.getState(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+      ]);
+
+      if (state !== 'CONNECTED') return false;
+
+      // Verifica se as funções internas estão disponíveis
+      const internalCheck = await this.client.pupPage.evaluate(() => {
+        return !!(
+          window.Store &&
+          window.Store.Chat &&
+          window.Store.WidFactory
+        );
+      }).catch(() => false);
+
+      return internalCheck;
     } catch (error) {
       return false;
     }
   }
 
- 
-  async waitForClientReady(maxWaitMs = 10000) {
+
+  async waitForClientReady(maxWaitMs = 30000) {
     const startTime = Date.now();
-    const checkInterval = 500; 
+    const checkInterval = 1000;
 
     while (Date.now() - startTime < maxWaitMs) {
       if (await this.isClientReady()) {
+        // Aguarda um pouco mais para garantir estabilidade
+        await new Promise(resolve => setTimeout(resolve, 500));
         return true;
       }
       await new Promise(resolve => setTimeout(resolve, checkInterval));
@@ -886,32 +903,41 @@ class WhatsAppService {
   }
 
   async sendMessage(phone, message) {
-   
+
     if (!this.client) {
       throw new Error('Sistema temporariamente offline. Tente novamente em alguns minutos.');
     }
 
-    
+
     if (this._status === 'disconnected') {
       throw new Error('WhatsApp desconectado. Aguarde a reconexão automática ou entre em contato com o suporte.');
     }
 
-    
+
     let cleanPhone = phone.replace(/\D/g, '');
 
-    
+
     if (cleanPhone.length === 11 || cleanPhone.length === 10) {
       cleanPhone = '55' + cleanPhone;
     }
 
-  
+
     if (cleanPhone.length < 12 || cleanPhone.length > 13) {
       throw new Error(`Número inválido: ${cleanPhone}. Use formato: 5511999999999`);
     }
 
- 
+    // Aguarda o cliente estar totalmente pronto antes da primeira tentativa
+    if (!await this.isClientReady()) {
+      this.addLog('Cliente não está pronto, aguardando inicialização completa...');
+      const ready = await this.waitForClientReady(30000);
+      if (!ready) {
+        throw new Error('Cliente WhatsApp não está pronto. Tente novamente em alguns segundos.');
+      }
+    }
+
+
     const maxRetries = 3;
-    const retryDelay = 2000; 
+    const retryDelay = 3000;
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -919,10 +945,10 @@ class WhatsAppService {
 
         if (attempt > 1) {
           this.addLog(`Tentativa ${attempt}/${maxRetries} - aguardando cliente ficar pronto...`);
-          await this.waitForClientReady(5000);
+          await this.waitForClientReady(15000);
         }
 
-  
+
         const numberId = await this.client.getNumberId(cleanPhone);
 
         if (!numberId) {
@@ -958,10 +984,15 @@ class WhatsAppService {
         const isRetryableError =
           error.message.includes('WidFactory') ||
           error.message.includes('Evaluation failed') ||
+          error.message.includes('markedUnread') ||
+          error.message.includes('getChat') ||
+          error.message.includes('sendSeen') ||
           error.message.includes('not ready') ||
           error.message.includes('Protocol error') ||
           error.message.includes('Target closed') ||
-          error.message.includes('Session closed');
+          error.message.includes('Session closed') ||
+          error.message.includes('Store') ||
+          error.message.includes('undefined');
 
         if (isRetryableError && attempt < maxRetries) {
           this.addLog(`Erro recuperável na tentativa ${attempt}: ${error.message}. Aguardando ${retryDelay}ms...`);
@@ -1005,7 +1036,7 @@ class WhatsAppService {
       throw new Error('WhatsApp desconectado. Aguarde a reconexão automática ou entre em contato com o suporte.');
     }
 
-   
+
     let cleanPhone = phone.replace(/\D/g, '');
 
     if (cleanPhone.length === 11 || cleanPhone.length === 10) {
@@ -1016,15 +1047,24 @@ class WhatsAppService {
       throw new Error(`Número inválido: ${cleanPhone}. Use formato: 5511999999999`);
     }
 
+    // Aguarda o cliente estar totalmente pronto antes da primeira tentativa
+    if (!await this.isClientReady()) {
+      this.addLog('Cliente não está pronto (áudio), aguardando inicialização completa...');
+      const ready = await this.waitForClientReady(30000);
+      if (!ready) {
+        throw new Error('Cliente WhatsApp não está pronto. Tente novamente em alguns segundos.');
+      }
+    }
+
     const maxRetries = 3;
-    const retryDelay = 2000;
+    const retryDelay = 3000;
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 1) {
           this.addLog(`Tentativa ${attempt}/${maxRetries} (áudio) - aguardando cliente ficar pronto...`);
-          await this.waitForClientReady(5000);
+          await this.waitForClientReady(15000);
         }
 
         const numberId = await this.client.getNumberId(cleanPhone);
@@ -1099,10 +1139,15 @@ class WhatsAppService {
         const isRetryableError =
           error.message.includes('WidFactory') ||
           error.message.includes('Evaluation failed') ||
+          error.message.includes('markedUnread') ||
+          error.message.includes('getChat') ||
+          error.message.includes('sendSeen') ||
           error.message.includes('not ready') ||
           error.message.includes('Protocol error') ||
           error.message.includes('Target closed') ||
-          error.message.includes('Session closed');
+          error.message.includes('Session closed') ||
+          error.message.includes('Store') ||
+          error.message.includes('undefined');
 
         if (isRetryableError && attempt < maxRetries) {
           this.addLog(`Erro recuperável na tentativa ${attempt} (áudio): ${error.message}. Aguardando ${retryDelay}ms...`);
