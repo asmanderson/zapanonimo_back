@@ -486,10 +486,12 @@ class WhatsAppService {
     this.client = new Client({
       authStrategy: new RemoteAuth({
         store: store,
-        backupSyncIntervalMs: 300000, 
+        backupSyncIntervalMs: 300000,
         dataPath: './.wwebjs_auth'
       }),
-      puppeteer: puppeteerConfig
+      puppeteer: puppeteerConfig,
+      // Desabilita funções que causam erro com versões recentes do WhatsApp Web
+      markOnlineOnMessage: false
     });
 
    
@@ -528,13 +530,13 @@ class WhatsAppService {
     });
 
 
-    this.client.on('ready', () => {
+    this.client.on('ready', async () => {
       this.status = 'connected';
       this.qrCode = null;
       this.isInitializing = false;
       this._showQrCode = false;
 
-     
+
       if (this.initTimeout) {
         clearTimeout(this.initTimeout);
         this.initTimeout = null;
@@ -546,16 +548,30 @@ class WhatsAppService {
         this._qrCodeDelayTimeout = null;
       }
 
-    
+
       this.resetReconnectAttempts();
 
-    
+
       this.startHealthCheck();
+
+      // Patch para desabilitar sendSeen que causa erro markedUnread
+      try {
+        await this.client.pupPage.evaluate(() => {
+          // Sobrescreve sendSeen com função vazia para evitar erro markedUnread
+          if (window.WWebJS && window.WWebJS.sendSeen) {
+            window.WWebJS._originalSendSeen = window.WWebJS.sendSeen;
+            window.WWebJS.sendSeen = async () => true;
+          }
+        });
+        this.addLog('Patch sendSeen aplicado com sucesso');
+      } catch (err) {
+        this.addLog(`Aviso: não foi possível aplicar patch sendSeen: ${err.message}`);
+      }
 
       this.addLog('WhatsApp conectado e pronto!');
       this.emitStatusUpdate();
 
-      
+
       this.saveStatusNow();
     });
 
@@ -955,11 +971,56 @@ class WhatsAppService {
           throw new Error(`O número ${cleanPhone} não está registrado no WhatsApp`);
         }
 
-     
+
         const chatId = numberId._serialized;
         this.addLog(`Enviando para ${chatId}`);
 
-        const result = await this.client.sendMessage(chatId, message);
+        // Envia mensagem diretamente via Store, sem chamar sendSeen (que causa erro markedUnread)
+        const result = await this.client.pupPage.evaluate(async (chatId, messageText) => {
+          // Obtém ou cria o chat
+          let chat = window.Store.Chat.get(chatId);
+          if (!chat) {
+            // Tenta buscar o chat de forma alternativa
+            const result = await window.Store.Chat.find(chatId);
+            chat = result;
+          }
+          if (!chat) {
+            throw new Error('Chat não encontrado');
+          }
+
+          // Cria a mensagem usando a Store diretamente
+          const msgOptions = {
+            linkPreview: false,
+            mentionedJidList: [],
+            quotedMsg: null,
+            quotedMsgAdminGroupJid: null,
+            sendSeen: false  // Não marcar como visto
+          };
+
+          // Envia usando o método createTextMsgData se disponível
+          if (window.WWebJS && window.WWebJS.sendMessage) {
+            try {
+              const msg = await window.WWebJS.sendMessage(chat, messageText, msgOptions, null);
+              return { id: { _serialized: msg.id._serialized } };
+            } catch (e) {
+              // Se falhar, tenta método alternativo
+            }
+          }
+
+          // Método alternativo direto via Chat.sendMessage
+          if (chat.sendMessage) {
+            const msg = await chat.sendMessage(messageText);
+            return { id: { _serialized: msg.id._serialized } };
+          }
+
+          // Último fallback - usa ComposeBox
+          if (window.Store.SendTextMsgToChat) {
+            await window.Store.SendTextMsgToChat(chat, messageText);
+            return { id: { _serialized: Date.now().toString() } };
+          }
+
+          throw new Error('Nenhum método de envio disponível');
+        }, chatId, message);
         this.stats.successCount++;
         this.stats.lastUsed = new Date();
         this.stats._lastUpdate = Date.now();
