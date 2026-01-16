@@ -975,52 +975,8 @@ class WhatsAppService {
         const chatId = numberId._serialized;
         this.addLog(`Enviando para ${chatId}`);
 
-        // Envia mensagem diretamente via Store, sem chamar sendSeen (que causa erro markedUnread)
-        const result = await this.client.pupPage.evaluate(async (chatId, messageText) => {
-          // Obtém ou cria o chat
-          let chat = window.Store.Chat.get(chatId);
-          if (!chat) {
-            // Tenta buscar o chat de forma alternativa
-            const result = await window.Store.Chat.find(chatId);
-            chat = result;
-          }
-          if (!chat) {
-            throw new Error('Chat não encontrado');
-          }
-
-          // Cria a mensagem usando a Store diretamente
-          const msgOptions = {
-            linkPreview: false,
-            mentionedJidList: [],
-            quotedMsg: null,
-            quotedMsgAdminGroupJid: null,
-            sendSeen: false  // Não marcar como visto
-          };
-
-          // Envia usando o método createTextMsgData se disponível
-          if (window.WWebJS && window.WWebJS.sendMessage) {
-            try {
-              const msg = await window.WWebJS.sendMessage(chat, messageText, msgOptions, null);
-              return { id: { _serialized: msg.id._serialized } };
-            } catch (e) {
-              // Se falhar, tenta método alternativo
-            }
-          }
-
-          // Método alternativo direto via Chat.sendMessage
-          if (chat.sendMessage) {
-            const msg = await chat.sendMessage(messageText);
-            return { id: { _serialized: msg.id._serialized } };
-          }
-
-          // Último fallback - usa ComposeBox
-          if (window.Store.SendTextMsgToChat) {
-            await window.Store.SendTextMsgToChat(chat, messageText);
-            return { id: { _serialized: Date.now().toString() } };
-          }
-
-          throw new Error('Nenhum método de envio disponível');
-        }, chatId, message);
+        // Envia mensagem com sendSeen desabilitado para evitar erro markedUnread
+        const result = await this.client.sendMessage(chatId, message, { sendSeen: false });
         this.stats.successCount++;
         this.stats.lastUsed = new Date();
         this.stats._lastUpdate = Date.now();
@@ -1161,12 +1117,13 @@ class WhatsAppService {
 
        
         const result = await this.client.sendMessage(chatId, media, {
-          sendAudioAsVoice: true
+          sendAudioAsVoice: true,
+          sendSeen: false
         });
 
-       
+
         if (caption) {
-          await this.client.sendMessage(chatId, caption);
+          await this.client.sendMessage(chatId, caption, { sendSeen: false });
         }
 
         this.stats.successCount++;
